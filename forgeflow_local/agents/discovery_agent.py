@@ -10,6 +10,7 @@ from collections import Counter
 from typing import Dict, Any
 
 from .base_agent import BaseAgent
+from core.ai_enhancer import get_ai_enhancer
 
 
 LANGUAGE_EXTENSIONS = {
@@ -75,30 +76,89 @@ class DiscoveryAgent(BaseAgent):
         components = Counter([f['component_name'] for f in inventory])
         types = Counter([f['component_type'] for f in inventory])
         
-        # Save inventory to .forgeflow/
+        # Create .forgeflow directory first
         forgeflow_dir = repo_path / '.forgeflow'
         forgeflow_dir.mkdir(exist_ok=True)
         inventory_file = forgeflow_dir / 'inventory.json'
+        
+        basic_discovery = {
+            'total_files': len(inventory),
+            'languages': dict(languages.most_common(10)),
+            'components': dict(components.most_common(10)),
+            'types': dict(types),
+            'inventory_file': str(inventory_file)
+        }
+        
+        # AI Enhancement: Extract dependency files and get AI insights
+        ai_enhancer = get_ai_enhancer()
+        if ai_enhancer.is_available():
+            self.log("🤖 AI enhancement enabled - analyzing with Claude...")
+            
+            # Collect dependency files and key files for AI analysis
+            sample_files = self._collect_sample_files(repo_path)
+            
+            # Get AI-enhanced discovery
+            enhanced_discovery = ai_enhancer.enhance_discovery(
+                str(repo_path),
+                basic_discovery,
+                sample_files
+            )
+            
+            self.log(f"✅ AI detected: {len(enhanced_discovery.get('services', []))} services, "
+                    f"{len(enhanced_discovery.get('frameworks', []))} frameworks, "
+                    f"{len(enhanced_discovery.get('databases', []))} databases")
+            
+            final_discovery = enhanced_discovery
+        else:
+            self.log("⚠️  AI enhancement disabled (CLAUDE_API_KEY not set)")
+            final_discovery = basic_discovery
+        
+        # Save inventory to .forgeflow/ (directory already created above)
         with open(inventory_file, 'w') as f:
             json.dump(inventory, f, indent=2)
         
+        # Save discovery results with AI insights
+        discovery_file = forgeflow_dir / 'discovery.json'
+        with open(discovery_file, 'w') as f:
+            json.dump(final_discovery, f, indent=2)
+        
         self.log(f"Discovered {len(inventory)} files across {len(components)} components")
+        
+        # Build findings with AI insights
+        findings = [
+            f"Total files: {len(inventory)}",
+            f"Languages: {', '.join(languages.keys())}",
+            f"Components: {', '.join(list(components.keys())[:5])}"
+        ]
+        
+        if 'frameworks' in final_discovery:
+            # Handle both list of strings and list of dicts
+            frameworks = final_discovery['frameworks']
+            if frameworks and isinstance(frameworks[0], dict):
+                framework_names = [f.get('name', str(f)) for f in frameworks]
+            else:
+                framework_names = frameworks
+            findings.append(f"Frameworks: {', '.join(framework_names)}")
+        
+        if 'databases' in final_discovery:
+            # Handle both list of strings and list of dicts
+            databases = final_discovery['databases']
+            if databases and isinstance(databases[0], dict):
+                db_names = [d.get('type', str(d)) for d in databases]
+            else:
+                db_names = databases
+            findings.append(f"Databases: {', '.join(db_names)}")
+        
+        if 'architecture' in final_discovery:
+            findings.append(f"Architecture: {final_discovery['architecture']}")
+        if 'services' in final_discovery:
+            findings.append(f"Services detected: {len(final_discovery['services'])}")
         
         return self.create_result(
             status='success',
             summary=f"Discovered {len(inventory)} files across {len(components)} components",
-            data={
-                'total_files': len(inventory),
-                'languages': dict(languages.most_common(10)),
-                'components': dict(components.most_common(10)),
-                'types': dict(types),
-                'inventory_file': str(inventory_file)
-            },
-            findings=[
-                f"Total files: {len(inventory)}",
-                f"Languages: {', '.join(languages.keys())}",
-                f"Components: {', '.join(list(components.keys())[:5])}"
-            ]
+            data=final_discovery,
+            findings=findings
         )
     
     def _detect_language(self, path: Path) -> str:
@@ -122,3 +182,48 @@ class DiscoveryAgent(BaseAgent):
         if 'src' in path_str or 'lib' in path_str:
             return 'source'
         return 'other'
+    
+    def _collect_sample_files(self, repo_path: Path) -> Dict[str, str]:
+        """Collect key files for AI analysis."""
+        sample_files = {}
+        
+        # Key dependency files to look for
+        key_files = [
+            'requirements.txt', 'Pipfile', 'pyproject.toml', 'setup.py',
+            'package.json', 'package-lock.json', 'yarn.lock',
+            'go.mod', 'go.sum',
+            'Gemfile', 'Gemfile.lock',
+            'pom.xml', 'build.gradle',
+            'Cargo.toml',
+            'README.md', 'README.txt',
+            'docker-compose.yml', 'docker-compose.yaml',
+            'Dockerfile',
+            '.env.example', 'config.yaml', 'config.json'
+        ]
+        
+        # Search for key files
+        for filename in key_files:
+            file_path = repo_path / filename
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read(5000)  # Read first 5KB
+                        sample_files[filename] = content
+                except Exception:
+                    pass
+        
+        # Also check subdirectories for multi-service apps
+        for subdir in ['backend', 'frontend', 'api', 'web', 'client', 'server']:
+            subdir_path = repo_path / subdir
+            if subdir_path.exists() and subdir_path.is_dir():
+                for filename in ['requirements.txt', 'package.json', 'Dockerfile']:
+                    file_path = subdir_path / filename
+                    if file_path.exists():
+                        try:
+                            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                content = f.read(5000)
+                                sample_files[f"{subdir}/{filename}"] = content
+                        except Exception:
+                            pass
+        
+        return sample_files

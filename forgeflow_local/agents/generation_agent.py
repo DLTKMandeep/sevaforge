@@ -9,11 +9,13 @@ Enhanced to generate real infrastructure code:
 - CI/CD workflows
 """
 import json
+import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from .base_agent import BaseAgent
+from core.ai_enhancer import get_ai_enhancer
 
 
 # =============================================================================
@@ -21,77 +23,254 @@ from .base_agent import BaseAgent
 # =============================================================================
 
 DOCKERFILE_TEMPLATES = {
-    'Python': '''FROM python:3.11-slim AS base
+    'Python': '''# =============================================================================
+# ENTERPRISE-GRADE PYTHON DOCKERFILE
+# Multi-stage build with security, optimization, and observability
+# =============================================================================
+FROM python:3.11-slim AS base
 
-# Set environment variables
+# Build arguments for versioning
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG VERSION=1.0.0
+
+# Metadata labels for enterprise tracking
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \\
+      org.opencontainers.image.authors="Platform Engineering Team" \\
+      org.opencontainers.image.version="${VERSION}" \\
+      org.opencontainers.image.revision="${GIT_COMMIT}" \\
+      org.opencontainers.image.vendor="Enterprise" \\
+      org.opencontainers.image.title="Python Application" \\
+      maintainer="devops@company.com"
+
+# Security: Create non-root user early
+RUN groupadd -r -g 1001 appuser && \\
+    useradd -r -u 1001 -g appuser -m -d /home/appuser -s /bin/bash appuser
+
+# Environment variables for production
 ENV PYTHONDONTWRITEBYTECODE=1 \\
     PYTHONUNBUFFERED=1 \\
     PIP_NO_CACHE_DIR=1 \\
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \\
+    PIP_DEFAULT_TIMEOUT=100 \\
+    PYTHONFAULTHANDLER=1 \\
+    PYTHONHASHSEED=random \\
+    # Production settings
+    LOG_LEVEL=INFO \\
+    WORKERS=4 \\
+    TIMEOUT=60 \\
+    KEEPALIVE=5
 
 WORKDIR /app
 
-# Install system dependencies
+# =============================================================================
+# BUILDER STAGE: Install dependencies and compile
+# =============================================================================
+FROM base AS builder
+
+# Install build dependencies (kept in builder stage only)
 RUN apt-get update && apt-get install -y --no-install-recommends \\
     build-essential \\
     curl \\
+    git \\
+    libpq-dev \\
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install dependencies as root, then change ownership
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \\
+    pip install --no-cache-dir -r requirements.txt && \\
+    # Remove unnecessary files
+    find /usr/local/lib/python3.11 -name '*.pyc' -delete && \\
+    find /usr/local/lib/python3.11 -name '__pycache__' -delete
 
-# Copy application code
-COPY . .
+# =============================================================================
+# PRODUCTION STAGE: Minimal runtime image
+# =============================================================================
+FROM python:3.11-slim AS production
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \\
-    chown -R appuser:appuser /app
-USER appuser
+# Copy metadata
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG VERSION=1.0.0
 
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
-    CMD curl -f http://localhost:8000/health || exit 1
-
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-''',
-
-    'JavaScript': '''FROM node:20-alpine AS base
-
-WORKDIR /app
-
-# Install dependencies only (for caching)
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-# Build stage (if needed)
-FROM base AS builder
-RUN npm ci
-COPY . .
-RUN npm run build 2>/dev/null || true
-
-# Production stage
-FROM node:20-alpine AS production
-WORKDIR /app
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \\
+      org.opencontainers.image.version="${VERSION}" \\
+      org.opencontainers.image.revision="${GIT_COMMIT}"
 
 # Create non-root user
+RUN groupadd -r -g 1001 appuser && \\
+    useradd -r -u 1001 -g appuser -m -d /home/appuser -s /bin/bash appuser
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    curl \\
+    ca-certificates \\
+    libpq5 \\
+    tini \\
+    && rm -rf /var/lib/apt/lists/* \\
+    && apt-get clean
+
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \\
+    PYTHONUNBUFFERED=1 \\
+    LOG_LEVEL=INFO \\
+    WORKERS=4 \\
+    TIMEOUT=60
+
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --chown=appuser:appuser . .
+
+# Switch to non-root user
+USER appuser
+
+# Expose application port and metrics port
+EXPOSE 8000 9090
+
+# Health check with proper configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \\
+    CMD curl -f http://localhost:8000/healthz || exit 1
+
+# Signal handling for graceful shutdown
+STOPSIGNAL SIGTERM
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Production-ready command with multiple workers
+CMD ["python", "-m", "uvicorn", "main:app", \\
+     "--host", "0.0.0.0", \\
+     "--port", "8000", \\
+     "--workers", "4", \\
+     "--log-level", "info", \\
+     "--access-log", \\
+     "--proxy-headers", \\
+     "--forwarded-allow-ips", "*"]
+''',
+
+    'JavaScript': '''# =============================================================================
+# ENTERPRISE-GRADE NODE.JS DOCKERFILE
+# Multi-stage build with security, optimization, and caching
+# =============================================================================
+FROM node:20-alpine AS base
+
+# Build arguments
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG VERSION=1.0.0
+ARG NODE_ENV=production
+
+# Metadata labels
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \\
+      org.opencontainers.image.version="${VERSION}" \\
+      org.opencontainers.image.revision="${GIT_COMMIT}"
+
+# Install security updates and tini
+RUN apk add --no-cache \\
+    tini \\
+    curl \\
+    ca-certificates \\
+    && apk upgrade --no-cache
+
+WORKDIR /app
+
+# =============================================================================
+# DEPENDENCIES STAGE: Install production dependencies
+# =============================================================================
+FROM base AS dependencies
+
+# Copy package files for caching
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install production dependencies with security audit
+RUN npm ci --only=production --no-audit --prefer-offline \\
+    && npm cache clean --force
+
+# =============================================================================
+# BUILD STAGE: Install all dependencies and build
+# =============================================================================
+FROM base AS builder
+
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci --no-audit --prefer-offline
+
+# Copy source code
+COPY . .
+
+# Build application (if build script exists)
+RUN npm run build 2>/dev/null || echo "No build script found" \\
+    && npm prune --production
+
+# =============================================================================
+# PRODUCTION STAGE: Minimal runtime image
+# =============================================================================
+FROM node:20-alpine AS production
+
+# Build arguments
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG VERSION=1.0.0
+
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \\
+      org.opencontainers.image.version="${VERSION}" \\
+      org.opencontainers.image.revision="${GIT_COMMIT}"
+
+# Install runtime dependencies and tini
+RUN apk add --no-cache \\
+    tini \\
+    curl \\
+    ca-certificates \\
+    && apk upgrade --no-cache
+
+# Create non-root user with specific UID/GID
 RUN addgroup -g 1001 -S nodejs && \\
-    adduser -S nodejs -u 1001 -G nodejs
+    adduser -S nodejs -u 1001 -G nodejs -h /home/nodejs
 
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist 2>/dev/null || true
-COPY --from=builder /app/*.js ./
-COPY --from=builder /app/package*.json ./
+# Environment variables
+ENV NODE_ENV=production \\
+    PORT=3000 \\
+    LOG_LEVEL=info \\
+    NODE_OPTIONS="--max-old-space-size=2048"
 
+WORKDIR /app
+
+# Copy dependencies from dependencies stage
+COPY --from=dependencies --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy built application from builder
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/build ./build
+COPY --from=builder --chown=nodejs:nodejs /app/*.js ./
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/public ./public
+
+# Switch to non-root user
 USER nodejs
 
-EXPOSE 3000
+# Expose application and metrics ports
+EXPOSE 3000 9090
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+# Health check with proper configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \\
+    CMD curl -f http://localhost:3000/health || wget -q --spider http://localhost:3000/health || exit 1
 
+# Graceful shutdown signal
+STOPSIGNAL SIGTERM
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start application
 CMD ["node", "index.js"]
 ''',
 
@@ -1387,90 +1566,372 @@ output "cicd_role_arn" {
 # DOCKER COMPOSE TEMPLATE
 # =============================================================================
 
-DOCKER_COMPOSE_TEMPLATE = '''# ForgeFlow Generated Docker Compose
-# For local development
+DOCKER_COMPOSE_TEMPLATE = '''# =============================================================================
+# ENTERPRISE-GRADE DOCKER COMPOSE
+# Production-ready local development environment
+# Generated by ForgeFlow
+# =============================================================================
+version: '3.9'
 
-version: '3.8'
-
+# =============================================================================
+# SERVICES
+# =============================================================================
 services:
+  
+  # ---------------------------------------------------------------------------
+  # Application Service
+  # ---------------------------------------------------------------------------
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: base  # Use development stage if available
+      target: production
+      args:
+        BUILD_DATE: ${{BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}}
+        GIT_COMMIT: ${{GIT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")}}
+        VERSION: ${{VERSION:-1.0.0}}
+    image: {app_name}:${{VERSION:-latest}}
+    container_name: {app_name}-app
+    hostname: {app_name}-app
+    
+    # Resource limits for stability
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Set to true if app doesn't write to filesystem
+    tmpfs:
+      - /tmp:mode=1777,size=100M
+      - /var/tmp:mode=1777,size=100M
+    
+    # User configuration (matches Dockerfile non-root user)
+    user: "1001:1001"
+    
+    # Port mapping
     ports:
-      - "{app_port}:{app_port}"
+      - "{app_port}:{app_port}"     # Application port
+      - "9090:9090"                  # Metrics port (Prometheus)
+    
+    # Volume mounts
     volumes:
-      - .:/app
-      - /app/node_modules  # Preserve node_modules in container
+      - .:/app:ro                    # Mount source code (read-only in production)
+      - app_logs:/app/logs           # Application logs
+      - app_tmp:/app/tmp             # Temporary files
+    
+    # Environment configuration
     environment:
-      - NODE_ENV=development
-      - DEBUG=true
-      - LOG_LEVEL=debug
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/{app_name}
-      - REDIS_URL=redis://redis:6379
+      # Application settings
+      - NODE_ENV=${{NODE_ENV:-production}}
+      - LOG_LEVEL=${{LOG_LEVEL:-info}}
+      - PORT={app_port}
+      
+      # Database connection
+      - DATABASE_URL=postgresql://postgres:${{POSTGRES_PASSWORD:-changeme}}@db:5432/{app_name}
+      - DB_POOL_SIZE=${{DB_POOL_SIZE:-20}}
+      - DB_MAX_OVERFLOW=${{DB_MAX_OVERFLOW:-10}}
+      
+      # Redis connection
+      - REDIS_URL=redis://:${{REDIS_PASSWORD:-changeme}}@redis:6379/0
+      - CACHE_TTL=${{CACHE_TTL:-3600}}
+      
+      # Security
+      - SECRET_KEY=${{SECRET_KEY:-change-this-in-production}}
+      - JWT_SECRET=${{JWT_SECRET:-change-this-in-production}}
+      - CORS_ORIGINS=${{CORS_ORIGINS:-http://localhost:3000}}
+      
+      # Observability
+      - ENABLE_METRICS=${{ENABLE_METRICS:-true}}
+      - ENABLE_TRACING=${{ENABLE_TRACING:-true}}
+      - OTEL_SERVICE_NAME={app_name}
+    
+    # Environment file for secrets (not tracked in git)
+    env_file:
+      - .env
+    
+    # Service dependencies with health checks
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{app_port}/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Restart policy
     restart: unless-stopped
+    
+    # Signal handling
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
+    
+    # Init process for proper signal handling
+    init: true
+    
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+    
+    # Labels for service discovery and monitoring
+    labels:
+      - "com.forgeflow.service=app"
+      - "com.forgeflow.environment=development"
+      - "com.forgeflow.version=${{VERSION:-1.0.0}}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`localhost`)"
+    
     networks:
-      - app-network
+      - frontend
+      - backend
 
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database (if needed)
+  # ---------------------------------------------------------------------------
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
+    container_name: {app_name}-db
+    hostname: postgres-db
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    
+    # Port mapping (only for local development)
     ports:
-      - "5432:5432"
+      - "${{POSTGRES_PORT:-5432}}:5432"
+    
+    # Environment variables
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: {app_name}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${{POSTGRES_PASSWORD:-changeme}}
+      - POSTGRES_DB={app_name}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      # Performance tuning
+      - POSTGRES_SHARED_BUFFERS=256MB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=1GB
+      - POSTGRES_MAINTENANCE_WORK_MEM=64MB
+      - POSTGRES_CHECKPOINT_COMPLETION_TARGET=0.9
+      - POSTGRES_WAL_BUFFERS=16MB
+      - POSTGRES_DEFAULT_STATISTICS_TARGET=100
+      - POSTGRES_RANDOM_PAGE_COST=1.1
+      - POSTGRES_EFFECTIVE_IO_CONCURRENCY=200
+      - POSTGRES_WORK_MEM=16MB
+      - POSTGRES_MIN_WAL_SIZE=1GB
+      - POSTGRES_MAX_WAL_SIZE=4GB
+    
+    # Persistent volumes
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - postgres_backups:/backups
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro  # Init script
+    
+    # Health check
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d {app_name}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    
+    # Restart policy
+    restart: unless-stopped
+    stop_grace_period: 60s
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Labels
+    labels:
+      - "com.forgeflow.service=database"
+      - "com.forgeflow.backup=true"
+    
     networks:
-      - app-network
+      - backend
 
+  # ---------------------------------------------------------------------------
+  # Redis Cache
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
+    container_name: {app_name}-redis
+    hostname: redis-cache
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    
+    # Command with configuration
+    command: >
+      redis-server
+      --requirepass ${{REDIS_PASSWORD:-changeme}}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --loglevel notice
+    
+    # Port mapping
     ports:
-      - "6379:6379"
+      - "${{REDIS_PORT:-6379}}:6379"
+    
+    # Persistent storage
     volumes:
       - redis_data:/data
+      - redis_config:/usr/local/etc/redis
+    
+    # Health check
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
+    
+    # Restart policy
+    restart: unless-stopped
+    stop_grace_period: 10s
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    
+    # Labels
+    labels:
+      - "com.forgeflow.service=cache"
+    
     networks:
-      - app-network
+      - backend
 
-  # Optional: Add nginx for production-like setup
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app
-    profiles:
-      - full
-    networks:
-      - app-network
-
+# =============================================================================
+# VOLUMES - Persistent data storage
+# =============================================================================
 volumes:
+  # Application volumes
+  app_logs:
+    driver: local
+    labels:
+      - "com.forgeflow.backup=false"
+  
+  app_tmp:
+    driver: local
+    labels:
+      - "com.forgeflow.backup=false"
+  
+  # Database volumes
   postgres_data:
+    driver: local
+    labels:
+      - "com.forgeflow.backup=true"
+      - "com.forgeflow.backup.frequency=daily"
+  
+  postgres_backups:
+    driver: local
+    labels:
+      - "com.forgeflow.backup=true"
+  
+  # Redis volumes
   redis_data:
+    driver: local
+    labels:
+      - "com.forgeflow.backup=true"
+      - "com.forgeflow.backup.frequency=daily"
+  
+  redis_config:
+    driver: local
 
+# =============================================================================
+# NETWORKS - Service isolation
+# =============================================================================
 networks:
-  app-network:
+  # Frontend network (public-facing services)
+  frontend:
     driver: bridge
+    labels:
+      - "com.forgeflow.network=frontend"
+  
+  # Backend network (internal services)
+  backend:
+    driver: bridge
+    internal: false  # Set to true in production for isolation
+    labels:
+      - "com.forgeflow.network=backend"
+
+# =============================================================================
+# CONFIGURATION NOTES
+# =============================================================================
+# 
+# Environment Variables (create .env file):
+#   - POSTGRES_PASSWORD=your-secure-password
+#   - REDIS_PASSWORD=your-secure-password
+#   - SECRET_KEY=your-secret-key
+#   - JWT_SECRET=your-jwt-secret
+#
+# Commands:
+#   docker-compose up -d              # Start all services
+#   docker-compose ps                 # Check service status
+#   docker-compose logs -f app        # View app logs
+#   docker-compose exec app sh        # Shell into app container
+#   docker-compose down -v            # Stop and remove volumes
+#
+# Production deployment:
+#   - Use Docker secrets instead of environment variables
+#   - Enable network isolation (internal: true for backend)
+#   - Use external volumes for data persistence
+#   - Configure proper backup strategies
+#   - Enable SSL/TLS termination
+#   - Use orchestration platform (Kubernetes, ECS, etc.)
+#
+# =============================================================================
 '''
 
 DOCKERIGNORE_TEMPLATE = '''# ForgeFlow Generated .dockerignore
@@ -1685,19 +2146,40 @@ class GenerationAgent(BaseAgent):
         )
     
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate deployment artifacts."""
-        repo_path = Path(params.get('path', '.'))
+        """Generate deployment artifacts in artifacts directory."""
+        original_repo_path = Path(params.get('path', '.')).resolve()
         stack = params.get('stack', 'auto')
         cloud_provider = params.get('cloud', 'aws')
         
-        self.log(f"Generating infrastructure for {repo_path.absolute()}...")
+        self.log(f"Generating infrastructure for {original_repo_path}...")
         
-        # Load discovery results if available
-        discover_results = self._load_discover_results(repo_path)
+        # Create artifacts directory in forgeflow_local
+        forgeflow_root = Path(__file__).parent.parent  # Get forgeflow_local directory
+        artifacts_root = forgeflow_root / 'artifacts'
+        artifacts_root.mkdir(exist_ok=True)
+        
+        # Create timestamped artifact directory
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        app_name = self._detect_app_name(original_repo_path)
+        artifact_dir = artifacts_root / f"{app_name}_{timestamp}"
+        
+        self.log(f"📦 Creating artifact directory: {artifact_dir}")
+        
+        # Copy repository to artifacts directory (excluding common ignore patterns)
+        self._copy_repo_to_artifacts(original_repo_path, artifact_dir)
+        
+        # Now work with the artifact directory as repo_path
+        repo_path = artifact_dir
+        
+        self.log(f"✅ Repository copied to artifacts. Generating in: {repo_path}")
+        
+        # Load discovery results if available (check both locations)
+        discover_results = self._load_discover_results(original_repo_path)
+        if not discover_results:
+            discover_results = self._load_discover_results(repo_path)
         
         # Detect primary language
         primary_lang = self._detect_primary_language(repo_path, discover_results)
-        app_name = self._detect_app_name(repo_path)
         
         self.log(f"Detected: language={primary_lang}, app={app_name}")
         
@@ -1705,7 +2187,7 @@ class GenerationAgent(BaseAgent):
         artifacts = []
         generated_files = []
         
-        # Create infrastructure directory
+        # Create infrastructure directory in artifacts
         infra_path = repo_path / 'infrastructure'
         infra_path.mkdir(parents=True, exist_ok=True)
         
@@ -1727,7 +2209,8 @@ class GenerationAgent(BaseAgent):
         
         generated_count = len([a for a in artifacts if a['status'] == 'generated'])
         
-        self.log(f"Generated {generated_count} infrastructure files")
+        self.log(f"✅ Generated {generated_count} infrastructure files in artifacts directory")
+        self.log(f"📂 Artifacts location: {artifact_dir}")
         
         return self.create_result(
             status='success',
@@ -1737,6 +2220,8 @@ class GenerationAgent(BaseAgent):
                 'primary_language': primary_lang,
                 'cloud_provider': cloud_provider,
                 'app_name': app_name,
+                'artifact_directory': str(artifact_dir),
+                'original_repo': str(original_repo_path),
                 'infrastructure_path': str(infra_path),
                 'artifacts': artifacts,
                 'generated_files': generated_files
@@ -1748,8 +2233,76 @@ class GenerationAgent(BaseAgent):
             ]
         )
     
+    def _copy_repo_to_artifacts(self, source: Path, dest: Path) -> None:
+        """
+        Copy repository to artifacts directory, excluding common ignore patterns.
+        """
+        ignore_patterns = {
+            # Version control
+            '.git', '.gitignore', '.gitattributes',
+            # Dependencies
+            'node_modules', '__pycache__', '.venv', 'venv', 'env',
+            '.tox', '.pytest_cache', '.mypy_cache',
+            # Build artifacts
+            'dist', 'build', '*.egg-info', 'target',
+            # IDE
+            '.idea', '.vscode', '*.swp', '*.swo',
+            # OS
+            '.DS_Store', 'Thumbs.db',
+            # ForgeFlow staging (but keep .forgeflow for discovery data)
+            'staging',
+            # Docker
+            'volumes', 'data',
+            # Logs
+            '*.log', 'logs',
+        }
+        
+        def should_ignore(path: Path) -> bool:
+            """Check if path should be ignored."""
+            name = path.name
+            # Check exact matches
+            if name in ignore_patterns:
+                return True
+            # Check pattern matches
+            for pattern in ignore_patterns:
+                if '*' in pattern:
+                    import fnmatch
+                    if fnmatch.fnmatch(name, pattern):
+                        return True
+            return False
+        
+        # Create destination directory
+        dest.mkdir(parents=True, exist_ok=True)
+        
+        # Copy files and directories
+        for item in source.iterdir():
+            if should_ignore(item):
+                continue
+            
+            dest_item = dest / item.name
+            
+            try:
+                if item.is_dir():
+                    shutil.copytree(item, dest_item, ignore=lambda d, files: [
+                        f for f in files if should_ignore(Path(d) / f)
+                    ])
+                else:
+                    shutil.copy2(item, dest_item)
+            except Exception as e:
+                self.log(f"⚠️  Warning: Could not copy {item.name}: {e}")
+    
     def _load_discover_results(self, repo_path: Path) -> Optional[Dict[str, Any]]:
         """Load discovery results if available."""
+        # Try to load enhanced discovery results first
+        discovery_file = repo_path / '.forgeflow' / 'discovery.json'
+        if discovery_file.exists():
+            try:
+                with open(discovery_file) as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        
+        # Fallback to inventory
         inventory_file = repo_path / '.forgeflow' / 'inventory.json'
         if inventory_file.exists():
             try:
@@ -1920,41 +2473,110 @@ aws_region  = "us-west-2"
         return results
     
     def _generate_docker_files(self, repo_path: Path, primary_lang: str, app_name: str) -> List[Dict[str, Any]]:
-        """Generate Docker files."""
+        """Generate Docker files with AI enhancement."""
         results = []
         app_port = self.PORT_BY_LANGUAGE.get(primary_lang, 8000)
         
-        # Generate Dockerfile
-        dockerfile_path = repo_path / 'Dockerfile'
-        if not dockerfile_path.exists():
-            template = DOCKERFILE_TEMPLATES.get(primary_lang, DOCKERFILE_TEMPLATES['Python'])
-            dockerfile_path.write_text(template)
-            results.append({
-                'file': 'Dockerfile',
-                'type': 'docker',
-                'status': 'generated',
-                'description': f'Multi-stage Dockerfile for {primary_lang}'
-            })
-        else:
-            results.append({
-                'file': 'Dockerfile',
-                'type': 'docker',
-                'status': 'exists'
-            })
+        # Load discovery results for AI enhancement
+        discover_results = self._load_discover_results(repo_path)
+        ai_enhancer = get_ai_enhancer()
         
-        # Generate docker-compose.yml
+        # Check if multi-service architecture
+        services = discover_results.get('services', []) if discover_results else []
+        is_multi_service = len(services) > 1
+        
+        if is_multi_service and services:
+            self.log(f"🤖 Detected multi-service architecture with {len(services)} services")
+            
+            # Generate Dockerfile for each service
+            for service in services:
+                service_name = service.get('name', 'service')
+                service_path = repo_path / service.get('path', service_name)
+                dockerfile_path = service_path / 'Dockerfile'
+                
+                if not dockerfile_path.exists():
+                    # Get basic template
+                    service_lang = service.get('language', primary_lang)
+                    template = DOCKERFILE_TEMPLATES.get(service_lang, DOCKERFILE_TEMPLATES['Python'])
+                    
+                    # AI Enhancement
+                    if ai_enhancer.is_available():
+                        enhanced_dockerfile = ai_enhancer.enhance_dockerfile(service, template)
+                        dockerfile_content = enhanced_dockerfile
+                    else:
+                        dockerfile_content = template
+                    
+                    dockerfile_path.parent.mkdir(exist_ok=True)
+                    dockerfile_path.write_text(dockerfile_content)
+                    
+                    results.append({
+                        'file': f'{service.get("path", service_name)}/Dockerfile',
+                        'type': 'docker',
+                        'status': 'generated',
+                        'description': f'Dockerfile for {service_name} ({service_lang})'
+                    })
+        else:
+            # Single service - generate root Dockerfile
+            dockerfile_path = repo_path / 'Dockerfile'
+            if not dockerfile_path.exists():
+                template = DOCKERFILE_TEMPLATES.get(primary_lang, DOCKERFILE_TEMPLATES['Python'])
+                
+                # AI Enhancement for single service
+                if ai_enhancer.is_available() and discover_results:
+                    service_info = {
+                        'name': app_name,
+                        'language': primary_lang,
+                        'framework': discover_results.get('frameworks', [None])[0] if discover_results.get('frameworks') else None,
+                        'port': app_port,
+                        'dependencies': list(discover_results.get('key_dependencies', {}).keys())[:10] if discover_results.get('key_dependencies') else []
+                    }
+                    enhanced_dockerfile = ai_enhancer.enhance_dockerfile(service_info, template)
+                    dockerfile_content = enhanced_dockerfile
+                else:
+                    dockerfile_content = template
+                
+                dockerfile_path.write_text(dockerfile_content)
+                results.append({
+                    'file': 'Dockerfile',
+                    'type': 'docker',
+                    'status': 'generated',
+                    'description': f'Multi-stage Dockerfile for {primary_lang}'
+                })
+            else:
+                results.append({
+                    'file': 'Dockerfile',
+                    'type': 'docker',
+                    'status': 'exists'
+                })
+        
+        # Generate docker-compose.yml with AI enhancement
         compose_path = repo_path / 'docker-compose.yml'
         if not compose_path.exists():
             compose_content = DOCKER_COMPOSE_TEMPLATE.format(
                 app_name=app_name,
                 app_port=app_port
             )
+            
+            # AI Enhancement for docker-compose
+            if ai_enhancer.is_available() and discover_results:
+                detected_deps = {
+                    'databases': discover_results.get('databases', []),
+                    'caching': ['redis'] if any('redis' in str(d).lower() for d in discover_results.get('databases', [])) else [],
+                    'messaging': []
+                }
+                enhanced_compose = ai_enhancer.enhance_docker_compose(
+                    services,
+                    detected_deps,
+                    compose_content
+                )
+                compose_content = enhanced_compose
+            
             compose_path.write_text(compose_content)
             results.append({
                 'file': 'docker-compose.yml',
                 'type': 'docker',
                 'status': 'generated',
-                'description': 'Local development with PostgreSQL and Redis'
+                'description': 'Docker Compose with detected services and dependencies'
             })
         else:
             results.append({
