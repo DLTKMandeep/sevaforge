@@ -1,0 +1,10 @@
+# Example Terraform Variables
+# Copy to terraform.tfvars and customize
+
+app_name    = "forgeflow"
+environment = "dev"
+aws_region  = "us-west-2"
+
+# Customize as needed
+# kubernetes_version = "1.28"
+# node_desired_size  = 2

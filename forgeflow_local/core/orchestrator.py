@@ -13,23 +13,38 @@ Responsibilities:
 3. Dispatch tasks to appropriate MCP servers based on deployment mode
 4. In PUBLIC mode, use RemoteClient instead of local subprocess
 5. Handle fallback to local servers when public servers unavailable
-6. Aggregate and return results
+6. Wrap MCP responses with orchestration metadata
+7. Aggregate and return results
+
+Data Flow:
+    Request:  Mission Control → Orchestrator → MCP Server → Agent
+    Response: Mission Control ← Orchestrator ← MCP Server ← Agent
+    
+    Orchestrator adds: mission type, deployment mode, execution time, server info
 """
 import os
 import sys
 import yaml
 import json
-import subprocess
+import logging
+import time
 import importlib.util
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+
+from .models import wrap_mcp_response, create_error_response
+
+# Configure module logger (NO print statements)
+logger = logging.getLogger("forgeflow.orchestrator")
 
 
 class MCPOrchestrator:
     """
     Orchestrates MCP servers - handles lazy startup, dispatching, and lifecycle.
     Supports local, hybrid, and public deployment modes.
+    
+    All output goes through logging, not print statements.
     """
     
     def __init__(self, config_path: str = None, mode: str = None):
@@ -49,6 +64,8 @@ class MCPOrchestrator:
         
         # Remote client for PUBLIC mode (lazy initialized)
         self._remote_client = None
+        
+        logger.debug(f"Orchestrator initialized with mode: {self.mode}")
         
     def _load_config(self) -> Dict:
         """Load MCP server configuration from YAML."""
@@ -139,6 +156,7 @@ class MCPOrchestrator:
         # Reset remote client when mode changes
         if mode != "public":
             self._remote_client = None
+        logger.info(f"Deployment mode set to: {mode}")
     
     def _get_remote_client(self):
         """Get or create the remote client for PUBLIC mode."""
@@ -252,7 +270,7 @@ class MCPOrchestrator:
             full_args = args
         
         mode_indicator = f"[{self.mode.upper()}]" if self.mode == "hybrid" else ""
-        print(f"  🔧 [Orchestrator] {mode_indicator} Starting {server_name} ({server_type})...")
+        logger.info(f"Starting {server_name} ({server_type}) {mode_indicator}")
         
         # For this implementation, we'll use direct module loading for local servers
         # For public servers in hybrid mode, we'd use subprocess or HTTP
@@ -281,6 +299,9 @@ class MCPOrchestrator:
             server_name: Name of the MCP server
             params: Parameters to pass to the server
             command: Optional command name (used for PUBLIC mode endpoint lookup)
+            
+        Returns:
+            MCP response dictionary (already wrapped by MCP server)
         """
         # PUBLIC mode: Use RemoteClient
         if self.mode == "public":
@@ -307,25 +328,32 @@ class MCPOrchestrator:
                     command = server_name.replace("-mcp-server", "").replace("-", "_")
             
             endpoint = client.get_endpoint_url(command)
-            print(f"  ☁️  [Orchestrator] [PUBLIC] Dispatching to: {endpoint}")
+            logger.info(f"[PUBLIC] Dispatching to: {endpoint}")
             
-            # Define progress callback for streaming
+            # Define progress callback for streaming (uses logging, not print)
             def on_progress(message: str):
-                print(f"  📡 [Stream] {message}")
+                logger.debug(f"[Stream] {message}")
             
             result = client.dispatch(command, params, stream_callback=on_progress)
             
-            # Add metadata
-            result["deployment_mode"] = "public"
-            result["endpoint"] = endpoint
+            # Ensure result has server info
+            if "server" not in result:
+                result["server"] = server_name
             
             return result
             
         except Exception as e:
+            logger.error(f"Remote dispatch failed: {str(e)}")
             return {
                 "status": "error",
-                "error": f"Remote dispatch failed: {str(e)}",
-                "deployment_mode": "public"
+                "server": server_name,
+                "agent": "RemoteAgent",
+                "result": {
+                    "status": "error",
+                    "summary": f"Remote dispatch failed: {str(e)}",
+                    "data": {},
+                    "findings": []
+                }
             }
     
     def _dispatch_local(self, server_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -338,7 +366,7 @@ class MCPOrchestrator:
         
         # For public servers in hybrid mode, we'd need HTTP client
         if server_type == "public" and self.mode == "hybrid":
-            print(f"  ⚠️  [Orchestrator] Public server in hybrid mode, using local fallback")
+            logger.warning(f"Public server in hybrid mode, using local fallback")
         
         # Get server script path from base config
         servers_config = self.config.get("servers", {})
@@ -346,14 +374,31 @@ class MCPOrchestrator:
         args = server_cfg.get("args", [])
         
         if not args:
-            return {"status": "error", "error": f"No script defined for {server_name}"}
+            return {
+                "status": "error",
+                "server": server_name,
+                "agent": "Unknown",
+                "result": {
+                    "status": "error",
+                    "summary": f"No script defined for {server_name}",
+                    "data": {},
+                    "findings": []
+                }
+            }
         
         server_script = self.base_dir / args[0]
         
         if not server_script.exists():
             return {
-                "status": "error", 
-                "error": f"Server script not found: {server_script}"
+                "status": "error",
+                "server": server_name,
+                "agent": "Unknown",
+                "result": {
+                    "status": "error",
+                    "summary": f"Server script not found: {server_script}",
+                    "data": {},
+                    "findings": []
+                }
             }
         
         # Load and execute the server module
@@ -363,33 +408,53 @@ class MCPOrchestrator:
             spec.loader.exec_module(module)
             
             if hasattr(module, "run"):
+                # MCP server's run() now returns wrapped MCPResponse
                 result = module.run(params)
-                # Add deployment mode info to result
-                result["deployment_mode"] = self.mode
                 return result
             else:
                 return {
                     "status": "error",
-                    "error": f"Server {server_name} has no run() function"
+                    "server": server_name,
+                    "agent": "Unknown",
+                    "result": {
+                        "status": "error",
+                        "summary": f"Server {server_name} has no run() function",
+                        "data": {},
+                        "findings": []
+                    }
                 }
                 
         except Exception as e:
+            logger.error(f"Failed to execute {server_name}: {str(e)}")
             return {
                 "status": "error",
-                "error": f"Failed to execute {server_name}: {str(e)}"
+                "server": server_name,
+                "agent": "Unknown",
+                "result": {
+                    "status": "error",
+                    "summary": f"Failed to execute {server_name}: {str(e)}",
+                    "data": {},
+                    "findings": []
+                }
             }
     
     def run_mission(self, mission_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run a mission by dispatching to the appropriate MCP server.
         
+        This method:
+        1. Gets the MCP server for the command
+        2. Dispatches to the server
+        3. Wraps the response with orchestrator metadata
+        
         Args:
             mission_type: Command name (discover, normalize, scan, etc.)
             params: Parameters to pass to the MCP server
             
         Returns:
-            Result dictionary from the MCP server
+            OrchestratorResult dictionary with flattened structure for display
         """
+        start_time = time.time()
         server_name = self.get_server_for_command(mission_type)
         
         if not server_name:
@@ -401,28 +466,28 @@ class MCPOrchestrator:
             else:
                 raise ValueError(f"No MCP server mapped for command '{mission_type}'")
         
-        # Mode indicator for display
+        # Log dispatch info
         if self.mode == "public":
-            mode_indicator = "[☁️  PUBLIC]"
+            mode_indicator = "[PUBLIC]"
         elif self.mode == "hybrid":
-            mode_indicator = "[🌐 HYBRID]"
+            mode_indicator = "[HYBRID]"
         else:
-            mode_indicator = ""
+            mode_indicator = "[LOCAL]"
         
-        print(f"  📡 [Orchestrator] {mode_indicator} Dispatching '{mission_type}' to {server_name}")
+        logger.info(f"{mode_indicator} Dispatching '{mission_type}' to {server_name}")
         
-        # Pass command name for PUBLIC mode endpoint lookup
-        result = self.dispatch(server_name, params, command=mission_type)
+        # Dispatch to MCP server (returns MCPResponse format)
+        mcp_response = self.dispatch(server_name, params, command=mission_type)
         
-        # Ensure consistent result structure
-        if "mission" not in result:
-            result["mission"] = mission_type
-        if "server" not in result:
+        # Calculate execution time
+        execution_time_ms = (time.time() - start_time) * 1000
+        
+        # Wrap MCP response with orchestrator metadata
+        result = wrap_mcp_response(mcp_response, mission_type, self.mode, execution_time_ms)
+        
+        # Ensure server name is set
+        if not result.get("server"):
             result["server"] = server_name
-        if "timestamp" not in result:
-            result["timestamp"] = datetime.now().isoformat()
-        if "deployment_mode" not in result:
-            result["deployment_mode"] = self.mode
             
         return result
     
@@ -448,6 +513,8 @@ class MCPOrchestrator:
             "mission": "status",
             "server": "internal",
             "deployment_mode": self.mode,
+            "data": {"stages": status_results},
+            "findings": [f"{k}: {v}" for k, v in status_results.items()],
             "stages": status_results,
             "active_servers": list(self.active_servers.keys()),
             "summary": f"Checked {len(stages)} pipeline stages (mode: {self.mode})"
@@ -538,6 +605,8 @@ class MCPOrchestrator:
             "server": "internal",
             "deployment_mode": self.mode,
             "health": health_items,
+            "data": {"health": health_items},
+            "findings": [f"{item['status']}: {item['component']}" for item in health_items],
             "summary": f"Checked {len(health_items)} components (mode: {self.mode})"
         }
     
@@ -552,5 +621,5 @@ class MCPOrchestrator:
     def shutdown(self):
         """Shutdown all active servers."""
         for server_name in list(self.active_servers.keys()):
-            print(f"  🛑 [Orchestrator] Stopping {server_name}")
+            logger.info(f"Stopping {server_name}")
             del self.active_servers[server_name]

@@ -1,337 +1,431 @@
 # ForgeFlow Deployment Guide
 
-Deployment options and setup instructions for ForgeFlow.
+This guide covers deploying ForgeFlow as a containerized service.
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Docker Deployment](#docker-deployment)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Monitoring](#monitoring)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Deployment Modes Overview
+## Quick Start
 
-ForgeFlow supports three deployment modes to fit different use cases:
-
-| Mode | Processing | Internet Required | Best For |
-|------|------------|-------------------|----------|
-| **Local** | All local | No | Individual developers, offline work |
-| **Hybrid** | Mixed | Partial | Teams, enhanced security scanning |
-| **Cloud** | All cloud | Yes | Enterprise, centralized management |
-
----
-
-## Local Mode Deployment
-
-### Setup
+### Using Docker Compose (Simplest)
 
 ```bash
-# Clone repository
-git clone https://github.com/forgeflow/forgeflow.git
+# Clone the repository
+git clone https://github.com/your-org/forgeflow.git
 cd forgeflow
 
-# Install dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# Start the service
+docker-compose up -d
 
-# Verify
-forgeflow doctor
+# Check health
+curl http://localhost:8000/health
 ```
 
-### Configuration
-
-```yaml
-# config/forgeflow-config.yaml
-mode: local
-
-pipeline:
-  sequence:
-    - discover
-    - normalize
-    - docs
-    - generate
-    - review
-    - test
-    - scan
-```
-
-### Usage
+### Using Docker
 
 ```bash
-forgeflow discover --path ./my-repo
-forgeflow audit --path ./my-repo
-```
+# Build the image
+docker build -t forgeflow:latest .
 
----
-
-## Hybrid Mode Deployment
-
-### Prerequisites
-
-- Python 3.9+
-- Internet access for cloud integrations
-- API keys for services:
-  - GitHub Token (`GITHUB_TOKEN`)
-  - Snyk API Key (`SNYK_API_KEY`) - optional
-  - Cloud provider credentials - optional
-
-### Setup
-
-```bash
-# Standard installation
-git clone https://github.com/forgeflow/forgeflow.git
-cd forgeflow
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Set environment variables
-export GITHUB_TOKEN=ghp_xxx
-export SNYK_API_KEY=xxx  # Optional
-```
-
-### Configuration
-
-```yaml
-# config/forgeflow-config.yaml
-mode: hybrid
-
-hybrid:
-  local_mcps:
-    discovery-mcp-server:
-      type: local
-    normalize-mcp-server:
-      type: local
-    deployment-mcp-server:
-      type: local
-
-  public_mcps:
-    github-mcp-server:
-      type: public
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-github"]
-
-    security-mcp-server:
-      type: public
-      integrations:
-        snyk:
-          enabled: true
-          api_key_env: "SNYK_API_KEY"
-```
-
-### Usage
-
-```bash
-forgeflow --mode hybrid scan --path ./my-repo
-forgeflow --mode hybrid bridge --repo owner/repo
-```
-
----
-
-## Cloud Mode Deployment
-
-### Prerequisites
-
-- ForgeFlow API key
-- Internet access
-
-### Setup
-
-```bash
-# Install CLI only (thin client)
-pip install forgeflow
-
-# Set API key
-export FORGEFLOW_API_KEY=your_api_key
-```
-
-### Configuration
-
-```yaml
-# config/forgeflow-config.yaml
-mode: cloud
-
-public:
-  api_base_url: "https://api.forgeflow.io/v1"
-
-  auth:
-    type: api_key
-    api_key_env: "FORGEFLOW_API_KEY"
-
-  connection:
-    timeout: 60
-    retries: 3
-```
-
-### Usage
-
-```bash
-forgeflow --mode cloud discover --path ./my-repo
-forgeflow --mode cloud audit --path ./my-repo
+# Run the container
+docker run -d \
+  --name forgeflow \
+  -p 8000:8000 \
+  -e FORGEFLOW_API_KEY_REQUIRED=false \
+  forgeflow:latest
 ```
 
 ---
 
 ## Docker Deployment
 
-### Build Image
+### Building the Image
 
 ```bash
+# Standard build
 docker build -t forgeflow:latest .
+
+# Build with specific Python version
+docker build --build-arg PYTHON_VERSION=3.11 -t forgeflow:latest .
 ```
 
-### Run Container
+### Running with Docker Compose
+
+#### Development Mode
 
 ```bash
-# Mount repository for scanning
-docker run -v $(pwd)/my-repo:/app/repo forgeflow:latest discover --path /app/repo
-
-# With environment variables
-docker run \
-  -e GITHUB_TOKEN=$GITHUB_TOKEN \
-  -v $(pwd)/my-repo:/app/repo \
-  forgeflow:latest --mode hybrid scan --path /app/repo
+# Start without API key requirement
+FORGEFLOW_API_KEY_REQUIRED=false docker-compose up -d
 ```
 
-### Docker Compose
+#### Production Mode
+
+```bash
+# Generate API key
+export FORGEFLOW_API_KEY=$(openssl rand -hex 32)
+echo "API Key: $FORGEFLOW_API_KEY"
+
+# Generate GitHub token at https://github.com/settings/tokens
+export GH_TOKEN="your-github-token"
+
+# Start with all services including Redis
+docker-compose --profile production up -d
+```
+
+### Docker Compose Services
+
+| Service | Description | Port |
+|---------|-------------|------|
+| `forgeflow` | Main API server | 8000 |
+| `redis` | Task queue (production profile) | 6379 |
+| `celery-worker` | Async task worker (production profile) | - |
+
+### Volume Mounts
 
 ```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  forgeflow:
-    build: .
-    volumes:
-      - ./repos:/app/repos
-      - ./config:/app/config
-    environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - FORGEFLOW_MODE=hybrid
+volumes:
+  - ./repos:/repos:rw        # Mount local repositories
+  - forgeflow-temp:/tmp/forgeflow  # Temporary storage
 ```
 
 ---
 
 ## Kubernetes Deployment
 
-### Deployment Manifest
+### Prerequisites
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: forgeflow
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: forgeflow
-  template:
-    metadata:
-      labels:
-        app: forgeflow
-    spec:
-      containers:
-      - name: forgeflow
-        image: forgeflow:latest
-        env:
-        - name: FORGEFLOW_MODE
-          value: "cloud"
-        - name: FORGEFLOW_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: forgeflow-secrets
-              key: api-key
-        volumeMounts:
-        - name: config
-          mountPath: /app/config
-      volumes:
-      - name: config
-        configMap:
-          name: forgeflow-config
-```
+- Kubernetes cluster (1.24+)
+- kubectl configured
+- Ingress controller (nginx recommended)
+- cert-manager (optional, for TLS)
 
-### Secret
+### Quick Deploy
 
 ```bash
+# Apply all manifests using kustomize
+kubectl apply -k k8s/
+
+# Or apply individually
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/hpa.yaml
+```
+
+### Configure Secrets
+
+```bash
+# Generate API key
+API_KEY=$(openssl rand -hex 32)
+echo "API Key: $API_KEY"
+
+# Create secret (replace placeholders)
 kubectl create secret generic forgeflow-secrets \
-  --from-literal=api-key=your_api_key
+  --namespace forgeflow \
+  --from-literal=FORGEFLOW_API_KEY="$API_KEY" \
+  --from-literal=GH_TOKEN="your-github-token"
 ```
 
----
+### Update Ingress
 
-## CI/CD Integration
-
-### GitHub Actions
+Edit `k8s/ingress.yaml` to set your domain:
 
 ```yaml
-# .github/workflows/forgeflow.yml
-name: ForgeFlow Analysis
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Install ForgeFlow
-      run: |
-        pip install -r requirements.txt
-
-    - name: Run Security Scan
-      run: |
-        python -m cli.forgeflow scan --severity high
-
-    - name: Run Audit
-      run: |
-        python -m cli.forgeflow audit
-```
-
-### GitLab CI
-
-```yaml
-# .gitlab-ci.yml
-stages:
-  - analyze
-
-forgeflow-scan:
-  stage: analyze
-  image: python:3.11
-  script:
-    - pip install -r requirements.txt
-    - python -m cli.forgeflow scan --severity high
+spec:
+  tls:
+  - hosts:
+    - forgeflow.yourdomain.com  # Your domain
+    secretName: forgeflow-tls
   rules:
-    - if: $CI_MERGE_REQUEST_ID
+  - host: forgeflow.yourdomain.com  # Your domain
+```
+
+### Verify Deployment
+
+```bash
+# Check pods
+kubectl get pods -n forgeflow
+
+# Check service
+kubectl get svc -n forgeflow
+
+# Check ingress
+kubectl get ingress -n forgeflow
+
+# Port forward for local testing
+kubectl port-forward svc/forgeflow 8000:80 -n forgeflow
+
+# Test health
+curl http://localhost:8000/health
+```
+
+### Scaling
+
+```bash
+# Manual scaling
+kubectl scale deployment forgeflow --replicas=5 -n forgeflow
+
+# HPA is configured automatically - check status
+kubectl get hpa -n forgeflow
 ```
 
 ---
 
-## Environment Variables Reference
+## Configuration
 
-| Variable | Mode | Description |
-|----------|------|-------------|
-| `FORGEFLOW_MODE` | All | Default mode (local/hybrid/cloud) |
-| `FORGEFLOW_API_KEY` | Cloud | Cloud API authentication |
-| `GITHUB_TOKEN` | Hybrid | GitHub API access |
-| `SNYK_API_KEY` | Hybrid | Snyk security scanning |
-| `AWS_REGION` | Hybrid | AWS deployment region |
-| `AWS_PROFILE` | Hybrid | AWS credentials profile |
-| `GCP_PROJECT` | Hybrid | Google Cloud project |
-| `AZURE_SUBSCRIPTION_ID` | Hybrid | Azure subscription |
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FORGEFLOW_MODE` | `local` | Deployment mode: `local` or `hybrid` |
+| `FORGEFLOW_API_KEY` | - | API key for authentication |
+| `FORGEFLOW_API_KEY_REQUIRED` | `true` | Whether API key is required |
+| `FORGEFLOW_MAX_REPO_SIZE_MB` | `100` | Maximum repository size |
+| `FORGEFLOW_TASK_TIMEOUT` | `300` | Task timeout in seconds |
+| `FORGEFLOW_TEMP_DIR` | `/tmp/forgeflow` | Temporary directory |
+| `GH_TOKEN` | - | GitHub token for bridge operations |
+
+### ConfigMap (Kubernetes)
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forgeflow-config
+data:
+  FORGEFLOW_MODE: "local"
+  FORGEFLOW_API_KEY_REQUIRED: "true"
+  FORGEFLOW_MAX_REPO_SIZE_MB: "100"
+```
 
 ---
 
-## Production Recommendations
+## Security
 
-1. **Use Hybrid Mode** for security-critical projects
-2. **Enable all security integrations** (Snyk, Trivy)
-3. **Set severity threshold to high** for production scans
-4. **Use secret management** for API keys
-5. **Integrate with CI/CD** for automated scanning
-6. **Review generated configs** before deployment
+### API Key Authentication
+
+1. **Generate a strong API key:**
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. **Set the API key:**
+   ```bash
+   # Docker
+   export FORGEFLOW_API_KEY=your-generated-key
+   
+   # Kubernetes
+   kubectl create secret generic forgeflow-secrets \
+     --from-literal=FORGEFLOW_API_KEY=your-generated-key \
+     -n forgeflow
+   ```
+
+3. **Use in requests:**
+   ```bash
+   curl -H "X-API-Key: your-api-key" http://forgeflow.example.com/api/v1/status
+   ```
+
+### TLS/HTTPS
+
+#### With cert-manager (Kubernetes)
+
+```yaml
+annotations:
+  cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - forgeflow.example.com
+    secretName: forgeflow-tls
+```
+
+#### With Docker (using reverse proxy)
+
+```yaml
+# docker-compose.override.yml
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./certs:/etc/nginx/certs
+    depends_on:
+      - forgeflow
+```
+
+### Network Policies (Kubernetes)
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: forgeflow-network-policy
+  namespace: forgeflow
+spec:
+  podSelector:
+    matchLabels:
+      app: forgeflow
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+```
+
+---
+
+## Monitoring
+
+### Health Checks
+
+```bash
+# Liveness probe
+curl http://localhost:8000/health
+
+# Detailed status
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/status
+```
+
+### Metrics (Prometheus)
+
+Add Prometheus annotations to your deployment:
+
+```yaml
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+```
+
+### Logging
+
+```bash
+# Docker
+docker logs forgeflow-api -f
+
+# Kubernetes
+kubectl logs -f deployment/forgeflow -n forgeflow
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Container Won't Start
+
+```bash
+# Check logs
+docker logs forgeflow-api
+
+# Check resource limits
+kubectl describe pod -l app=forgeflow -n forgeflow
+```
+
+#### API Returns 401 Unauthorized
+
+```bash
+# Verify API key is set
+kubectl get secret forgeflow-secrets -n forgeflow -o yaml
+
+# Test without auth (if allowed)
+curl http://localhost:8000/health
+```
+
+#### GitHub Bridge Fails
+
+```bash
+# Verify GH_TOKEN is set
+docker exec forgeflow-api gh auth status
+
+# Check token permissions
+# Token needs: repo, read:org, workflow
+```
+
+#### Repository Clone Timeout
+
+```bash
+# Increase timeout
+export FORGEFLOW_TASK_TIMEOUT=600
+
+# Or use pre-cloned repositories
+curl -X POST http://localhost:8000/api/v1/discover \
+  -d '{"path": "/repos/my-app"}'
+```
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+docker run -e LOG_LEVEL=DEBUG forgeflow:latest
+
+# Access shell
+docker exec -it forgeflow-api /bin/bash
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐
+│   Client/CI      │
+│  (REST calls)   │
+└────────┬────────┘
+        │
+        ▼
+┌─────────────────┐
+│  Ingress/LB     │
+└────────┬────────┘
+        │
+        ▼
+┌─────────────────┐
+│  ForgeFlow API  │ ←── FastAPI Server
+│  (Port 8000)    │
+└────────┬────────┘
+        │
+        ▼
+┌─────────────────┐
+│ Mission Control │ ←── Orchestrates agents
+└────────┬────────┘
+        │
+        ▼
+┌─────────────────┐
+│   MCP Servers   │ ←── Protocol layer
+└────────┬────────┘
+        │
+        ▼
+┌─────────────────┐
+│     Agents      │ ←── Business logic
+└─────────────────┘
+```
+
+---
+
+## Related Documentation
+
+- [API Reference](API.md)
+- [Agent Architecture](AGENT_ARCHITECTURE.md)
+- [Local Setup](../LOCAL_SETUP.md)
+- [README](../README.md)

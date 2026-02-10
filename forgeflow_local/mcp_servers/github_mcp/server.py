@@ -1,80 +1,52 @@
 #!/usr/bin/env python3
 """
-ForgeFlow MCP Server: GitHub Bridge
+ForgeFlow MCP Server: GitHub (Bridge)
 Protocol layer that delegates to BridgeAgent.
 
 Architecture: Orchestrator → MCP Server → Agent → Results
-
-Supported Operations:
-- init: Initialize git repository
-- push: Push to remote repository
-- pr: Create pull request
-- branch: Create/switch branches
-- status: Check repository status (default)
 """
 import sys
 import json
+import logging
 from pathlib import Path
 
-# Add parent directory to path for agent import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from agents import BridgeAgent
+from core.models import wrap_agent_result
 
+logger = logging.getLogger("github-mcp-server")
 
-# Instantiate the agent
+SERVER_NAME = "github-mcp-server"
+AGENT_NAME = "BridgeAgent"
+
 _agent = BridgeAgent()
 
 
 def run(params: dict) -> dict:
     """
-    Bridge to GitHub with full Git/GitHub integration.
+    Bridge to GitHub - create repo and push code.
     Delegates to BridgeAgent for actual business logic.
     
     Args:
         params: Dictionary with:
             - path: Repository path
-            - operation: One of 'init', 'push', 'pr', 'branch', 'status'
-            - repo: GitHub repository (owner/repo)
-            - branch: Branch name
-            - base_branch: Base branch for PR
-            - message: Commit message
-            - pr_title: Pull request title
-            - pr_body: Pull request body
-        
+            - repo: GitHub repo name (optional)
+            - branch: Branch name (optional)
+            - operation: Operation type (optional)
+    
     Returns:
-        Result dictionary from BridgeAgent
+        MCPResponse dictionary with wrapped agent result
     """
-    operation = params.get('operation', 'status')
-    print(f"  🌉 [GitHub MCP] Operation: {operation} → Delegating to BridgeAgent...")
-    return _agent.execute(params)
+    operation = params.get('operation', 'push')
+    logger.info(f"Operation: {operation} → Delegating to {AGENT_NAME}...")
+    agent_result = _agent.execute(params)
+    return wrap_agent_result(agent_result, SERVER_NAME, AGENT_NAME)
 
 
 if __name__ == '__main__':
-    # CLI usage for testing
-    import argparse
-    parser = argparse.ArgumentParser(description='GitHub Bridge MCP Server')
-    parser.add_argument('path', nargs='?', default='.', help='Repository path')
-    parser.add_argument('--operation', '-o', default='status', 
-                       choices=['init', 'push', 'pr', 'branch', 'status'],
-                       help='Operation to perform')
-    parser.add_argument('--repo', '-r', help='GitHub repository (owner/repo)')
-    parser.add_argument('--branch', '-b', help='Branch name')
-    parser.add_argument('--base-branch', default='main', help='Base branch for PR')
-    parser.add_argument('--message', '-m', help='Commit message')
-    parser.add_argument('--pr-title', help='PR title')
-    parser.add_argument('--pr-body', help='PR body')
-    
-    args = parser.parse_args()
-    
-    result = run({
-        'path': args.path,
-        'operation': args.operation,
-        'repo': args.repo,
-        'branch': args.branch,
-        'base_branch': args.base_branch,
-        'message': args.message,
-        'pr_title': args.pr_title,
-        'pr_body': args.pr_body
-    })
+    logging.basicConfig(level=logging.INFO, format='[%(name)s] %(message)s')
+    path = sys.argv[1] if len(sys.argv) > 1 else '.'
+    repo = sys.argv[2] if len(sys.argv) > 2 else None
+    result = run({'path': path, 'repo': repo, 'operation': 'push'})
     print(json.dumps(result, indent=2))

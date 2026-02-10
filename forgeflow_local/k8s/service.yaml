@@ -1,0 +1,37 @@
+# ForgeFlow Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgeflow
+  namespace: forgeflow
+  labels:
+    app: forgeflow
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: forgeflow
+    component: api
+---
+# LoadBalancer Service (for direct external access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgeflow-lb
+  namespace: forgeflow
+  labels:
+    app: forgeflow
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: forgeflow
+    component: api
