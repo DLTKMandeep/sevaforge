@@ -178,18 +178,24 @@ class BaseAgent(ABC):
 
 ### Agent Catalog
 
+> **v2.1:** Four new specialized generation agents were added (IACAgent, CDAgent, CIAgent, E2ETestingAgent), expanding the pipeline from 10 to 14 agents.
+
 | Agent | MCP Server | CLI Command | Purpose |
-|-------|------------|-------------|----------|
-| DiscoveryAgent | discovery-mcp | `discover` | Repository scanning |
-| NormalizationAgent | normalize-mcp | `normalize` | Structure standardization |
-| SecurityAgent | security-mcp | `scan` | Vulnerability detection |
-| GenerationAgent | deployment-mcp | `generate` | Artifact generation |
-| DeploymentAgent | cloud-mcp | `deploy` | Cloud deployment |
-| TestingAgent | cicd-mcp | `test` | Test execution |
-| MonitoringAgent | observability-mcp | `monitor` | Monitoring setup |
-| DocumentationAgent | diagram-generator-mcp | `docs` | Documentation generation |
-| CodeReviewAgent | git-mcp | `review` | Code analysis |
-| BridgeAgent | github-mcp | `bridge` | GitHub integration |
+|-------|------------|-------------|---------|
+| DiscoveryAgent | discovery-mcp | `discover` | Repository scanning and component inventory |
+| NormalizationAgent | normalize-mcp | `normalize` | Structure standardization and best-practice scaffolding |
+| DocumentationAgent | diagram-generator-mcp | `docs` | Architecture diagrams and API documentation |
+| **IACAgent** *(v2.1)* | **iac-mcp** | **`iac`** | **Infrastructure as Code — Terraform, Docker, Pulumi** |
+| **CDAgent** *(v2.1)* | **cd-mcp** | **`cd`** | **Continuous Deployment — ArgoCD, Kustomize, Helm** |
+| **CIAgent** *(v2.1)* | **ci-mcp** | **`ci`** | **Continuous Integration — GitHub Actions, GitLab CI** |
+| **E2ETestingAgent** *(v2.1)* | **e2e-mcp** | **`e2e`** | **End-to-end testing — Playwright, Cypress** |
+| CodeReviewAgent | git-mcp | `review` | Git history analysis and code quality review |
+| TestingAgent | cicd-mcp | `test` | Unit/integration test execution |
+| SecurityAgent | security-mcp | `scan` | Vulnerability detection and secrets scanning |
+| GenerationAgent | deployment-mcp | `generate` | Generic artifact generation (legacy, prefer `iac`/`ci`/`cd`) |
+| DeploymentAgent | cloud-mcp | `deploy` | Cloud deployment — AWS, GCP, Azure |
+| MonitoringAgent | observability-mcp | `monitor` | Prometheus and Grafana configuration |
+| BridgeAgent | github-mcp | `bridge` | GitHub push, PR creation, repo management |
 
 ---
 
@@ -250,7 +256,8 @@ forgeflow run-all ./repo
 ┌─────────────────────────────────────────────────────────────────┐
 │ MissionControl.run_all():                                       │
 │                                                                 │
-│   for stage in [discover, normalize, docs, generate,            │
+│   for stage in [discover, normalize, docs,                      │
+│                 iac, cd, ci, e2e,          # v2.1 stages        │
 │                 review, test, scan]:                            │
 │       result = self.{stage}(path)                               │
 │       if result.status != "success":                            │
@@ -342,13 +349,17 @@ forgeflow/
 │   ├── base_agent.py          # Abstract base class
 │   ├── discovery_agent.py
 │   ├── normalization_agent.py
-│   ├── security_agent.py
-│   ├── generation_agent.py
-│   ├── deployment_agent.py
-│   ├── testing_agent.py
-│   ├── monitoring_agent.py
 │   ├── documentation_agent.py
+│   ├── iac_agent.py           # v2.1 — Infrastructure as Code
+│   ├── cd_agent.py            # v2.1 — Continuous Deployment
+│   ├── ci_agent.py            # v2.1 — Continuous Integration
+│   ├── e2e_agent.py           # v2.1 — End-to-end testing
 │   ├── code_review_agent.py
+│   ├── testing_agent.py
+│   ├── security_agent.py
+│   ├── generation_agent.py    # Legacy — prefer iac/ci/cd
+│   ├── deployment_agent.py
+│   ├── monitoring_agent.py
 │   └── bridge_agent.py
 ├── mcp_servers/
 │   ├── __init__.py
@@ -356,13 +367,17 @@ forgeflow/
 │   │   ├── __init__.py
 │   │   └── server.py
 │   ├── normalize_mcp/
+│   ├── diagram_generator_mcp/
+│   ├── iac_mcp/               # v2.1
+│   ├── cd_mcp/                # v2.1
+│   ├── ci_mcp/                # v2.1
+│   ├── e2e_mcp/               # v2.1
+│   ├── git_mcp/
+│   ├── cicd_mcp/
 │   ├── security_mcp/
 │   ├── deployment_mcp/
 │   ├── cloud_mcp/
-│   ├── cicd_mcp/
 │   ├── observability_mcp/
-│   ├── diagram_generator_mcp/
-│   ├── git_mcp/
 │   └── github_mcp/
 ├── config/
 │   └── forgeflow-config.yaml  # Deployment configuration

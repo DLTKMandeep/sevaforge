@@ -55,18 +55,24 @@ ForgeFlow uses a layered architecture where all business logic is performed by s
 
 ## Command → Agent → MCP Server Mapping
 
-| Command   | Agent                | MCP Server              | Description                      |
-|-----------|---------------------|-------------------------|----------------------------------|
-| discover  | DiscoveryAgent      | discovery_mcp           | Scans repo structure             |
-| normalize | NormalizationAgent  | normalize_mcp           | Standardizes repo structure      |
-| scan      | SecurityAgent       | security_mcp            | Security vulnerability scanning  |
-| generate  | GenerationAgent     | deployment_mcp          | Generates deployment artifacts   |
-| deploy    | DeploymentAgent     | cloud_mcp               | Cloud infrastructure deployment  |
-| test      | TestingAgent        | cicd_mcp                | Runs tests, CI/CD operations     |
-| monitor   | MonitoringAgent     | observability_mcp       | Sets up monitoring               |
-| docs      | DocumentationAgent  | diagram_generator_mcp   | Generates documentation          |
-| review    | CodeReviewAgent     | git_mcp                 | Code review, git analysis        |
-| bridge    | BridgeAgent         | github_mcp              | GitHub integration               |
+> **v2.1** added four new specialized generation commands (iac, cd, ci, e2e) which run between `docs` and `review` in the default pipeline.
+
+| Command     | Agent                  | MCP Server              | Pipeline Order | Description                                        |
+|-------------|------------------------|-------------------------|----------------|----------------------------------------------------|
+| discover    | DiscoveryAgent         | discovery_mcp           | 1              | Scans repo structure, languages, components        |
+| normalize   | NormalizationAgent     | normalize_mcp           | 2              | Standardizes repo structure and best-practice files|
+| docs        | DocumentationAgent     | diagram_generator_mcp   | 3              | Generates architecture diagrams and API docs       |
+| **iac**     | **IACAgent**           | **iac_mcp**             | **4 (v2.1)**   | **Terraform, Dockerfile, Pulumi generation**       |
+| **cd**      | **CDAgent**            | **cd_mcp**              | **5 (v2.1)**   | **ArgoCD, Kustomize, Helm CD config**              |
+| **ci**      | **CIAgent**            | **ci_mcp**              | **6 (v2.1)**   | **GitHub Actions, GitLab CI, Jenkins setup**       |
+| **e2e**     | **E2ETestingAgent**    | **e2e_mcp**             | **7 (v2.1)**   | **Playwright, Cypress test scaffolding**           |
+| review      | CodeReviewAgent        | git_mcp                 | 8              | Git history analysis and code quality review       |
+| test        | TestingAgent           | cicd_mcp                | 9              | Unit/integration test execution                    |
+| scan        | SecurityAgent          | security_mcp            | 10             | Security vulnerability and secrets scanning        |
+| generate    | GenerationAgent        | deployment_mcp          | (legacy)       | Generic artifact generation — prefer iac/ci/cd     |
+| deploy      | DeploymentAgent        | cloud_mcp               | post-merge     | Cloud deployment — AWS, GCP, Azure                 |
+| monitor     | MonitoringAgent        | observability_mcp       | post-merge     | Prometheus and Grafana configuration               |
+| bridge      | BridgeAgent            | github_mcp              | approval gate  | GitHub push, PR creation, repo management          |
 
 ## Agent Classes
 
@@ -125,32 +131,41 @@ def run(params: dict) -> dict:
 ```
 forgeflow/
 ├── agents/
-│   ├── __init__.py           # Exports all agents
-│   ├── base_agent.py         # BaseAgent class
-│   ├── discovery_agent.py    # DiscoveryAgent
-│   ├── normalization_agent.py
-│   ├── security_agent.py
-│   ├── generation_agent.py
-│   ├── deployment_agent.py
-│   ├── testing_agent.py
-│   ├── monitoring_agent.py
-│   ├── documentation_agent.py
-│   ├── code_review_agent.py
-│   └── bridge_agent.py
+│   ├── __init__.py              # Exports all agents
+│   ├── base_agent.py            # BaseAgent abstract class
+│   ├── discovery_agent.py       # Stage 1
+│   ├── normalization_agent.py   # Stage 2
+│   ├── documentation_agent.py   # Stage 3
+│   ├── iac_agent.py             # Stage 4 — v2.1
+│   ├── cd_agent.py              # Stage 5 — v2.1
+│   ├── ci_agent.py              # Stage 6 — v2.1
+│   ├── e2e_agent.py             # Stage 7 — v2.1
+│   ├── code_review_agent.py     # Stage 8
+│   ├── testing_agent.py         # Stage 9
+│   ├── security_agent.py        # Stage 10
+│   ├── generation_agent.py      # Legacy
+│   ├── deployment_agent.py      # Post-merge
+│   ├── monitoring_agent.py      # Post-merge
+│   └── bridge_agent.py          # Approval gate
 ├── mcp_servers/
-│   ├── discovery_mcp/        # MCP protocol layer
-│   │   └── server.py         # Delegates to DiscoveryAgent
+│   ├── discovery_mcp/           # MCP protocol layer → DiscoveryAgent
+│   │   └── server.py
 │   ├── normalize_mcp/
+│   ├── diagram_generator_mcp/
+│   ├── iac_mcp/                 # v2.1
+│   ├── cd_mcp/                  # v2.1
+│   ├── ci_mcp/                  # v2.1
+│   ├── e2e_mcp/                 # v2.1
+│   ├── git_mcp/
+│   ├── cicd_mcp/
 │   ├── security_mcp/
 │   ├── deployment_mcp/
 │   ├── cloud_mcp/
-│   ├── cicd_mcp/
 │   ├── observability_mcp/
-│   ├── diagram_generator_mcp/
-│   ├── git_mcp/
 │   └── github_mcp/
 ├── core/
-│   └── orchestrator.py       # MCPOrchestrator
+│   └── orchestrator.py          # MCPOrchestrator — lazy subprocess management
 └── cli/
-    └── mission_control.py    # CLI entry point
+    ├── forgeflow.py             # CLI entry point (Click)
+    └── mission_control.py       # Command routing and result display
 ```

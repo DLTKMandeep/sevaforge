@@ -77,15 +77,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-03-11
+
+### Added
+
+- **4 New Specialized Generation Agents** replacing the generic `generate` stage in the default pipeline:
+  - `IACAgent` + `iac-mcp-server` — Infrastructure as Code generation (Terraform modules for AWS/GCP/Azure, Dockerfile, docker-compose, Pulumi)
+  - `CDAgent` + `cd-mcp-server` — Continuous Deployment configuration (ArgoCD Application manifests, Kustomize overlays, Helm chart values)
+  - `CIAgent` + `ci-mcp-server` — Continuous Integration pipeline setup (GitHub Actions workflows, GitLab CI, Jenkins)
+  - `E2ETestingAgent` + `e2e-mcp-server` — End-to-end test scaffolding (Playwright, Cypress config and test stubs)
+
+- **Updated pipeline sequence** — `run-all` now executes 10 stages in order:
+  ```
+  discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → [bridge]
+  ```
+
+- **4 New MCP Servers** registered in `mcp-config.yaml` and `config/forgeflow-config.yaml`:
+  - `iac-mcp-server`
+  - `cd-mcp-server`
+  - `ci-mcp-server`
+  - `e2e-mcp-server`
+
+### Changed
+
+- `generate` command is now considered **legacy** — the specialized `iac`, `cd`, and `ci` commands provide finer-grained control and better output. `generate` remains available for backwards compatibility.
+- Pipeline sequence in `config/forgeflow-config.yaml` updated to include new stages between `docs` and `review`.
+
+---
+
 ## [Unreleased]
 
 ### Planned
 
-- Azure and GCP Terraform modules
-- Kubernetes manifest generation
-- Helm chart generation
-- Enhanced security scanning integrations
-- Parallel stage execution
+- Azure and GCP Terraform modules (extended coverage)
+- Helm chart generation improvements
+- Enhanced security scanning integrations (Snyk, Trivy, SonarQube)
+- Parallel stage execution (`features.parallel_execution: true`)
 - Web UI dashboard
 - VS Code extension
 
@@ -95,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 2.1.0 | 2026-03-11 | 4 new agents (iac, cd, ci, e2e), updated 10-stage pipeline |
 | 1.0.0 | 2026-02-08 | Initial release |
 
 ---
