@@ -330,11 +330,127 @@ Bridge to GitHub (push, PR, sync).
 
 ---
 
+### IAC — Infrastructure as Code
+
+**POST** `/api/v1/iac`
+
+Generate Infrastructure as Code artifacts (Terraform, Dockerfile, docker-compose, Pulumi). Added in v2.1.
+
+**Request Body:**
+```json
+{
+  "path": "/repos/my-app",
+  "provider": "aws"
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | string | - | Local path to repository |
+| `provider` | string | "aws" | Cloud provider: aws, gcp, azure |
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/iac \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"path": "/repos/my-app", "provider": "aws"}'
+```
+
+---
+
+### CD — Continuous Deployment
+
+**POST** `/api/v1/cd`
+
+Generate Continuous Deployment configuration (ArgoCD Application manifests, Kustomize overlays, Helm values). Added in v2.1.
+
+**Request Body:**
+```json
+{
+  "path": "/repos/my-app",
+  "tool": "argocd"
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | string | - | Local path to repository |
+| `tool` | string | "argocd" | CD tool: argocd, kustomize, helm |
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/cd \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"path": "/repos/my-app", "tool": "argocd"}'
+```
+
+---
+
+### CI — Continuous Integration
+
+**POST** `/api/v1/ci`
+
+Generate Continuous Integration pipeline configuration (GitHub Actions, GitLab CI, Jenkins). Added in v2.1.
+
+**Request Body:**
+```json
+{
+  "path": "/repos/my-app",
+  "platform": "github"
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | string | - | Local path to repository |
+| `platform` | string | "github" | CI platform: github, gitlab, jenkins |
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/ci \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"path": "/repos/my-app", "platform": "github"}'
+```
+
+---
+
+### E2E — End-to-End Testing
+
+**POST** `/api/v1/e2e`
+
+Scaffold end-to-end test configuration and test stubs (Playwright, Cypress). Added in v2.1.
+
+**Request Body:**
+```json
+{
+  "path": "/repos/my-app",
+  "framework": "playwright"
+}
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | string | - | Local path to repository |
+| `framework` | string | "playwright" | E2E framework: playwright, cypress |
+
+**Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/e2e \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{"path": "/repos/my-app", "framework": "playwright"}'
+```
+
+---
+
 ### Run All (Full Pipeline)
 
 **POST** `/api/v1/run-all`
 
-Run full pipeline: discover → normalize → docs → generate → review → test → scan → bridge.
+Run full pipeline (v2.1): discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge.
 
 **Request Body:**
 ```json

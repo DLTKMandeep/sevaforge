@@ -1,9 +1,0 @@
-# ForgeFlow Dependencies
-# Core
-pyyaml>=6.0
-click>=8.0
-rich>=13.0
-
-# Optional: For development/testing
-# pytest>=7.0
-# pytest-cov>=4.0
