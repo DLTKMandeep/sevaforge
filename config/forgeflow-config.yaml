@@ -1,0 +1,80 @@
+# ForgeFlow Configuration - CLOUD MODE
+# All MCPs and Agents run remotely (thin client mode)
+
+mode: cloud
+
+# Pipeline configuration
+pipeline:
+  sequence:
+    - discover
+    - normalize
+    - docs
+    - generate
+    - review
+    - test
+    - scan
+  post_merge:
+    - deploy
+    - monitor
+  approval_gates:
+    - bridge
+
+# Cloud mode configuration - All processing in the cloud
+public:
+  # Base URL for ForgeFlow Cloud API
+  api_base_url: "https://api.forgeflow.io/v1"
+
+  # Individual MCP endpoint URLs (optional, takes precedence over api_base_url)
+  endpoints:
+    discovery: "https://api.forgeflow.io/mcp/discovery"
+    normalize: "https://api.forgeflow.io/mcp/normalize"
+    security: "https://api.forgeflow.io/mcp/security"
+    deployment: "https://api.forgeflow.io/mcp/deployment"
+    docs: "https://api.forgeflow.io/mcp/docs"
+    github: "https://api.forgeflow.io/mcp/github"
+    git: "https://api.forgeflow.io/mcp/git"
+    cicd: "https://api.forgeflow.io/mcp/cicd"
+    cloud: "https://api.forgeflow.io/mcp/cloud"
+    observability: "https://api.forgeflow.io/mcp/observability"
+
+  # Authentication configuration
+  auth:
+    type: api_key
+    api_key_env: "FORGEFLOW_API_KEY"
+    # OAuth settings (when type: oauth)
+    oauth:
+      client_id_env: "FORGEFLOW_CLIENT_ID"
+      client_secret_env: "FORGEFLOW_CLIENT_SECRET"
+      token_url: "https://auth.forgeflow.io/oauth/token"
+
+  # Connection settings
+  connection:
+    timeout: 60
+    retries: 3
+    retry_delay: 2
+    verify_ssl: true
+
+  # Streaming settings (for SSE responses)
+  streaming:
+    enabled: true
+    heartbeat_interval: 30
+
+# Feature flags
+features:
+  rich_display: true
+  auto_save_reports: true
+  telemetry: false
+  parallel_execution: true  # Cloud mode supports parallel execution
+
+# Default parameters
+defaults:
+  security:
+    severity_threshold: medium
+  generation:
+    stack: auto
+    cloud_provider: aws
+  deployment:
+    target: staging
+  bridge:
+    default_branch: main
+    auto_create_repo: true
