@@ -1,0 +1,314 @@
+# ForgeFlow Deployment Configuration
+# Defines how ForgeFlow runs: locally, hybrid, or cloud-managed
+
+# Deployment mode: 'local', 'hybrid', or 'public'
+# - local: All MCPs run locally on user's machine (full offline capability)
+# - hybrid: Mix of local and public MCPs (requires internet for some features)
+# - public: All MCPs and Agents run in the cloud (thin client mode)
+mode: local
+
+# Pipeline configuration
+pipeline:
+  # Default pipeline sequence for run-all command (v2.1)
+  sequence:
+    - discover
+    - normalize
+    - docs
+    - iac      # Infrastructure as Code (Terraform, Docker)
+    - cd       # Continuous Deployment (ArgoCD, Kustomize)
+    - ci       # Continuous Integration (GitHub Actions, GitLab CI)
+    - e2e      # E2E Testing (Playwright, Cypress)
+    - review
+    - test
+    - scan
+  
+  # Post-merge stages (optional, run after bridge/merge)
+  post_merge:
+    - deploy
+    - monitor
+  
+  # Stages that require manual approval
+  approval_gates:
+    - bridge  # Always require approval before pushing to GitHub
+
+# LOCAL mode configuration
+# All MCPs and Agents run on the user's machine
+local:
+  # All MCP servers run as local subprocesses
+  mcp_servers:
+    discovery-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/discovery_mcp/server.py"]
+      
+    normalize-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/normalize_mcp/server.py"]
+      
+    security-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/security_mcp/server.py"]
+      
+    deployment-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/deployment_mcp/server.py"]
+      
+    cloud-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/cloud_mcp/server.py"]
+      
+    cicd-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/cicd_mcp/server.py"]
+      
+    observability-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/observability_mcp/server.py"]
+      
+    diagram-generator-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/diagram_generator_mcp/server.py"]
+      
+    git-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/git_mcp/server.py"]
+      
+    github-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/github_mcp/server.py"]
+    
+    # New specialized generation servers (v2.1)
+    iac-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/iac_mcp/server.py"]
+    
+    cd-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/cd_mcp/server.py"]
+    
+    ci-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/ci_mcp/server.py"]
+    
+    e2e-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/e2e_mcp/server.py"]
+
+# HYBRID mode configuration
+# Mix of local MCPs and public/remote MCPs
+hybrid:
+  # MCPs that run locally (core functionality)
+  local_mcps:
+    discovery-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/discovery_mcp/server.py"]
+      
+    normalize-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/normalize_mcp/server.py"]
+      
+    deployment-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/deployment_mcp/server.py"]
+      
+    diagram-generator-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/diagram_generator_mcp/server.py"]
+      
+    git-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/git_mcp/server.py"]
+    
+    # New specialized generation servers (v2.1)
+    iac-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/iac_mcp/server.py"]
+    
+    cd-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/cd_mcp/server.py"]
+    
+    ci-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/ci_mcp/server.py"]
+    
+    e2e-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/e2e_mcp/server.py"]
+  
+  # MCPs that use public/external services
+  public_mcps:
+    github-mcp-server:
+      type: public
+      # Uses official GitHub MCP server via npx
+      command: "npx"
+      args: ["-y", "@modelcontextprotocol/server-github"]
+      fallback:
+        type: local
+        command: "python3"
+        args: ["mcp_servers/github_mcp/server.py"]
+      
+    security-mcp-server:
+      type: public
+      # Can integrate with external security scanning APIs
+      integrations:
+        snyk:
+          enabled: false
+          api_key_env: "SNYK_API_KEY"
+          endpoint: "https://snyk.io/api/v1"
+        trivy:
+          enabled: false
+          # Trivy runs locally but downloads vulnerability DB
+          command: "trivy"
+          args: ["fs", "--format", "json"]
+        sonarqube:
+          enabled: false
+          endpoint_env: "SONARQUBE_URL"
+          token_env: "SONARQUBE_TOKEN"
+      fallback:
+        type: local
+        command: "python3"
+        args: ["mcp_servers/security_mcp/server.py"]
+    
+    cicd-mcp-server:
+      type: public
+      # Can integrate with GitHub Actions API
+      integrations:
+        github_actions:
+          enabled: true
+          api_endpoint: "https://api.github.com"
+      fallback:
+        type: local
+        command: "python3"
+        args: ["mcp_servers/cicd_mcp/server.py"]
+    
+    cloud-mcp-server:
+      type: public
+      # Can integrate with cloud provider APIs
+      integrations:
+        aws:
+          enabled: false
+          region_env: "AWS_REGION"
+          profile_env: "AWS_PROFILE"
+        gcp:
+          enabled: false
+          project_env: "GCP_PROJECT"
+          credentials_env: "GOOGLE_APPLICATION_CREDENTIALS"
+        azure:
+          enabled: false
+          subscription_env: "AZURE_SUBSCRIPTION_ID"
+      fallback:
+        type: local
+        command: "python3"
+        args: ["mcp_servers/cloud_mcp/server.py"]
+    
+    observability-mcp-server:
+      type: public
+      integrations:
+        prometheus:
+          enabled: false
+          endpoint_env: "PROMETHEUS_URL"
+        grafana:
+          enabled: false
+          endpoint_env: "GRAFANA_URL"
+          api_key_env: "GRAFANA_API_KEY"
+        datadog:
+          enabled: false
+          api_key_env: "DD_API_KEY"
+      fallback:
+        type: local
+        command: "python3"
+        args: ["mcp_servers/observability_mcp/server.py"]
+
+# PUBLIC mode configuration
+# All MCPs and Agents run remotely - CLI acts as thin client
+public:
+  # Base URL for all MCP endpoints (optional - use this OR individual endpoints)
+  api_base_url: "https://forgeflow.example.com/api/v1"
+  
+  # Individual MCP endpoint URLs (takes precedence over api_base_url)
+  endpoints:
+    discovery: "https://api.forgeflow.io/mcp/discovery"
+    normalize: "https://api.forgeflow.io/mcp/normalize"
+    security: "https://api.forgeflow.io/mcp/security"
+    deployment: "https://api.forgeflow.io/mcp/deployment"
+    docs: "https://api.forgeflow.io/mcp/docs"
+    github: "https://api.forgeflow.io/mcp/github"
+    git: "https://api.forgeflow.io/mcp/git"
+    cicd: "https://api.forgeflow.io/mcp/cicd"
+    cloud: "https://api.forgeflow.io/mcp/cloud"
+    observability: "https://api.forgeflow.io/mcp/observability"
+  
+  # Authentication configuration
+  auth:
+    type: api_key  # api_key, oauth, or token
+    api_key_env: "FORGEFLOW_API_KEY"
+    # OAuth settings (when type: oauth)
+    oauth:
+      client_id_env: "FORGEFLOW_CLIENT_ID"
+      client_secret_env: "FORGEFLOW_CLIENT_SECRET"
+      token_url: "https://auth.forgeflow.io/oauth/token"
+  
+  # Connection settings
+  connection:
+    timeout: 60  # Request timeout in seconds
+    retries: 3   # Number of retry attempts
+    retry_delay: 2  # Delay between retries in seconds
+    verify_ssl: true  # Verify SSL certificates
+  
+  # Streaming settings (for SSE responses)
+  streaming:
+    enabled: true  # Enable Server-Sent Events for real-time updates
+    heartbeat_interval: 30  # Keepalive interval in seconds
+
+# Feature flags
+features:
+  # Enable rich CLI display
+  rich_display: true
+  
+  # Auto-save reports to staging folder
+  auto_save_reports: true
+  
+  # Enable telemetry (anonymous usage stats)
+  telemetry: false
+  
+  # Enable parallel stage execution where possible
+  parallel_execution: false
+
+# Default parameters
+defaults:
+  security:
+    severity_threshold: medium  # low, medium, high, critical
+  
+  generation:
+    stack: auto  # auto, docker, kubernetes, terraform, helm
+    cloud_provider: aws  # aws, gcp, azure
+  
+  deployment:
+    target: staging  # dev, staging, production
+  
+  bridge:
+    default_branch: main
+    auto_create_repo: true

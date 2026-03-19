@@ -1,0 +1,82 @@
+# ForgeFlow - Docker Compose Configuration
+# Run with: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ForgeFlow API Server
+  forgeflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: forgeflow-api
+    ports:
+      - "8000:8000"
+    environment:
+      - FORGEFLOW_MODE=local
+      - FORGEFLOW_API_KEY=${FORGEFLOW_API_KEY:-}
+      - FORGEFLOW_API_KEY_REQUIRED=${FORGEFLOW_API_KEY_REQUIRED:-false}
+      - FORGEFLOW_MAX_REPO_SIZE_MB=100
+      - FORGEFLOW_TASK_TIMEOUT=300
+      - GH_TOKEN=${GH_TOKEN:-}  # GitHub token for bridge functionality
+    volumes:
+      - ./repos:/repos:rw  # Mount local repos directory
+      - forgeflow-temp:/tmp/forgeflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - forgeflow-net
+
+  # Redis for task queue (optional, for production)
+  redis:
+    image: redis:7-alpine
+    container_name: forgeflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - forgeflow-net
+    profiles:
+      - production
+
+  # Celery worker for async tasks (optional, for production)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: forgeflow-worker
+    command: celery -A api.tasks worker --loglevel=info
+    environment:
+      - FORGEFLOW_MODE=local
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./repos:/repos:rw
+      - forgeflow-temp:/tmp/forgeflow
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - forgeflow-net
+    profiles:
+      - production
+
+volumes:
+  forgeflow-temp:
+  redis-data:
+
+networks:
+  forgeflow-net:
+    driver: bridge

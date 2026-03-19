@@ -1,0 +1,82 @@
+# ForgeFlow API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgeflow
+  namespace: forgeflow
+  labels:
+    app: forgeflow
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forgeflow
+      component: api
+  template:
+    metadata:
+      labels:
+        app: forgeflow
+        component: api
+    spec:
+      containers:
+      - name: forgeflow
+        image: forgeflow:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: forgeflow-config
+        - secretRef:
+            name: forgeflow-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /tmp/forgeflow
+        - name: repos
+          mountPath: /repos
+      volumes:
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: 5Gi
+      - name: repos
+        persistentVolumeClaim:
+          claimName: forgeflow-repos-pvc
+---
+# Persistent Volume Claim for repositories
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forgeflow-repos-pvc
+  namespace: forgeflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard  # Adjust based on your cluster
