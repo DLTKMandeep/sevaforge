@@ -7,15 +7,23 @@ REST API interface for ForgeFlow commands, enabling containerized/cloud deployme
 Endpoints:
     POST /api/v1/discover     - Run discover on repository
     POST /api/v1/normalize    - Run normalize
-    POST /api/v1/scan         - Run security scan
     POST /api/v1/docs         - Generate documentation
-    POST /api/v1/generate     - Generate infrastructure
+    POST /api/v1/iac          - Infrastructure as Code generation
+    POST /api/v1/cd           - Continuous Deployment config
+    POST /api/v1/ci           - CI pipeline config
+    POST /api/v1/e2e          - E2E test scaffolding
     POST /api/v1/review       - Code review
     POST /api/v1/test         - Run tests
+    POST /api/v1/scan         - Run security scan
     POST /api/v1/bridge       - Push to GitHub
+    POST /api/v1/generate     - Generate deployment artifacts
+    POST /api/v1/deploy       - Deploy to cloud
+    POST /api/v1/monitor      - Setup monitoring
     POST /api/v1/run-all      - Full pipeline
+    GET  /api/v1/doctor       - Health check all components
     GET  /api/v1/status       - Service status
     GET  /health              - Health check
+    GET  /                    - Serve web dashboard UI
 """
 import os
 import sys
@@ -31,7 +39,8 @@ from functools import wraps
 
 from fastapi import FastAPI, HTTPException, Depends, Header, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -111,6 +120,34 @@ class BridgeRequest(RepoRequest):
     pr_title: Optional[str] = Field(default=None, description="Pull request title")
     pr_body: Optional[str] = Field(default=None, description="Pull request body")
 
+class IACRequest(RepoRequest):
+    """Infrastructure as Code request."""
+    cloud: str = Field(default="aws", description="Cloud provider: aws, gcp, azure")
+    include_pulumi: bool = Field(default=False, description="Also generate Pulumi config")
+
+class CDRequest(RepoRequest):
+    """Continuous Deployment request."""
+    repo_url: str = Field(default="https://github.com/org/repo.git", description="Git repo URL for ArgoCD")
+    namespace: str = Field(default="default", description="Kubernetes namespace")
+
+class CIRequest(RepoRequest):
+    """Continuous Integration request."""
+    include_gitlab: bool = Field(default=True, description="Include GitLab CI config")
+    include_jenkins: bool = Field(default=False, description="Include Jenkinsfile")
+
+class E2ERequest(RepoRequest):
+    """E2E testing request."""
+    framework: str = Field(default="playwright", description="Test framework: playwright, cypress")
+    base_url: str = Field(default="http://localhost:3000", description="App URL for tests")
+
+class MonitorRequest(RepoRequest):
+    """Monitoring setup request."""
+    pass
+
+class DeployRequest(RepoRequest):
+    """Deployment request."""
+    target: str = Field(default="staging", description="Deployment target: staging, production")
+
 class RunAllRequest(RepoRequest):
     """Full pipeline request."""
     include_post_merge: bool = Field(default=False, description="Include post-merge stages (deploy, monitor)")
@@ -171,10 +208,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ForgeFlow API",
     description="REST API for ForgeFlow - AI Platform Engineering CLI",
-    version="0.1.0",
+    version="2.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
 )
 
 # CORS middleware
@@ -185,6 +222,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve UI static files
+_ui_dir = Path(__file__).parent.parent / "ui"
+if _ui_dir.exists():
+    app.mount("/ui", StaticFiles(directory=str(_ui_dir), html=True), name="ui")
+
+@app.get("/", include_in_schema=False)
+async def serve_dashboard():
+    """Redirect root to the web dashboard."""
+    ui_index = _ui_dir / "index.html"
+    if ui_index.exists():
+        return FileResponse(str(ui_index))
+    return JSONResponse({"message": "ForgeFlow API v2.1 — UI not found. See /api/docs for API docs."})
 
 
 # ============================================================================
@@ -424,6 +474,96 @@ async def test(request: TestRequest, authorized: bool = Depends(verify_api_key))
         data=result.get("data"),
         findings=result.get("findings"),
         timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/iac", response_model=CommandResponse, tags=["Commands"])
+async def iac(request: IACRequest, authorized: bool = Depends(verify_api_key)):
+    """Generate Infrastructure as Code (Terraform, Docker, Pulumi)."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.iac(repo_path, cloud=request.cloud, include_pulumi=request.include_pulumi)
+    return CommandResponse(
+        status=result.get("status", "success"), command="iac",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/cd", response_model=CommandResponse, tags=["Commands"])
+async def cd(request: CDRequest, authorized: bool = Depends(verify_api_key)):
+    """Generate Continuous Deployment configuration (ArgoCD, Kustomize, Helm)."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.cd(repo_path, repo_url=request.repo_url, namespace=request.namespace)
+    return CommandResponse(
+        status=result.get("status", "success"), command="cd",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/ci", response_model=CommandResponse, tags=["Commands"])
+async def ci(request: CIRequest, authorized: bool = Depends(verify_api_key)):
+    """Generate CI pipeline configuration (GitHub Actions, GitLab CI, Jenkins)."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.ci(repo_path, include_gitlab=request.include_gitlab, include_jenkins=request.include_jenkins)
+    return CommandResponse(
+        status=result.get("status", "success"), command="ci",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/e2e", response_model=CommandResponse, tags=["Commands"])
+async def e2e(request: E2ERequest, authorized: bool = Depends(verify_api_key)):
+    """Generate E2E test scaffolding (Playwright, Cypress)."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.e2e(repo_path, framework=request.framework, base_url=request.base_url)
+    return CommandResponse(
+        status=result.get("status", "success"), command="e2e",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/monitor", response_model=CommandResponse, tags=["Commands"])
+async def monitor(request: MonitorRequest, authorized: bool = Depends(verify_api_key)):
+    """Set up monitoring stack (Prometheus, Grafana, Alertmanager)."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.monitor(repo_path)
+    return CommandResponse(
+        status=result.get("status", "success"), command="monitor",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.post("/api/v1/deploy", response_model=CommandResponse, tags=["Commands"])
+async def deploy(request: DeployRequest, authorized: bool = Depends(verify_api_key)):
+    """Deploy to cloud infrastructure."""
+    repo_path = await prepare_repo(request)
+    mc = MissionControl(mode=settings.mode)
+    result = mc.deploy(repo_path, target=request.target)
+    return CommandResponse(
+        status=result.get("status", "success"), command="deploy",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@app.get("/api/v1/doctor", response_model=CommandResponse, tags=["Health"])
+async def doctor(authorized: bool = Depends(verify_api_key)):
+    """Run health check on all ForgeFlow components."""
+    mc = MissionControl(mode=settings.mode)
+    result = mc.doctor()
+    return CommandResponse(
+        status=result.get("status", "success"), command="doctor",
+        summary=result.get("summary"), data=result.get("data"),
+        findings=result.get("findings"), timestamp=datetime.utcnow().isoformat()
     )
 
 

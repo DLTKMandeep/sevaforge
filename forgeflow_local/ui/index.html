@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ForgeFlow Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0d1117;
+      --bg2:       #161b22;
+      --bg3:       #21262d;
+      --border:    #30363d;
+      --text:      #c9d1d9;
+      --text2:     #8b949e;
+      --green:     #3fb950;
+      --green-dim: #1a4028;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --blue:      #58a6ff;
+      --purple:    #bc8cff;
+      --orange:    #ffa657;
+      --accent:    #58a6ff;
+    }
+    html, body, #root { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: var(--bg2); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    button { cursor: pointer; border: none; outline: none; font-family: inherit; font-size: 13px; }
+    input { font-family: inherit; font-size: 13px; }
+    code, .mono { font-family: 'SF Mono', Consolas, monospace; }
+
+    /* Layout */
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 220px; min-width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { height: 52px; min-height: 52px; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 12px; }
+    .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* Sidebar */
+    .logo { padding: 16px 16px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+    .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #1f6feb, #388bfd); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .logo-text { font-weight: 700; font-size: 15px; color: var(--text); }
+    .logo-version { font-size: 10px; color: var(--text2); background: var(--bg3); padding: 1px 5px; border-radius: 3px; }
+    .nav { padding: 8px; flex: 1; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; color: var(--text2); cursor: pointer; margin-bottom: 2px; transition: all .15s; font-size: 13px; }
+    .nav-item:hover { background: var(--bg3); color: var(--text); }
+    .nav-item.active { background: #1f3c5c; color: var(--blue); }
+    .nav-icon { width: 16px; text-align: center; }
+    .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+    .server-pill { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text2); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); }
+    .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); }
+
+    /* Topbar */
+    .topbar-title { font-weight: 600; font-size: 15px; flex: 1; }
+    .badge { padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: var(--green-dim); color: var(--green); }
+    .badge-yellow { background: #2d2008; color: var(--yellow); }
+    .badge-red { background: #3d1c1c; color: var(--red); }
+    .badge-blue { background: #1a2f4a; color: var(--blue); }
+    .badge-gray { background: var(--bg3); color: var(--text2); }
+
+    /* Cards */
+    .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .card-sm { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); margin-bottom: 10px; }
+
+    /* Grid */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+    /* Stats */
+    .stat-val { font-size: 28px; font-weight: 700; line-height: 1.2; }
+    .stat-label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+    /* Buttons */
+    .btn { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: all .15s; }
+    .btn-primary { background: #1f6feb; color: #fff; }
+    .btn-primary:hover { background: #388bfd; }
+    .btn-primary:disabled { background: var(--bg3); color: var(--text2); cursor: not-allowed; }
+    .btn-green { background: #196c2e; color: var(--green); }
+    .btn-green:hover { background: #1a4028; }
+    .btn-green:disabled { background: var(--bg3); color: var(--text2); cursor: not-allowed; }
+    .btn-ghost { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn-danger { background: #3d1c1c; color: var(--red); }
+    .btn-danger:hover { background: var(--red); color: #fff; }
+
+    /* Input */
+    .input { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 12px; width: 100%; transition: border-color .15s; }
+    .input:focus { outline: none; border-color: var(--blue); }
+    .input-group { display: flex; gap: 8px; align-items: center; }
+    label { font-size: 12px; color: var(--text2); margin-bottom: 5px; display: block; }
+
+    /* Stage cards */
+    .stage-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .stage-card { background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 8px; cursor: pointer; transition: all .15s; text-align: center; position: relative; user-select: none; }
+    .stage-card:hover { border-color: var(--blue); background: #1a2840; }
+    .stage-card.selected { border-color: var(--blue); background: #1a2840; }
+    .stage-card.status-running { border-color: var(--yellow); background: #2a1f08; animation: pulse 1.5s infinite; }
+    .stage-card.status-success { border-color: var(--green); background: var(--green-dim); }
+    .stage-card.status-error { border-color: var(--red); background: #3d1c1c; }
+    .stage-card.status-skipped { border-color: var(--border); opacity: .5; }
+    .stage-icon { font-size: 20px; margin-bottom: 5px; }
+    .stage-name { font-size: 11px; font-weight: 600; color: var(--text); }
+    .stage-desc { font-size: 10px; color: var(--text2); margin-top: 2px; }
+    .stage-check { position: absolute; top: 5px; right: 5px; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 9px; }
+    .stage-check.checked { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .stage-status-icon { position: absolute; bottom: 5px; right: 5px; font-size: 12px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* Result panel */
+    .result-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+    .result-header { padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background .1s; }
+    .result-header:hover { background: var(--bg3); }
+    .result-body { padding: 0 14px 12px; border-top: 1px solid var(--border); }
+    .finding-item { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text2); display: flex; align-items: flex-start; gap: 8px; }
+    .finding-item:last-child { border-bottom: none; }
+    .finding-item .mono { color: var(--text); font-size: 11px; }
+
+    /* Health grid */
+    .health-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+    .health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    /* History */
+    .history-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .history-row:last-child { border-bottom: none; }
+    .history-row:hover { background: var(--bg3); }
+
+    /* Misc */
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .text-green { color: var(--green); } .text-red { color: var(--red); } .text-yellow { color: var(--yellow); } .text-blue { color: var(--blue); } .text-gray { color: var(--text2); }
+    .mt-4 { margin-top: 16px; } .mt-3 { margin-top: 12px; } .mt-2 { margin-top: 8px; }
+    .mb-4 { margin-bottom: 16px; } .mb-3 { margin-bottom: 12px; }
+    .flex { display: flex; } .items-center { align-items: center; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .justify-between { justify-content: space-between; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 13px; z-index: 999; animation: slideUp .2s ease; }
+    @keyframes slideUp { from { transform: translateY(10px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+    .progress-bar { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
+    .tab-row { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .tab { padding: 8px 16px; font-size: 13px; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 13px; font-weight: 500; }
+    .settings-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .toggle { width: 36px; height: 20px; background: var(--bg3); border-radius: 10px; cursor: pointer; position: relative; border: 1px solid var(--border); transition: background .2s; }
+    .toggle.on { background: var(--blue); border-color: var(--blue); }
+    .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; }
+    .toggle.on::after { transform: translateX(16px); }
+    select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+    .select-sm { padding: 4px 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const STAGES = [
+  { id:'discover', label:'Discover', icon:'🔍', endpoint:'/api/v1/discover', desc:'Scan structure', tag:'core' },
+  { id:'normalize', label:'Normalize', icon:'🔧', endpoint:'/api/v1/normalize', desc:'Standardize', tag:'core' },
+  { id:'docs', label:'Docs', icon:'📚', endpoint:'/api/v1/docs', desc:'Documentation', tag:'core' },
+  { id:'iac', label:'IAC', icon:'🏗️', endpoint:'/api/v1/iac', desc:'Infra as Code', tag:'v2.1' },
+  { id:'cd', label:'CD', icon:'🚀', endpoint:'/api/v1/cd', desc:'Deployment config', tag:'v2.1' },
+  { id:'ci', label:'CI', icon:'⚙️', endpoint:'/api/v1/ci', desc:'CI pipelines', tag:'v2.1' },
+  { id:'e2e', label:'E2E', icon:'🧪', endpoint:'/api/v1/e2e', desc:'E2E tests', tag:'v2.1' },
+  { id:'review', label:'Review', icon:'👁️', endpoint:'/api/v1/review', desc:'Code quality', tag:'core' },
+  { id:'test', label:'Test', icon:'✅', endpoint:'/api/v1/test', desc:'Run tests', tag:'core' },
+  { id:'scan', label:'Scan', icon:'🔒', endpoint:'/api/v1/scan', desc:'Security scan', tag:'core' },
+  { id:'bridge', label:'Bridge', icon:'🌉', endpoint:'/api/v1/bridge', desc:'GitHub sync', tag:'core' },
+  { id:'generate', label:'Generate', icon:'📦', endpoint:'/api/v1/generate', desc:'Artifacts', tag:'core' },
+  { id:'deploy', label:'Deploy', icon:'☁️', endpoint:'/api/v1/deploy', desc:'Deploy to cloud', tag:'post-merge' },
+  { id:'monitor', label:'Monitor', icon:'📊', endpoint:'/api/v1/monitor', desc:'Observability', tag:'post-merge' },
+];
+
+const STATUS_ICON = { pending:'○', running:'⟳', success:'✓', error:'✗', skipped:'–' };
+
+const NAV = [
+  { id:'dashboard', label:'Dashboard', icon:'◈' },
+  { id:'pipeline', label:'Pipeline', icon:'▶' },
+  { id:'health', label:'Health', icon:'♥' },
+  { id:'history', label:'History', icon:'◷' },
+  { id:'settings', label:'Settings', icon:'⚙' },
+];
+
+// ── API Client ────────────────────────────────────────────────────────────────
+
+function useApi(settings) {
+  const call = useCallback(async (method, path, body) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (settings.apiKey) headers['X-API-Key'] = settings.apiKey;
+    const res = await fetch(`${settings.apiUrl}${path}`, {
+      method, headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    return res.json();
+  }, [settings]);
+
+  return { get: (p) => call('GET', p), post: (p, b) => call('POST', p, b) };
+}
+
+// ── Components ────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  const map = {
+    success: ['badge-green', '● Success'],
+    running: ['badge-yellow', '⟳ Running'],
+    error:   ['badge-red',    '✗ Error'],
+    warning: ['badge-yellow', '⚠ Warning'],
+    healthy: ['badge-green',  '● Healthy'],
+    down:    ['badge-red',    '● Offline'],
+  };
+  const [cls, txt] = map[status] || ['badge-gray', status];
+  return <span className={`badge ${cls}`}>{txt}</span>;
+}
+
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, []);
+  const colors = { error: 'var(--red)', success: 'var(--green)', info: 'var(--blue)' };
+  return (
+    <div className="toast" style={{ borderLeftColor: colors[type]||colors.info, borderLeftWidth: 3 }}>
+      {msg}
+    </div>
+  );
+}
+
+function Spinner() { return <span className="spinner" />; }
+
+// ── Dashboard View ───────────────────────────────────────────────────────────
+
+function DashboardView({ history, serverStatus, onNavigate }) {
+  const runs = history.length;
+  const last = history[0];
+  const successes = history.filter(r => r.status === 'success').length;
+  const rate = runs ? Math.round(successes / runs * 100) : 0;
+
+  return (
+    <div>
+      <div className="section-title">⚡ ForgeFlow Dashboard</div>
+
+      <div className="grid-4 mb-4">
+        {[
+          { label:'Total Runs', val: runs, color: 'var(--blue)' },
+          { label:'Success Rate', val: runs ? `${rate}%` : '—', color: rate > 80 ? 'var(--green)' : 'var(--yellow)' },
+          { label:'Last Run', val: last ? last.status === 'success' ? '✓ OK' : '✗ Error' : '—', color: last?.status === 'success' ? 'var(--green)' : 'var(--red)' },
+          { label:'Stages Run', val: history.reduce((a, r) => a + (r.stages || 0), 0), color: 'var(--purple)' },
+        ].map(s => (
+          <div key={s.label} className="card">
+            <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.val}</div>
+            <div className="stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2" style={{ gap: 16 }}>
+        <div className="card">
+          <div className="card-title">Quick Actions</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button className="btn btn-primary" style={{ textAlign: 'left' }} onClick={() => onNavigate('pipeline')}>
+              ▶  Run Full Pipeline
+            </button>
+            <button className="btn btn-ghost" style={{ textAlign: 'left' }} onClick={() => onNavigate('pipeline')}>
+              ⚡  Run Selected Stages
+            </button>
+            <button className="btn btn-ghost" style={{ textAlign: 'left' }} onClick={() => onNavigate('health')}>
+              ♥  Health Check
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Recent Runs</div>
+          {history.length === 0 ? (
+            <div className="text-gray" style={{ fontSize: 13 }}>No runs yet. Start a pipeline to see history.</div>
+          ) : (
+            <div>
+              {history.slice(0, 5).map((r, i) => (
+                <div key={i} className="history-row" style={{ background: 'none', padding: '7px 0' }}>
+                  <span style={{ fontSize: 16 }}>{r.status === 'success' ? '✓' : '✗'}</span>
+                  <span className="mono" style={{ flex: 1, fontSize: 11, color: 'var(--text2)' }}>
+                    {r.path?.split('/').pop() || 'repo'}
+                  </span>
+                  <span className="text-gray" style={{ fontSize: 11 }}>{r.stages} stages</span>
+                  <StatusBadge status={r.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {serverStatus && (
+        <div className="card mt-4">
+          <div className="card-title">Server Status</div>
+          <div className="grid-3" style={{ gap: 10 }}>
+            {[
+              ['Mode', serverStatus.mode?.toUpperCase() || '—'],
+              ['Version', serverStatus.version || '—'],
+              ['Active Tasks', serverStatus.active_tasks ?? '—'],
+              ['Uptime', serverStatus.uptime_seconds ? `${Math.round(serverStatus.uptime_seconds / 60)}m` : '—'],
+              ['API', 'Connected'],
+              ['Status', serverStatus.status || '—'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                <span className="text-gray">{k}</span>
+                <span style={{ fontWeight: 600 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Pipeline View ─────────────────────────────────────────────────────────────
+
+function PipelineView({ api, onRunComplete }) {
+  const [repoPath, setRepoPath] = useState('');
+  const [selected, setSelected] = useState(new Set(STAGES.map(s => s.id)));
+  const [stageStatus, setStageStatus] = useState({});
+  const [results, setResults] = useState({});
+  const [running, setRunning] = useState(false);
+  const [expanded, setExpanded] = useState({});
+  const [severityThreshold, setSeverityThreshold] = useState('medium');
+  const [showPostMerge, setShowPostMerge] = useState(false);
+  const cancelRef = useRef(false);
+
+  const visibleStages = STAGES.filter(s => showPostMerge || s.tag !== 'post-merge');
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelected(new Set(visibleStages.map(s => s.id)));
+  const selectNone = () => setSelected(new Set());
+
+  const runPipeline = async (stagesToRun) => {
+    if (!repoPath.trim()) { alert('Please enter a repository path.'); return; }
+    setRunning(true);
+    cancelRef.current = false;
+    setStageStatus({});
+    setResults({});
+    let allOk = true;
+    const ranStages = [];
+
+    for (const stage of stagesToRun) {
+      if (cancelRef.current) break;
+      if (!selected.has(stage.id)) continue;
+
+      setStageStatus(prev => ({ ...prev, [stage.id]: 'running' }));
+      try {
+        const body = { path: repoPath };
+        if (stage.id === 'scan') body.severity = severityThreshold;
+        const result = await api.post(stage.endpoint, body);
+        setResults(prev => ({ ...prev, [stage.id]: result }));
+        const ok = result.status === 'success' || result.status === 'accepted';
+        setStageStatus(prev => ({ ...prev, [stage.id]: ok ? 'success' : 'error' }));
+        if (!ok) allOk = false;
+        ranStages.push(stage.id);
+      } catch (e) {
+        setResults(prev => ({ ...prev, [stage.id]: { status: 'error', summary: e.message } }));
+        setStageStatus(prev => ({ ...prev, [stage.id]: 'error' }));
+        allOk = false;
+      }
+    }
+    setRunning(false);
+    onRunComplete({ path: repoPath, status: allOk ? 'success' : 'error', stages: ranStages.length, ts: new Date() });
+  };
+
+  const doneCount = Object.values(stageStatus).filter(s => s === 'success' || s === 'error').length;
+  const totalSelected = visibleStages.filter(s => selected.has(s.id)).length;
+  const progress = totalSelected ? Math.round(doneCount / totalSelected * 100) : 0;
+
+  return (
+    <div>
+      <div className="section-title">▶ Pipeline Runner</div>
+
+      {/* Repo Input */}
+      <div className="card mb-4">
+        <label>Repository Path</label>
+        <div className="input-group">
+          <input
+            className="input mono"
+            placeholder="/path/to/your/repo  or  https://github.com/org/repo.git"
+            value={repoPath}
+            onChange={e => setRepoPath(e.target.value)}
+            disabled={running}
+          />
+          <select className="select-sm" value={severityThreshold} onChange={e => setSeverityThreshold(e.target.value)} style={{ minWidth: 100 }}>
+            <option value="low">Low+</option>
+            <option value="medium">Medium+</option>
+            <option value="high">High+</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Stage Selection */}
+      <div className="card mb-4">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>Select Stages</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn btn-ghost btn-sm" onClick={selectAll}>All</button>
+            <button className="btn btn-ghost btn-sm" onClick={selectNone}>None</button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0, cursor: 'pointer' }}>
+              <div className={`toggle ${showPostMerge ? 'on' : ''}`} onClick={() => setShowPostMerge(!showPostMerge)} />
+              <span style={{ fontSize: 11, color: 'var(--text2)' }}>Post-merge</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="stage-grid">
+          {visibleStages.map(stage => {
+            const status = stageStatus[stage.id];
+            const isSel = selected.has(stage.id);
+            return (
+              <div
+                key={stage.id}
+                className={`stage-card ${isSel ? 'selected' : ''} ${status ? `status-${status}` : ''}`}
+                onClick={() => !running && toggle(stage.id)}
+              >
+                <div className={`stage-check ${isSel ? 'checked' : ''}`}>{isSel ? '✓' : ''}</div>
+                <div className="stage-icon">{stage.icon}</div>
+                <div className="stage-name">{stage.label}</div>
+                <div className="stage-desc">{stage.desc}</div>
+                {status && (
+                  <div className="stage-status-icon">
+                    {status === 'running' ? <Spinner /> : STATUS_ICON[status]}
+                  </div>
+                )}
+                {stage.tag === 'v2.1' && !status && (
+                  <span style={{ position:'absolute', top:4, left:4, fontSize:9, background:'#1a2f4a', color:'var(--blue)', padding:'1px 4px', borderRadius:3 }}>v2.1</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {running && (
+          <div className="progress-bar mt-3">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text2)' }}>
+          {selected.size} stages selected · {running ? `Running… ${doneCount}/${totalSelected}` : 'Ready'}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <button
+          className="btn btn-primary"
+          disabled={running || selected.size === 0}
+          onClick={() => runPipeline(visibleStages)}
+        >
+          {running ? <><Spinner /> &nbsp;Running…</> : '▶  Run Selected Stages'}
+        </button>
+        <button
+          className="btn btn-green"
+          disabled={running}
+          onClick={() => { setSelected(new Set(STAGES.map(s=>s.id))); setShowPostMerge(true); setTimeout(() => runPipeline(STAGES), 50); }}
+        >
+          ⚡ Run Full Pipeline
+        </button>
+        {running && (
+          <button className="btn btn-danger" onClick={() => { cancelRef.current = true; }}>
+            ✗ Cancel
+          </button>
+        )}
+      </div>
+
+      {/* Results */}
+      {Object.keys(results).length > 0 && (
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Results</div>
+          {STAGES.filter(s => results[s.id]).map(stage => {
+            const r = results[stage.id];
+            const open = expanded[stage.id];
+            const ok = r.status === 'success';
+            const findings = r.findings || [];
+            return (
+              <div key={stage.id} className="result-card">
+                <div className="result-header" onClick={() => setExpanded(prev => ({ ...prev, [stage.id]: !prev[stage.id] }))}>
+                  <span style={{ fontSize: 18 }}>{stage.icon}</span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{stage.label}</span>
+                  <StatusBadge status={ok ? 'success' : 'error'} />
+                  <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', marginLeft: 4 }}>{r.summary}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text2)' }}>{findings.length} findings</span>
+                  <span style={{ marginLeft: 8, color: 'var(--text2)' }}>{open ? '▲' : '▼'}</span>
+                </div>
+                {open && findings.length > 0 && (
+                  <div className="result-body" style={{ paddingTop: 10 }}>
+                    {findings.slice(0, 30).map((f, i) => (
+                      <div key={i} className="finding-item">
+                        <span>·</span>
+                        <span className="mono">{typeof f === 'string' ? f : JSON.stringify(f)}</span>
+                      </div>
+                    ))}
+                    {findings.length > 30 && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', paddingTop: 6 }}>
+                        … and {findings.length - 30} more findings
+                      </div>
+                    )}
+                  </div>
+                )}
+                {open && findings.length === 0 && (
+                  <div className="result-body" style={{ paddingTop: 10, fontSize: 12, color: 'var(--text2)' }}>
+                    No findings to display.
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {Object.keys(results).length === 0 && !running && (
+        <div className="empty-state">
+          <div className="empty-icon">▶</div>
+          <div>Set a repo path, choose stages, and hit run.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Health View ───────────────────────────────────────────────────────────────
+
+function HealthView({ api }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [lastChecked, setLastChecked] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const run = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/api/v1/doctor');
+      setData(r);
+      setLastChecked(new Date());
+    } catch (e) {
+      setData({ status: 'error', summary: e.message, findings: [] });
+    }
+    setLoading(false);
+  }, [api]);
+
+  useEffect(() => { run(); }, []);
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const t = setInterval(run, 30000);
+    return () => clearInterval(t);
+  }, [autoRefresh, run]);
+
+  const findings = data?.findings || [];
+  const okCount = findings.filter(f => typeof f === 'string' ? f.startsWith('OK:') : f?.status === 'ok').length;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="section-title" style={{ marginBottom: 0 }}>♥ Health Check</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {lastChecked && <span style={{ fontSize: 11, color: 'var(--text2)' }}>Last: {lastChecked.toLocaleTimeString()}</span>}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, margin: 0, cursor: 'pointer' }}>
+            <div className={`toggle ${autoRefresh ? 'on' : ''}`} onClick={() => setAutoRefresh(!autoRefresh)} />
+            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Auto-refresh</span>
+          </label>
+          <button className="btn btn-ghost btn-sm" onClick={run} disabled={loading}>
+            {loading ? <Spinner /> : '↻ Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {data && (
+        <div className="card mb-4" style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 36, fontWeight: 700, color: okCount === findings.length ? 'var(--green)' : 'var(--yellow)' }}>
+              {okCount}/{findings.length}
+            </div>
+            <div className="stat-label">Components OK</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+              <StatusBadge status={data.status === 'success' ? 'healthy' : 'down'} />
+              <span style={{ fontSize: 13 }}>{data.summary}</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${findings.length ? okCount / findings.length * 100 : 0}%`, background: okCount === findings.length ? 'var(--green)' : 'var(--yellow)' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="empty-state"><Spinner /><div style={{ marginTop: 10 }}>Running health checks…</div></div>
+      )}
+
+      {findings.length > 0 && (
+        <div className="health-grid">
+          {findings.map((f, i) => {
+            const txt = typeof f === 'string' ? f : JSON.stringify(f);
+            const ok = txt.startsWith('OK:') || txt.startsWith('ok');
+            const name = txt.replace(/^(OK|FAIL|WARN):\s*/i, '');
+            return (
+              <div key={i} className="health-item">
+                <span style={{ color: ok ? 'var(--green)' : 'var(--red)', fontSize: 14 }}>{ok ? '●' : '●'}</span>
+                <span style={{ flex: 1, fontSize: 12 }}>{name}</span>
+                <span className={`badge ${ok ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 10 }}>{ok ? 'OK' : 'FAIL'}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && findings.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-icon">♥</div>
+          <div>Click Refresh to run health checks.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── History View ──────────────────────────────────────────────────────────────
+
+function HistoryView({ history, onClear }) {
+  if (history.length === 0) {
+    return (
+      <div>
+        <div className="section-title">◷ Run History</div>
+        <div className="empty-state"><div className="empty-icon">◷</div><div>No pipeline runs yet.</div></div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="section-title" style={{ marginBottom: 0 }}>◷ Run History ({history.length})</div>
+        <button className="btn btn-danger btn-sm" onClick={onClear}>Clear</button>
+      </div>
+      <div className="card" style={{ padding: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 60px 90px 100px', padding: '8px 14px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text2)', fontWeight: 600 }}>
+          <span>TIME</span><span>REPO</span><span>STAGES</span><span>DURATION</span><span>STATUS</span>
+        </div>
+        {history.map((r, i) => (
+          <div key={i} className="history-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 60px 90px 100px' }}>
+            <span className="text-gray mono">{r.ts ? new Date(r.ts).toLocaleTimeString() : '—'}</span>
+            <span className="mono" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.path || '—'}
+            </span>
+            <span>{r.stages}</span>
+            <span className="text-gray">{r.duration ? `${r.duration}s` : '—'}</span>
+            <StatusBadge status={r.status} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Settings View ─────────────────────────────────────────────────────────────
+
+function SettingsView({ settings, onSave }) {
+  const [form, setForm] = useState({ ...settings });
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  return (
+    <div>
+      <div className="section-title">⚙ Settings</div>
+      <div className="card">
+        <div className="card-title">API Connection</div>
+        {[
+          { key: 'apiUrl', label: 'API URL', placeholder: 'http://localhost:8000' },
+          { key: 'apiKey', label: 'API Key (optional)', placeholder: 'Leave blank if not required' },
+        ].map(f => (
+          <div key={f.key} style={{ marginBottom: 14 }}>
+            <label>{f.label}</label>
+            <input
+              className="input mono"
+              type={f.key === 'apiKey' ? 'password' : 'text'}
+              value={form[f.key]}
+              onChange={e => set(f.key, e.target.value)}
+              placeholder={f.placeholder}
+            />
+          </div>
+        ))}
+
+        <div className="settings-row">
+          <div><div className="settings-label">Skip API Key Validation</div><div className="settings-desc">Allow connections without authentication</div></div>
+          <div className={`toggle ${form.skipAuth ? 'on' : ''}`} onClick={() => set('skipAuth', !form.skipAuth)} />
+        </div>
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary" onClick={() => onSave(form)}>Save Settings</button>
+          <button className="btn btn-ghost" onClick={() => setForm({ ...settings })}>Reset</button>
+        </div>
+      </div>
+
+      <div className="card mt-4">
+        <div className="card-title">About</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+          <div><strong style={{ color: 'var(--text)' }}>ForgeFlow</strong> v2.1 — AI Platform Engineering CLI</div>
+          <div>14 Agents · 14 MCP Servers · 3 Deployment Modes</div>
+          <div style={{ marginTop: 8 }}>
+            <a href="/api/docs" target="_blank" style={{ color: 'var(--blue)', textDecoration: 'none' }}>API Docs ↗</a>
+            &nbsp;·&nbsp;
+            <a href="https://github.com/DLTKMandeep/sevaforge" target="_blank" style={{ color: 'var(--blue)', textDecoration: 'none' }}>GitHub ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [view, setView] = useState('dashboard');
+  const [settings, setSettings] = useState({ apiUrl: window.location.origin, apiKey: '' });
+  const [serverStatus, setServerStatus] = useState(null);
+  const [connected, setConnected] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  const api = useApi(settings);
+
+  const showToast = (msg, type='info') => {
+    setToast({ msg, type });
+  };
+
+  // Poll server status
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const r = await api.get('/api/v1/status');
+        setServerStatus(r);
+        setConnected(true);
+      } catch {
+        setConnected(false);
+        setServerStatus(null);
+      }
+    };
+    check();
+    const t = setInterval(check, 15000);
+    return () => clearInterval(t);
+  }, [settings]);
+
+  const handleRunComplete = (run) => {
+    setHistory(prev => [run, ...prev.slice(0, 99)]);
+    showToast(`Pipeline finished: ${run.status}`, run.status === 'success' ? 'success' : 'error');
+  };
+
+  const handleSaveSettings = (s) => {
+    setSettings(s);
+    showToast('Settings saved', 'success');
+  };
+
+  const mode = serverStatus?.mode?.toUpperCase() || 'LOCAL';
+
+  return (
+    <div className="app">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="logo">
+          <div className="logo-icon">⚡</div>
+          <div>
+            <div className="logo-text">ForgeFlow</div>
+            <div className="logo-version">v2.1</div>
+          </div>
+        </div>
+        <nav className="nav">
+          {NAV.map(n => (
+            <div key={n.id} className={`nav-item ${view === n.id ? 'active' : ''}`} onClick={() => setView(n.id)}>
+              <span className="nav-icon">{n.icon}</span>
+              <span>{n.label}</span>
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="server-pill">
+            <div className={`dot ${connected === true ? 'green' : connected === false ? 'red' : ''}`} />
+            <span>{connected === true ? 'Connected' : connected === false ? 'Offline' : 'Connecting…'}</span>
+            <span className="badge badge-blue" style={{ marginLeft: 'auto' }}>{mode}</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="main">
+        <div className="topbar">
+          <div className="topbar-title">
+            {NAV.find(n => n.id === view)?.label || ''}
+          </div>
+          {serverStatus && (
+            <StatusBadge status={connected ? 'healthy' : 'down'} />
+          )}
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>
+            {settings.apiUrl}
+          </span>
+        </div>
+
+        <div className="content">
+          {view === 'dashboard' && (
+            <DashboardView history={history} serverStatus={serverStatus} onNavigate={setView} />
+          )}
+          {view === 'pipeline' && (
+            <PipelineView api={api} onRunComplete={handleRunComplete} />
+          )}
+          {view === 'health' && (
+            <HealthView api={api} />
+          )}
+          {view === 'history' && (
+            <HistoryView history={history} onClear={() => setHistory([])} />
+          )}
+          {view === 'settings' && (
+            <SettingsView settings={settings} onSave={handleSaveSettings} />
+          )}
+        </div>
+      </div>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
