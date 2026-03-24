@@ -13,8 +13,8 @@ Responsibilities:
 4. Display findings to user with rich formatting
 5. Execute pipeline stages in proper sequence
 
-New Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+New Pipeline Sequence (v2.1):
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 Does NOT implement discovery/normalize/scan logic directly!
@@ -46,12 +46,15 @@ from .display import (
 )
 
 
-# New pipeline sequence
+# New pipeline sequence (v2.1 with specialized generation agents)
 PIPELINE_STAGES = [
     "discover",
     "normalize",
     "docs",
-    "generate",
+    "iac",       # Infrastructure as Code (Terraform, Docker)
+    "cd",        # Continuous Deployment (ArgoCD, Kustomize)
+    "ci",        # Continuous Integration (GitHub Actions, GitLab CI)
+    "e2e",       # E2E Testing (Playwright, Cypress)
     "review",
     "test",
     "scan"
@@ -176,11 +179,11 @@ class MissionControl:
 
     def run_all(self, path: str = ".", include_post_merge: bool = False) -> Dict[str, Any]:
         """
-        Run full pipeline with new sequence:
-        DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
-        
+        Run full pipeline with new sequence (v2.1):
+        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+
         Post-merge (optional): DEPLOY → MONITOR
-        
+
         If any stage fails, stops and reports the failure.
         If all stages pass, prompts for manual approval before running bridge.
         """
@@ -188,14 +191,17 @@ class MissionControl:
             ("discover", lambda: self._execute_stage("discover", path)),
             ("normalize", lambda: self._execute_stage("normalize", path)),
             ("docs", lambda: self._execute_stage("docs", path)),
-            ("generate", lambda: self._execute_stage("generate", path)),
+            ("iac", lambda: self._execute_stage("iac", path)),
+            ("cd", lambda: self._execute_stage("cd", path)),
+            ("ci", lambda: self._execute_stage("ci", path)),
+            ("e2e", lambda: self._execute_stage("e2e", path)),
             ("review", lambda: self._execute_stage("review", path)),
             ("test", lambda: self._execute_stage("test", path)),
             ("scan", lambda: self._execute_stage("scan", path)),
         ]
-        
+
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
-        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
+        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
         console.print()
         
         results: List[tuple] = []

@@ -27,8 +27,8 @@ Deployment Modes:
     --mode hybrid  : Mix of local and public MCPs (requires internet for some features)
     --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
-New Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+New Pipeline Sequence (v2.1):
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 This CLI ONLY parses commands and delegates to MissionControl.
@@ -71,7 +71,7 @@ Deployment Modes:
     --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
 Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
 
 Examples:
     forgeflow discover --path ./my-repo
@@ -190,7 +190,7 @@ Environment Variables (PUBLIC mode):
     audit_parser.add_argument("--stack", default="auto", help="Deployment stack")
     
     # === run-all (full pipeline + bridge) ===
-    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → generate → review → test → scan → bridge")
+    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
     runall_parser.add_argument("--include-post-merge", action="store_true", 
                                help="Include post-merge stages (deploy, monitor)")
@@ -323,7 +323,7 @@ def main():
             sys.exit(0)
         
         elif args.command == "run-all":
-            # Full pipeline: discover → normalize → docs → generate → review → test → scan → (approval) → bridge
+            # Full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → (approval) → bridge
             # Post-merge (optional): deploy → monitor
             include_post_merge = getattr(args, 'include_post_merge', False)
             result = mc.run_all(path, include_post_merge=include_post_merge)
