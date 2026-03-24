@@ -144,7 +144,34 @@ Environment Variables (PUBLIC mode):
     bridge_parser.add_argument("--message", default="Update from ForgeFlow", help="Commit message")
     bridge_parser.add_argument("--pr-title", help="Pull request title")
     bridge_parser.add_argument("--pr-body", help="Pull request body/description")
-    
+
+    # === iac ===
+    iac_parser = subparsers.add_parser("iac", help="Generate Infrastructure-as-Code (Terraform, Pulumi)")
+    iac_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    iac_parser.add_argument("--cloud", "-c", default="aws", choices=["aws", "gcp", "azure"],
+                            help="Cloud provider (default: aws)")
+    iac_parser.add_argument("--include-pulumi", action="store_true", help="Also generate Pulumi configs")
+
+    # === cd ===
+    cd_parser = subparsers.add_parser("cd", help="Generate Continuous Delivery configs (ArgoCD, Helm)")
+    cd_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    cd_parser.add_argument("--repo-url", help="Git repository URL for ArgoCD")
+    cd_parser.add_argument("--include-flux", action="store_true", help="Also generate Flux configs")
+
+    # === ci ===
+    ci_parser = subparsers.add_parser("ci", help="Generate Continuous Integration pipelines (GitHub Actions, GitLab)")
+    ci_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    ci_parser.add_argument("--no-gitlab", action="store_true", help="Skip GitLab CI generation")
+    ci_parser.add_argument("--no-dependabot", action="store_true", help="Skip Dependabot config")
+
+    # === e2e ===
+    e2e_parser = subparsers.add_parser("e2e", help="Generate E2E test scaffolding (Playwright, Cypress)")
+    e2e_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    e2e_parser.add_argument("--framework", "-f", default="playwright",
+                            choices=["playwright", "cypress", "selenium"],
+                            help="E2E framework (default: playwright)")
+    e2e_parser.add_argument("--no-ci", action="store_true", help="Skip CI integration for E2E tests")
+
     # === status ===
     status_parser = subparsers.add_parser("status", help="Check pipeline status")
     status_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
@@ -241,7 +268,24 @@ def main():
                 pr_title=getattr(args, 'pr_title', None),
                 pr_body=getattr(args, 'pr_body', None)
             )
-            
+
+        elif args.command == "iac":
+            result = mc.iac(path, cloud=getattr(args, 'cloud', 'aws'),
+                            include_pulumi=getattr(args, 'include_pulumi', False))
+
+        elif args.command == "cd":
+            result = mc.cd(path, repo_url=getattr(args, 'repo_url', None),
+                           include_flux=getattr(args, 'include_flux', False))
+
+        elif args.command == "ci":
+            result = mc.ci(path,
+                           include_gitlab=not getattr(args, 'no_gitlab', False),
+                           include_dependabot=not getattr(args, 'no_dependabot', False))
+
+        elif args.command == "e2e":
+            result = mc.e2e(path, framework=getattr(args, 'framework', 'playwright'),
+                            include_ci=not getattr(args, 'no_ci', False))
+
         elif args.command == "status":
             result = mc.status(path)
             

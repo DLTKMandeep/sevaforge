@@ -154,7 +154,26 @@ class MissionControl:
             "operation": operation,
         }
         return self.execute("bridge", params)
-    
+
+    def iac(self, path: str = ".", cloud: str = "aws", include_pulumi: bool = False) -> Dict[str, Any]:
+        """Generate Infrastructure-as-Code artifacts (IACAgent → iac-mcp-server)."""
+        return self.execute("iac", {"path": path, "cloud": cloud, "include_pulumi": include_pulumi})
+
+    def cd(self, path: str = ".", repo_url: str = None, include_flux: bool = False) -> Dict[str, Any]:
+        """Generate Continuous Delivery configurations (CDAgent → cd-mcp-server)."""
+        params = {"path": path, "include_flux": include_flux}
+        if repo_url:
+            params["repo_url"] = repo_url
+        return self.execute("cd", params)
+
+    def ci(self, path: str = ".", include_gitlab: bool = True, include_dependabot: bool = True) -> Dict[str, Any]:
+        """Generate Continuous Integration pipelines (CIAgent → ci-mcp-server)."""
+        return self.execute("ci", {"path": path, "include_gitlab": include_gitlab, "include_dependabot": include_dependabot})
+
+    def e2e(self, path: str = ".", framework: str = "playwright", include_ci: bool = True) -> Dict[str, Any]:
+        """Generate E2E testing setup (E2ETestingAgent → e2e-mcp-server)."""
+        return self.execute("e2e", {"path": path, "framework": framework, "include_ci": include_ci})
+
     def run_all(self, path: str = ".", include_post_merge: bool = False) -> Dict[str, Any]:
         """
         Run full pipeline with new sequence:

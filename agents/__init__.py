@@ -6,19 +6,23 @@ Architecture: Orchestrator → MCP Server → Agent → Results
 All agents contain the actual business logic. MCP servers are thin protocol
 layers that delegate to these agents.
 
-Command → Agent → MCP Server mapping:
-| Command   | Agent                | MCP Server              |
-|-----------|---------------------|-------------------------|
-| discover  | DiscoveryAgent      | discovery_mcp           |
-| normalize | NormalizationAgent  | normalize_mcp           |
-| scan      | SecurityAgent       | security_mcp            |
-| generate  | GenerationAgent     | deployment_mcp          |
-| deploy    | DeploymentAgent     | cloud_mcp               |
-| test      | TestingAgent        | cicd_mcp                |
-| monitor   | MonitoringAgent     | observability_mcp       |
-| docs      | DocumentationAgent  | diagram_generator_mcp   |
-| review    | CodeReviewAgent     | git_mcp                 |
-| bridge    | BridgeAgent         | github_mcp              |
+Command → Agent → MCP Server mapping (v2.1 Pipeline Order):
+| #  | Command   | Agent                | MCP Server              | Description                    |
+|----|-----------|---------------------|-------------------------|--------------------------------|
+| 1  | discover  | DiscoveryAgent      | discovery_mcp           | Scan repository structure      |
+| 2  | normalize | NormalizationAgent  | normalize_mcp           | Standardize repository         |
+| 3  | docs      | DocumentationAgent  | diagram_generator_mcp   | Generate documentation         |
+| 4  | iac       | IACAgent            | iac_mcp                 | Infrastructure as Code         |
+| 5  | cd        | CDAgent             | cd_mcp                  | Continuous Deployment config   |
+| 6  | ci        | CIAgent             | ci_mcp                  | CI pipeline config             |
+| 7  | e2e       | E2ETestingAgent     | e2e_mcp                 | E2E test scaffolding           |
+| 8  | review    | CodeReviewAgent     | git_mcp                 | Code quality analysis          |
+| 9  | test      | TestingAgent        | cicd_mcp                | Run tests via CI/CD            |
+| 10 | scan      | SecurityAgent       | security_mcp            | Security vulnerability scan    |
+| 11 | bridge    | BridgeAgent         | github_mcp              | GitHub integration             |
+| 12 | generate  | GenerationAgent     | deployment_mcp          | Generate deployment artifacts  |
+| 13 | deploy    | DeploymentAgent     | cloud_mcp               | Deploy to cloud infrastructure |
+| 14 | monitor   | MonitoringAgent     | observability_mcp       | Setup monitoring configs       |
 """
 
 from .base_agent import BaseAgent
@@ -32,6 +36,10 @@ from .monitoring_agent import MonitoringAgent
 from .documentation_agent import DocumentationAgent
 from .code_review_agent import CodeReviewAgent
 from .bridge_agent import BridgeAgent
+from .iac_agent import IACAgent
+from .cd_agent import CDAgent
+from .ci_agent import CIAgent
+from .e2e_agent import E2ETestingAgent
 
 __all__ = [
     'BaseAgent',
@@ -45,4 +53,8 @@ __all__ = [
     'DocumentationAgent',
     'CodeReviewAgent',
     'BridgeAgent',
+    'IACAgent',
+    'CDAgent',
+    'CIAgent',
+    'E2ETestingAgent',
 ]
