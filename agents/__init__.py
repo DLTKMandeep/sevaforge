@@ -19,10 +19,12 @@ Command → Agent → MCP Server mapping (v2.1 Pipeline Order):
 | 8  | review    | CodeReviewAgent     | git_mcp                 | Code quality analysis          |
 | 9  | test      | TestingAgent        | cicd_mcp                | Run tests via CI/CD            |
 | 10 | scan      | SecurityAgent       | security_mcp            | Security vulnerability scan    |
-| 11 | bridge    | BridgeAgent         | github_mcp              | GitHub integration             |
-| 12 | generate  | GenerationAgent     | deployment_mcp          | Generate deployment artifacts  |
-| 13 | deploy    | DeploymentAgent     | cloud_mcp               | Deploy to cloud infrastructure |
-| 14 | monitor   | MonitoringAgent     | observability_mcp       | Setup monitoring configs       |
+| 11 | bridge    | BridgeAgent         | github_mcp              | GitHub integration (pre-merge) |
+| 12 | deploy    | DeploymentAgent     | cloud_mcp               | Deploy to cloud infrastructure |
+| 13 | monitor   | MonitoringAgent     | observability_mcp       | Setup monitoring configs       |
+
+Standalone commands (not in run-all pipeline):
+| -  | generate  | GenerationAgent     | deployment_mcp          | Generate deployment artifacts on demand |
 """
 
 from .base_agent import BaseAgent
