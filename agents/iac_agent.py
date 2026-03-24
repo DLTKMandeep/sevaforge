@@ -725,7 +725,7 @@ class IACAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
         cloud = params.get("cloud", "aws").lower()
         include_pulumi = params.get("include_pulumi", False)
         

@@ -114,6 +114,38 @@ servers:
     hybrid_command: "npx"
     hybrid_args: ["-y", "@modelcontextprotocol/server-github"]
 
+  # IAC Agent -> iac-mcp-server
+  iac-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/iac_mcp/server.py"]
+    capabilities: ["iac", "terraform", "pulumi", "infrastructure"]
+    agent: "IACAgent"
+    type: local
+
+  # CD Agent -> cd-mcp-server
+  cd-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/cd_mcp/server.py"]
+    capabilities: ["cd", "deploy", "continuous_delivery", "argocd", "helm"]
+    agent: "CDAgent"
+    type: local
+
+  # CI Agent -> ci-mcp-server
+  ci-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/ci_mcp/server.py"]
+    capabilities: ["ci", "continuous_integration", "github_actions", "jenkins"]
+    agent: "CIAgent"
+    type: local
+
+  # E2E Testing Agent -> e2e-mcp-server
+  e2e-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/e2e_mcp/server.py"]
+    capabilities: ["e2e", "end_to_end", "playwright", "cypress", "selenium"]
+    agent: "E2ETestingAgent"
+    type: local
+
 # Command to server mapping for quick lookup
 command_mapping:
   discover: "discovery-mcp-server"
@@ -126,6 +158,10 @@ command_mapping:
   docs: "diagram-generator-mcp-server"
   review: "git-mcp-server"
   bridge: "github-mcp-server"
+  iac: "iac-mcp-server"
+  cd: "cd-mcp-server"
+  ci: "ci-mcp-server"
+  e2e: "e2e-mcp-server"
   # status and doctor are standalone - no MCP server needed
 
 # Pipeline sequence definitions

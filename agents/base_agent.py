@@ -70,21 +70,23 @@ class BaseAgent(ABC):
         status: str,
         summary: str,
         data: Dict[str, Any] = None,
-        findings: List[str] = None
+        findings: List[str] = None,
+        actions: List[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Create a standardized result dictionary.
-        
+
         Args:
             status: "success", "warning", or "error"
             summary: Brief summary of the result
             data: Detailed result data
             findings: List of finding strings
-            
+            actions: List of action dicts (used by IAC, CD, CI, E2E agents)
+
         Returns:
             Standardized result dictionary
         """
-        return {
+        result = {
             "status": status,
             "summary": summary,
             "data": data or {},
@@ -92,6 +94,9 @@ class BaseAgent(ABC):
             "agent": self.name,
             "timestamp": datetime.utcnow().isoformat()
         }
+        if actions is not None:
+            result["actions"] = actions
+        return result
     
     def __repr__(self):
         return f"<Agent: {self.name}>"

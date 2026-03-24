@@ -748,7 +748,7 @@ class E2ETestingAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
         framework = params.get("framework", "playwright").lower()
         include_ci = params.get("include_ci", True)
         

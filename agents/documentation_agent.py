@@ -66,7 +66,13 @@ class DocumentationAgent(BaseAgent):
         inventory_file = repo_path / '.forgeflow' / 'inventory.json'
         if inventory_file.exists():
             with open(inventory_file) as f:
-                return json.load(f)
+                data = json.load(f)
+                # inventory.json has structure: {'inventory': [...], 'summary': {...}}
+                # Return just the inventory list
+                if isinstance(data, dict) and 'inventory' in data:
+                    return data['inventory']
+                elif isinstance(data, list):
+                    return data
         return []
     
     def _generate_architecture_mermaid(self, components: List[Dict[str, Any]]) -> str:

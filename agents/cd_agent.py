@@ -629,7 +629,7 @@ class CDAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
         repo_url = params.get("repo_url", "https://github.com/org/repo.git")
         include_flux = params.get("include_flux", False)
         include_helm = params.get("include_helm", False)

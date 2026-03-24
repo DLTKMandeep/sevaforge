@@ -19,13 +19,39 @@ Stage Colors:
     doctor    = bright_cyan
 """
 from typing import Dict, Any, List, Optional
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.prompt import Confirm
-from rich import box
+
+# Try to import rich; fall back to the pip-vendored copy if not directly installed
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from rich.prompt import Confirm
+    from rich import box
+except ModuleNotFoundError:
+    import sys as _sys
+    import importlib as _importlib
+    _rich_vendor = None
+    for _candidate in [
+        "/usr/local/lib/python3.10/dist-packages/pip/_vendor",
+        "/usr/lib/python3/dist-packages/pip/_vendor",
+    ]:
+        try:
+            if _candidate not in _sys.path:
+                _sys.path.insert(0, _candidate)
+            from rich.console import Console
+            from rich.table import Table
+            from rich.panel import Panel
+            from rich.text import Text
+            from rich.progress import Progress, SpinnerColumn, TextColumn
+            from rich.prompt import Confirm
+            from rich import box
+            break
+        except ModuleNotFoundError:
+            _sys.path.remove(_candidate) if _candidate in _sys.path else None
+    else:
+        raise ModuleNotFoundError("rich is required but could not be found. Install it with: pip install rich")
 
 # Initialize console
 console = Console()
@@ -42,6 +68,10 @@ STAGE_COLORS = {
     "deploy": "purple",         # Deployment
     "monitor": "bright_cyan",   # Monitoring
     "bridge": "magenta",
+    "iac": "bright_yellow",     # Infrastructure as Code
+    "cd": "bright_green",       # Continuous Delivery
+    "ci": "bright_blue",        # Continuous Integration
+    "e2e": "bright_magenta",    # E2E Testing
     "status": "white",
     "doctor": "bright_cyan",
 }
@@ -97,6 +127,26 @@ STAGE_MAPPING = {
         "mcp_server": "github-mcp-server",
         "agent": "BridgeAgent",
         "description": "Push to GitHub repository"
+    },
+    "iac": {
+        "mcp_server": "iac-mcp-server",
+        "agent": "IACAgent",
+        "description": "Generate Terraform/Pulumi Infrastructure-as-Code"
+    },
+    "cd": {
+        "mcp_server": "cd-mcp-server",
+        "agent": "CDAgent",
+        "description": "Generate ArgoCD/Helm Continuous Delivery configs"
+    },
+    "ci": {
+        "mcp_server": "ci-mcp-server",
+        "agent": "CIAgent",
+        "description": "Generate GitHub Actions/GitLab CI pipelines"
+    },
+    "e2e": {
+        "mcp_server": "e2e-mcp-server",
+        "agent": "E2ETestingAgent",
+        "description": "Scaffold Playwright/Cypress E2E test suites"
     },
 }
 
