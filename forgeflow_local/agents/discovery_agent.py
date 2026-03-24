@@ -308,12 +308,24 @@ FRAMEWORK_PATTERNS = {
 }
 
 IGNORE_DIRS = {
-    '.git', 'node_modules', '__pycache__', '.venv', 'venv', 'env',
-    '.tox', '.pytest_cache', 'dist', 'build', '.idea', '.vscode',
-    '.mypy_cache', '.ruff_cache', '.cache', '.eggs', '*.egg-info',
-    'target', 'vendor', 'Pods', '.gradle', '.nuxt', '.next',
-    'coverage', '.nyc_output', '.parcel-cache', '.turbo',
-    '.terraform', '.serverless', 'cdk.out',
+    'node_modules', '__pycache__', 'venv', 'env',
+    'dist', 'build', 'target', 'vendor', 'Pods',
+    'coverage', '.nyc_output', 'cdk.out',
+}
+
+# Suffix-based ignores (dirs whose name ends with these strings)
+IGNORE_DIR_SUFFIXES = ('.egg-info', '.egg-link')
+
+# Binary file extensions to skip from inventory
+BINARY_EXTENSIONS = {
+    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg', '.webp', '.tiff',
+    '.mp4', '.mov', '.avi', '.mkv', '.webm', '.mp3', '.wav', '.ogg', '.flac',
+    '.pdf', '.zip', '.tar', '.gz', '.bz2', '.xz', '.7z', '.rar',
+    '.exe', '.dll', '.so', '.dylib', '.a', '.lib',
+    '.whl', '.jar', '.war', '.ear',
+    '.pyc', '.pyo', '.class', '.o', '.obj',
+    '.db', '.sqlite', '.sqlite3',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
 }
 
 # Shebang to language mapping
@@ -355,20 +367,31 @@ class DiscoveryAgent(BaseAgent):
         
         # Second pass: scan all files
         for root, dirs, files in os.walk(repo_path):
-            # Skip ignored directories
-            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith('.')]
-            
+            # Skip ignored directories (exact match, suffix match, or .git hidden dirs
+            # except .github which contains useful CI/CD files)
+            dirs[:] = [
+                d for d in dirs
+                if d not in IGNORE_DIRS
+                and not any(d.endswith(sfx) for sfx in IGNORE_DIR_SUFFIXES)
+                and (not d.startswith('.') or d == '.github')
+            ]
+
             for filename in files:
                 file_path = Path(root) / filename
                 try:
                     rel_path = file_path.relative_to(repo_path)
+
+                    # Skip binary files
+                    if file_path.suffix.lower() in BINARY_EXTENSIONS:
+                        continue
+
                     language = self._detect_language(file_path)
                     component_type = self._detect_component_type(file_path)
-                    
+
                     # Get component name (parent folder or root)
                     parts = rel_path.parts
                     component_name = parts[0] if len(parts) > 1 else 'root'
-                    
+
                     inventory.append({
                         'path': str(rel_path),
                         'filename': filename,
@@ -380,6 +403,12 @@ class DiscoveryAgent(BaseAgent):
                 except Exception:
                     pass  # Skip files that can't be processed
         
+        # Detect entry points
+        entry_points = self._detect_entry_points(repo_path)
+
+        # Collect git metadata (non-fatal)
+        git_meta = self._get_git_metadata(repo_path)
+
         # Build comprehensive summary
         languages = Counter([f['language'] for f in inventory if f['language'] != 'Other'])
         all_languages = Counter([f['language'] for f in inventory])
@@ -411,6 +440,8 @@ class DiscoveryAgent(BaseAgent):
                 'total_files': len(inventory),
                 'components': dict(components.most_common(10)),
                 'types': dict(types),
+                'entry_points': entry_points,
+                'git': git_meta,
             }
         }
         
@@ -432,9 +463,18 @@ class DiscoveryAgent(BaseAgent):
         
         if frameworks_detected:
             findings.append(f"🛠️  Frameworks: {', '.join(sorted(frameworks_detected))}")
-        
+
+        if entry_points:
+            findings.append(f"🚀 Entry points: {', '.join(entry_points[:5])}")
+
+        if git_meta.get('is_git_repo'):
+            findings.append(
+                f"🔀 Git: {git_meta.get('branch', 'unknown')} branch, "
+                f"{git_meta.get('commit_count', '?')} commits"
+            )
+
         findings.append(f"📦 Components: {', '.join(list(components.keys())[:5])}")
-        
+
         return self.create_result(
             status='success',
             summary=f"Discovered {len(inventory)} files, primary language: {primary_language}",
@@ -446,6 +486,8 @@ class DiscoveryAgent(BaseAgent):
                 'frameworks': list(frameworks_detected),
                 'components': dict(components.most_common(10)),
                 'types': dict(types),
+                'entry_points': entry_points,
+                'git': git_meta,
                 'inventory_file': str(inventory_file)
             },
             findings=findings
@@ -543,12 +585,9 @@ class DiscoveryAgent(BaseAgent):
             'astro.config.mjs': 'Astro',
             # Remix
             'remix.config.js': 'Remix',
-            # Rails
-            'Rakefile': 'Ruby on Rails',
+            # Rails — config.ru is Rack (Rails uses it, but so does Sinatra/Grape)
+            # Rakefile alone is not Rails-specific; rails/railties in Gemfile catches Rails
             'config.ru': 'Ruby (Rack)',
-            # Spring Boot
-            'application.properties': 'Spring Boot',
-            'application.yml': 'Spring Boot',
             # Flutter
             'pubspec.yaml': 'Flutter/Dart',
             # Terraform
@@ -568,8 +607,21 @@ class DiscoveryAgent(BaseAgent):
         }
         
         for indicator, framework in indicators.items():
-            if (repo_path / indicator).exists():
-                frameworks.add(framework)
+            indicator_path = repo_path / indicator
+            if not indicator_path.exists():
+                continue
+            # For generic filenames that could belong to many frameworks,
+            # verify with a content check before claiming a match
+            if indicator in ('application.properties', 'application.yml', 'application.yaml'):
+                try:
+                    content = indicator_path.read_text(errors='ignore')
+                    if not any(kw in content for kw in (
+                        'spring.', 'spring:', 'SpringApplication', 'spring.datasource'
+                    )):
+                        continue
+                except Exception:
+                    continue
+            frameworks.add(framework)
         
         # Check directories
         dir_indicators = {
@@ -588,16 +640,87 @@ class DiscoveryAgent(BaseAgent):
         
         for dir_name, framework in dir_indicators.items():
             if (repo_path / dir_name).is_dir():
-                # Additional check for Next.js pages/app dir
+                # Next.js pages/app dirs require an explicit next.config.* file —
+                # package.json alone is too broad (present in every JS project)
                 if dir_name in ['pages', 'app']:
-                    # Only add if we have other Next.js indicators
                     if (repo_path / 'next.config.js').exists() or \
                        (repo_path / 'next.config.mjs').exists() or \
-                       (repo_path / 'package.json').exists():
+                       (repo_path / 'next.config.ts').exists():
                         frameworks.add(framework)
                 else:
                     frameworks.add(framework)
     
+    def _detect_entry_points(self, repo_path: Path) -> List[str]:
+        """Detect common application entry point files."""
+        candidates = [
+            # Python
+            'main.py', 'app.py', 'server.py', 'run.py', 'wsgi.py', 'asgi.py',
+            'manage.py', '__main__.py',
+            # JavaScript / Node
+            'index.js', 'server.js', 'app.js', 'main.js',
+            'index.ts', 'server.ts', 'app.ts', 'main.ts',
+            # Go
+            'main.go',
+            # Rust
+            'main.rs',
+            # Java
+            'Main.java', 'Application.java',
+            # Ruby
+            'config.ru', 'app.rb', 'server.rb',
+            # PHP
+            'index.php', 'app.php',
+            # C/C++
+            'main.c', 'main.cpp',
+        ]
+        subdirs = ['src', 'app', 'cmd', 'lib', 'cli', 'bin']
+        found = []
+        for candidate in candidates:
+            if (repo_path / candidate).exists():
+                found.append(candidate)
+            else:
+                for sub in subdirs:
+                    if (repo_path / sub / candidate).exists():
+                        found.append(f"{sub}/{candidate}")
+        return found
+
+    def _get_git_metadata(self, repo_path: Path) -> Dict[str, Any]:
+        """Collect lightweight git metadata without failing if not a git repo.
+
+        Walks up parent directories to find the git root, since the scan target
+        may be a subdirectory of the actual repo.
+        """
+        import subprocess
+        # Search for .git up to 4 levels above the scan target
+        git_root = None
+        check = repo_path
+        for _ in range(5):
+            if (check / '.git').exists():
+                git_root = check
+                break
+            check = check.parent
+        if not git_root:
+            return {'is_git_repo': False}
+        try:
+            def _run(cmd):
+                return subprocess.check_output(
+                    cmd, cwd=git_root, stderr=subprocess.DEVNULL, text=True
+                ).strip()
+
+            branch = _run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+            commit_count = int(_run(['git', 'rev-list', '--count', 'HEAD']))
+            last_commit = _run(['git', 'log', '-1', '--format=%ci'])
+            remotes_raw = _run(['git', 'remote', '-v'])
+            remotes = list({line.split()[0] for line in remotes_raw.splitlines() if line})
+            return {
+                'is_git_repo': True,
+                'branch': branch,
+                'commit_count': commit_count,
+                'last_commit': last_commit,
+                'remotes': remotes,
+            }
+        except Exception:
+            return {'is_git_repo': True, 'error': 'could not read git metadata'}
+
     def _detect_component_type(self, path: Path) -> str:
         """Detect component type from path."""
         path_str = str(path).lower()
