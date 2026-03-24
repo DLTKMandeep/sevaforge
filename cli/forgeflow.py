@@ -188,9 +188,11 @@ Environment Variables (PUBLIC mode):
     # === run-all (full pipeline + bridge) ===
     runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
-    runall_parser.add_argument("--include-post-merge", action="store_true", 
+    runall_parser.add_argument("--include-post-merge", action="store_true",
                                help="Include post-merge stages (deploy, monitor)")
-    
+    runall_parser.add_argument("--greenfield", action="store_true",
+                               help="Greenfield mode: overwrite existing files (default: brownfield — skip existing)")
+
     return parser
 
 
@@ -322,7 +324,8 @@ def main():
             # Full pipeline: discover → normalize → docs → generate → review → test → scan → (approval) → bridge
             # Post-merge (optional): deploy → monitor
             include_post_merge = getattr(args, 'include_post_merge', False)
-            result = mc.run_all(path, include_post_merge=include_post_merge)
+            greenfield = getattr(args, 'greenfield', False)
+            result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
             if result.get("status") == "success":
                 sys.exit(0)
             else:
