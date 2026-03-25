@@ -71,6 +71,7 @@ class TestCLI:
         
         commands = [
             'discover', 'normalize', 'scan', 'generate',
+            'iac', 'cd', 'ci', 'e2e',
             'review', 'test', 'deploy', 'monitor',
             'docs', 'bridge', 'status', 'doctor',
             'audit', 'run-all'

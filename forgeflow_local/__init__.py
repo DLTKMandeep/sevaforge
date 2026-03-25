@@ -26,18 +26,24 @@ Greenfield Support (New in v2.0):
 - GenerationAgent: Now includes ArgoCD/Kustomize generation
 """
 
-from .base_agent import BaseAgent
-from .discovery_agent import DiscoveryAgent
-from .normalization_agent import NormalizationAgent
-from .security_agent import SecurityAgent
-from .generation_agent import GenerationAgent
-from .deployment_agent import DeploymentAgent
-from .testing_agent import TestingAgent
-from .monitoring_agent import MonitoringAgent
-from .documentation_agent import DocumentationAgent
-from .code_review_agent import CodeReviewAgent
-from .bridge_agent import BridgeAgent
-from .scaffolding_agent import ScaffoldingAgent
+from .agents import (
+    BaseAgent,
+    DiscoveryAgent,
+    NormalizationAgent,
+    SecurityAgent,
+    GenerationAgent,
+    DeploymentAgent,
+    TestingAgent,
+    MonitoringAgent,
+    DocumentationAgent,
+    CodeReviewAgent,
+    BridgeAgent,
+    ScaffoldingAgent,
+    IACAgent,
+    CDAgent,
+    CIAgent,
+    E2ETestingAgent,
+)
 
 __all__ = [
     'BaseAgent',
@@ -52,4 +58,8 @@ __all__ = [
     'CodeReviewAgent',
     'BridgeAgent',
     'ScaffoldingAgent',
+    'IACAgent',
+    'CDAgent',
+    'CIAgent',
+    'E2ETestingAgent',
 ]

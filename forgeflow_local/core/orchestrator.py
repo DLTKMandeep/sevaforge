@@ -485,8 +485,8 @@ class MCPOrchestrator:
         # Wrap MCP response with orchestrator metadata
         result = wrap_mcp_response(mcp_response, mission_type, self.mode, execution_time_ms)
         
-        # Ensure server name is set
-        if not result.get("server"):
+        # Ensure server name is set (override 'unknown' default too)
+        if not result.get("server") or result.get("server") == "unknown":
             result["server"] = server_name
             
         return result

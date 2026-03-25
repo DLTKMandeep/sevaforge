@@ -9,6 +9,7 @@ Architecture: Orchestrator → MCP Server → Agent → Results
 - Results flow back up the chain
 """
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import logging
@@ -94,9 +95,27 @@ class BaseAgent(ABC):
             "agent": self.name,
             "timestamp": datetime.utcnow().isoformat()
         }
-        if actions:
+        if actions is not None:
             result["actions"] = actions
         return result
-    
+
+    def _safe_write(self, path, content: str, overwrite: bool = False) -> Dict[str, Any]:
+        """Write a file with greenfield/brownfield mode awareness.
+
+        Greenfield (overwrite=True): Always write, replacing any existing file.
+        Brownfield (overwrite=False, default): Skip files that already exist —
+        only generate files that are missing, preserving hand-crafted configs.
+
+        Returns an action dict compatible with the agent actions list format:
+            {"action": "created" | "updated" | "exists", "file": <filename>}
+        """
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if p.exists() and not overwrite:
+            return {"action": "exists", "file": p.name}
+        existed = p.exists()
+        p.write_text(content)
+        return {"action": "updated" if existed else "created", "file": p.name}
+
     def __repr__(self):
         return f"<Agent: {self.name}>"

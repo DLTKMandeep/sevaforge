@@ -14,6 +14,11 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from agents import IACAgent
+from core.models import wrap_agent_result
+
+# Server metadata
+SERVER_NAME = "iac-mcp-server"
+AGENT_NAME = "IACAgent"
 
 # Single agent instance
 _agent = None
@@ -38,10 +43,11 @@ def run(params: dict) -> dict:
             - include_pulumi: Whether to include Pulumi config - default: False
     
     Returns:
-        Agent execution result with generated file information
+        MCPResponse dictionary with wrapped agent result
     """
     agent = get_agent()
-    return agent.execute(params)
+    agent_result = agent.execute(params)
+    return wrap_agent_result(agent_result, SERVER_NAME, AGENT_NAME)
 
 
 if __name__ == "__main__":

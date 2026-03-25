@@ -246,27 +246,33 @@ class MissionControl:
         }
         return self.execute("bridge", params)
     
-    def run_all(self, path: str = ".", include_post_merge: bool = False) -> Dict[str, Any]:
+    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False) -> Dict[str, Any]:
         """
         Run full pipeline with new sequence (v2.1):
         DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
-        
+
         Post-merge (optional): DEPLOY → MONITOR
-        
+
+        Args:
+            path: Repository path to run pipeline on
+            include_post_merge: Whether to run deploy + monitor after bridge
+            greenfield: If True, generation agents overwrite existing files (new project).
+                        If False (default), existing files are preserved (brownfield).
+
         If any stage fails, stops and reports the failure.
         If all stages pass, prompts for manual approval before running bridge.
         """
         stages = [
-            ("discover", lambda: self._execute_stage("discover", path)),
-            ("normalize", lambda: self._execute_stage("normalize", path)),
-            ("docs", lambda: self._execute_stage("docs", path)),
-            ("iac", lambda: self._execute_stage("iac", path)),
-            ("cd", lambda: self._execute_stage("cd", path)),
-            ("ci", lambda: self._execute_stage("ci", path)),
-            ("e2e", lambda: self._execute_stage("e2e", path)),
-            ("review", lambda: self._execute_stage("review", path)),
-            ("test", lambda: self._execute_stage("test", path)),
-            ("scan", lambda: self._execute_stage("scan", path)),
+            ("discover", lambda: self._execute_stage("discover", path, greenfield)),
+            ("normalize", lambda: self._execute_stage("normalize", path, greenfield)),
+            ("docs", lambda: self._execute_stage("docs", path, greenfield)),
+            ("iac", lambda: self._execute_stage("iac", path, greenfield)),
+            ("cd", lambda: self._execute_stage("cd", path, greenfield)),
+            ("ci", lambda: self._execute_stage("ci", path, greenfield)),
+            ("e2e", lambda: self._execute_stage("e2e", path, greenfield)),
+            ("review", lambda: self._execute_stage("review", path, greenfield)),
+            ("test", lambda: self._execute_stage("test", path, greenfield)),
+            ("scan", lambda: self._execute_stage("scan", path, greenfield)),
         ]
         
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
@@ -387,9 +393,9 @@ class MissionControl:
             "included_post_merge": True
         }
     
-    def _execute_stage(self, stage: str, path: str) -> Dict[str, Any]:
+    def _execute_stage(self, stage: str, path: str, greenfield: bool = False) -> Dict[str, Any]:
         """Execute a single stage without display (used by run_all)."""
-        params = {"path": path}
+        params = {"path": path, "greenfield": greenfield}
         return self.orchestrator.run_mission(stage, params)
     
     def status(self, path: str = ".") -> Dict[str, Any]:

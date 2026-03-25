@@ -151,3 +151,11 @@ staging/
 *.key
 secrets.yaml
 secrets.json
+
+# Added by ForgeFlow normalize
+desktop.ini
+.env.local
+.env.*.local
+*.env
+.venv/
+.ruff_cache/

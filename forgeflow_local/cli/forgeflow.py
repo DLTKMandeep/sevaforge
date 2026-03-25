@@ -10,6 +10,10 @@ Usage:
     forgeflow [--mode MODE] normalize [--path PATH]
     forgeflow [--mode MODE] scan [--path PATH] [--severity LEVEL]
     forgeflow [--mode MODE] generate [--path PATH] [--stack STACK]
+    forgeflow [--mode MODE] iac [--path PATH] [--cloud PROVIDER]
+    forgeflow [--mode MODE] cd [--path PATH] [--repo-url URL]
+    forgeflow [--mode MODE] ci [--path PATH]
+    forgeflow [--mode MODE] e2e [--path PATH] [--framework FRAMEWORK]
     forgeflow [--mode MODE] review [--path PATH]
     forgeflow [--mode MODE] test [--path PATH]
     forgeflow [--mode MODE] deploy [--path PATH] [--target ENV]
@@ -29,8 +33,8 @@ Deployment Modes:
     --mode local   : All MCPs run locally (default, full offline capability)
     --mode hybrid  : Mix of local and public MCPs (requires internet for some features)
 
-New Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+Pipeline Sequence (v2.1):
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 This CLI ONLY parses commands and delegates to MissionControl.
@@ -130,8 +134,8 @@ Deployment Modes:
     --mode local   : All MCPs run locally (default, full offline capability)
     --mode hybrid  : Mix of local and public MCPs (requires internet)
 
-Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+Pipeline Sequence (v2.1):
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
 
 Examples:
     # Greenfield - New Project
@@ -142,7 +146,8 @@ Examples:
     # Brownfield - Existing Repo
     forgeflow discover --path ./my-repo
     forgeflow scan --severity high
-    forgeflow generate --stack kubernetes
+    forgeflow iac --cloud aws              # Generate Terraform + Docker
+    forgeflow ci                           # Generate GitHub Actions + GitLab CI
     forgeflow run-all ./my-repo
         """
     )
@@ -176,11 +181,41 @@ Examples:
                              help="Minimum severity threshold (default: medium)")
     
     # === generate ===
-    generate_parser = subparsers.add_parser("generate", help="Generate deployment artifacts")
+    generate_parser = subparsers.add_parser("generate", help="Generate deployment artifacts (legacy, uses GenerationAgent)")
     generate_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
     generate_parser.add_argument("--stack", default="auto",
                                  choices=["auto", "docker", "kubernetes", "terraform", "helm"],
                                  help="Deployment stack (default: auto-detect)")
+    
+    # === iac === (IACAgent → iac-mcp-server)
+    iac_parser = subparsers.add_parser("iac", help="Generate Infrastructure as Code (Terraform, Docker, Pulumi)")
+    iac_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    iac_parser.add_argument("--cloud", "-c", default="aws",
+                            choices=["aws", "gcp", "azure"],
+                            help="Cloud provider (default: aws)")
+    iac_parser.add_argument("--include-pulumi", action="store_true", help="Include Pulumi configuration")
+    
+    # === cd === (CDAgent → cd-mcp-server)
+    cd_parser = subparsers.add_parser("cd", help="Generate Continuous Deployment configs (ArgoCD, Kustomize, K8s)")
+    cd_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    cd_parser.add_argument("--repo-url", default="https://github.com/org/repo.git",
+                           help="Git repository URL")
+    cd_parser.add_argument("--include-flux", action="store_true", help="Include FluxCD configuration")
+    cd_parser.add_argument("--include-helm", action="store_true", help="Include Helm charts")
+    
+    # === ci === (CIAgent → ci-mcp-server)
+    ci_parser = subparsers.add_parser("ci", help="Generate CI pipelines (GitHub Actions, GitLab CI, Dependabot)")
+    ci_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    ci_parser.add_argument("--no-gitlab", action="store_true", help="Skip GitLab CI generation")
+    ci_parser.add_argument("--no-dependabot", action="store_true", help="Skip Dependabot configuration")
+    
+    # === e2e === (E2ETestingAgent → e2e-mcp-server)
+    e2e_parser = subparsers.add_parser("e2e", help="Generate E2E testing setup (Playwright, Cypress)")
+    e2e_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    e2e_parser.add_argument("--framework", "-f", default="playwright",
+                            choices=["playwright", "cypress", "both"],
+                            help="Testing framework (default: playwright)")
+    e2e_parser.add_argument("--no-ci", action="store_true", help="Skip CI workflow generation")
     
     # === review === (CodeReviewAgent → git-mcp-server)
     review_parser = subparsers.add_parser("review", help="Run code review and quality analysis")
@@ -230,11 +265,13 @@ Examples:
     audit_parser.add_argument("--stack", default="auto", help="Deployment stack")
     
     # === run-all (full pipeline + bridge) ===
-    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → generate → review → test → scan → bridge")
+    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
-    runall_parser.add_argument("--include-post-merge", action="store_true", 
+    runall_parser.add_argument("--include-post-merge", action="store_true",
                                help="Include post-merge stages (deploy, monitor)")
-    
+    runall_parser.add_argument("--greenfield", action="store_true",
+                               help="Greenfield mode: overwrite existing files (default: brownfield — skip existing)")
+
     return parser
 
 
@@ -357,6 +394,28 @@ def main():
             if result.get("status") == "success":
                 print_generated_files(result)
             
+        elif args.command == "iac":
+            result = mc.iac(path, cloud=args.cloud, include_pulumi=args.include_pulumi)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "cd":
+            result = mc.cd(path, repo_url=args.repo_url,
+                          include_flux=args.include_flux, include_helm=args.include_helm)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "ci":
+            result = mc.ci(path, include_gitlab=not args.no_gitlab,
+                          include_dependabot=not args.no_dependabot)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "e2e":
+            result = mc.e2e(path, framework=args.framework, include_ci=not args.no_ci)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
         elif args.command == "review":
             result = mc.review(path)
             
@@ -442,7 +501,10 @@ def main():
                         # Ask if they want to continue with pipeline
                         if Confirm.ask("Run the full pipeline on the new project?", default=True):
                             path = result_path
-                            result = mc.run_all(path, include_post_merge=getattr(args, 'include_post_merge', False))
+                            # Auto-detected greenfield: always use greenfield=True
+                            result = mc.run_all(path,
+                                include_post_merge=getattr(args, 'include_post_merge', False),
+                                greenfield=True)
                             if result.get("status") == "success":
                                 sys.exit(0)
                             else:
@@ -455,10 +517,11 @@ def main():
                     console.print("[dim]Run 'forgeflow init' when ready to create your project.[/]")
                     sys.exit(0)
             else:
-                # Full pipeline: discover → normalize → docs → generate → review → test → scan → (approval) → bridge
+                # Full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → (approval) → bridge
                 # Post-merge (optional): deploy → monitor
                 include_post_merge = getattr(args, 'include_post_merge', False)
-                result = mc.run_all(path, include_post_merge=include_post_merge)
+                greenfield = getattr(args, 'greenfield', False)
+                result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
                 if result.get("status") == "success":
                     sys.exit(0)
                 else:

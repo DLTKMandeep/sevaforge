@@ -14,6 +14,11 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from agents import CIAgent
+from core.models import wrap_agent_result
+
+# Server metadata
+SERVER_NAME = "ci-mcp-server"
+AGENT_NAME = "CIAgent"
 
 # Single agent instance
 _agent = None
@@ -38,10 +43,11 @@ def run(params: dict) -> dict:
             - include_dependabot: Whether to include Dependabot config - default: True
     
     Returns:
-        Agent execution result with generated file information
+        MCPResponse dictionary with wrapped agent result
     """
     agent = get_agent()
-    return agent.execute(params)
+    agent_result = agent.execute(params)
+    return wrap_agent_result(agent_result, SERVER_NAME, AGENT_NAME)
 
 
 if __name__ == "__main__":

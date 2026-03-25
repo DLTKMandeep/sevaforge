@@ -75,3 +75,63 @@ class TestMCPServers:
         })
         
         assert result["status"] == "success"
+    
+    def test_iac_mcp_import(self):
+        """Test IAC MCP server can be imported."""
+        from mcp_servers.iac_mcp import server
+        assert hasattr(server, 'run')
+    
+    def test_cd_mcp_import(self):
+        """Test CD MCP server can be imported."""
+        from mcp_servers.cd_mcp import server
+        assert hasattr(server, 'run')
+    
+    def test_ci_mcp_import(self):
+        """Test CI MCP server can be imported."""
+        from mcp_servers.ci_mcp import server
+        assert hasattr(server, 'run')
+    
+    def test_e2e_mcp_import(self):
+        """Test E2E MCP server can be imported."""
+        from mcp_servers.e2e_mcp import server
+        assert hasattr(server, 'run')
+    
+    def test_iac_mcp_run(self, temp_repo):
+        """Test IAC MCP server run function returns wrapped result."""
+        from mcp_servers.iac_mcp import server
+        result = server.run({"repo_path": str(temp_repo)})
+        
+        assert result["status"] == "success"
+        assert "server" in result
+        assert result["server"] == "iac-mcp-server"
+        assert "result" in result
+    
+    def test_cd_mcp_run(self, temp_repo):
+        """Test CD MCP server run function returns wrapped result."""
+        from mcp_servers.cd_mcp import server
+        result = server.run({"repo_path": str(temp_repo)})
+        
+        assert result["status"] == "success"
+        assert "server" in result
+        assert result["server"] == "cd-mcp-server"
+        assert "result" in result
+    
+    def test_ci_mcp_run(self, temp_repo):
+        """Test CI MCP server run function returns wrapped result."""
+        from mcp_servers.ci_mcp import server
+        result = server.run({"repo_path": str(temp_repo)})
+        
+        assert result["status"] == "success"
+        assert "server" in result
+        assert result["server"] == "ci-mcp-server"
+        assert "result" in result
+    
+    def test_e2e_mcp_run(self, temp_repo):
+        """Test E2E MCP server run function returns wrapped result."""
+        from mcp_servers.e2e_mcp import server
+        result = server.run({"repo_path": str(temp_repo)})
+        
+        assert result["status"] == "success"
+        assert "server" in result
+        assert result["server"] == "e2e-mcp-server"
+        assert "result" in result
