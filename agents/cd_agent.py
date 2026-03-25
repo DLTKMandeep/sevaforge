@@ -876,53 +876,68 @@ GITHUB_SETUP_SCRIPT = '''#!/usr/bin/env bash
 set -euo pipefail
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+APP=$(basename "$REPO")
 echo "Configuring GitHub for: $REPO"
 
 # ---------------------------------------------------------------------------
-# 1. Create GitHub Environments
+# 1. Create GitHub Environments  (JSON body via --input to avoid escaping issues)
 # ---------------------------------------------------------------------------
 echo "Creating environments..."
 
 gh api --method PUT "repos/$REPO/environments/staging" \\
-  --field wait_timer=0 \\
-  --field prevent_self_review=false \\
-  --silent && echo "  ✅ staging environment created"
+  --input - <<'ENDJSON'
+{{"wait_timer": 0, "deployment_branch_policy": null}}
+ENDJSON
+echo "  ✅ staging environment created"
 
 gh api --method PUT "repos/$REPO/environments/production" \\
-  --field wait_timer=5 \\
-  --field prevent_self_review=true \\
-  --silent && echo "  ✅ production environment created (5-min wait + self-review blocked)"
+  --input - <<'ENDJSON'
+{{"wait_timer": 5, "deployment_branch_policy": null}}
+ENDJSON
+echo "  ✅ production environment created (5-min wait timer)"
+echo "  ℹ️  Add required reviewers: GitHub → Settings → Environments → production"
 
 # ---------------------------------------------------------------------------
 # 2. Add environment variables
 # ---------------------------------------------------------------------------
+echo ""
 echo "Setting environment variables..."
 
-# Set placeholder URLs — update these with real values
-gh variable set STAGING_URL --env staging --body "https://staging.{app_name}.yourdomain.com" 2>/dev/null || true
-gh variable set PROD_URL    --env production --body "https://{app_name}.yourdomain.com" 2>/dev/null || true
-echo "  ✅ STAGING_URL and PROD_URL set (update with real URLs)"
+gh variable set STAGING_URL --env staging --body "https://staging.$APP.yourdomain.com" 2>/dev/null || true
+echo "  ✅ STAGING_URL set for staging"
+
+gh variable set PROD_URL --env production --body "https://$APP.yourdomain.com" 2>/dev/null || true
+echo "  ✅ PROD_URL set for production"
+echo "  ℹ️  Update with real URLs: GitHub → Settings → Environments → [env] → Variables"
 
 # ---------------------------------------------------------------------------
-# 3. Branch protection on main
+# 3. Branch protection on main  (use --input with heredoc for clean JSON)
 # ---------------------------------------------------------------------------
+echo ""
 echo "Configuring branch protection on main..."
 
 gh api --method PUT "repos/$REPO/branches/main/protection" \\
-  --field required_status_checks=\\'{{
+  --input - <<'ENDJSON'
+{{
+  "required_status_checks": {{
     "strict": true,
-    "contexts": ["🔍 Lint Code", "🧪 Unit Tests", "🔗 Integration Tests", "🏗️ Build Image"]
-  }}\\' \\
-  --field enforce_admins=false \\
-  --field required_pull_request_reviews=\\'{{
+    "contexts": ["lint", "test-unit", "test-integration", "build"]
+  }},
+  "enforce_admins": false,
+  "required_pull_request_reviews": {{
     "required_approving_review_count": 1,
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": false
-  }}\\' \\
-  --field restrictions=null \\
-  --field allow_force_pushes=false \\
-  --field allow_deletions=false \\
-  --silent && echo "  ✅ Branch protection enabled on main"
+  }},
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}}
+ENDJSON
+echo "  ✅ Branch protection on main:"
+echo "     - 1 PR approval required"
+echo "     - Stale reviews dismissed on new commits"
+echo "     - CI (lint, test, build) must pass before merge"
 
 # ---------------------------------------------------------------------------
 # 4. Summary
@@ -932,21 +947,18 @@ echo "================================================================"
 echo " GitHub setup complete for $REPO"
 echo "================================================================"
 echo ""
-echo " Next steps:"
-echo "  1. Update STAGING_URL in GitHub → Settings → Environments → staging"
-echo "  2. Update PROD_URL   in GitHub → Settings → Environments → production"
-echo "  3. Add required reviewers to the production environment in GitHub UI"
-echo "     (Settings → Environments → production → Required reviewers)"
-echo "  4. Add KUBECONFIG secret if deploying directly (not via ArgoCD)"
+echo " One remaining manual step:"
+echo "  → https://github.com/$REPO/settings/environments"
+echo "     production → Required reviewers → add yourself or your team"
 echo ""
-echo " Pipeline flow:"
-echo "  merge to main"
-echo "    → build & push image"
-echo "    → deploy staging (GitOps)"
-echo "    → E2E tests + DAST scan (parallel, both must pass)"
-echo "    → manual approval (required reviewers in production env)"
-echo "    → deploy prod (GitOps)"
-echo "    → health check → auto-rollback if failed + incident issue opened"
+echo " Update real URLs once infrastructure is deployed:"
+echo "  → STAGING_URL  (staging environment)"
+echo "  → PROD_URL     (production environment)"
+echo ""
+echo " Pipeline flow on every merge to main:"
+echo "  build image → deploy staging → E2E + DAST (parallel)"
+echo "  → reviewer approval → deploy prod → health check"
+echo "  → auto-rollback + incident issue if health check fails"
 echo ""
 '''
 
