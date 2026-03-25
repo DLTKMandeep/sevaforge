@@ -264,6 +264,19 @@ Examples:
     audit_parser.add_argument("--severity", "-s", default="medium", help="Security severity threshold")
     audit_parser.add_argument("--stack", default="auto", help="Deployment stack")
     
+    # === secrets ===
+    secrets_parser = subparsers.add_parser("secrets", help="Manage GitHub Actions secrets for ForgeFlow pipelines")
+    secrets_sub = secrets_parser.add_subparsers(dest="secrets_command", help="Secrets sub-commands")
+
+    secrets_list = secrets_sub.add_parser("list", help="List all secrets required by ForgeFlow-generated workflows")
+    secrets_list.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
+    secrets_check = secrets_sub.add_parser("check", help="Check which required secrets are set in GitHub (requires gh CLI)")
+    secrets_check.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
+    secrets_bootstrap = secrets_sub.add_parser("bootstrap", help="Run scripts/setup-github.sh to bootstrap all secrets with placeholders")
+    secrets_bootstrap.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
     # === run-all (full pipeline + bridge) ===
     runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
@@ -345,6 +358,225 @@ def run_greenfield_init(args):
         return None
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Required secrets registry — single source of truth
+# ─────────────────────────────────────────────────────────────────────────────
+REQUIRED_SECRETS = [
+    {
+        "name": "AWS_ACCESS_KEY_ID",
+        "purpose": "AWS authentication for ECR push and EKS access",
+        "how_to_get": "IAM Console → Users → <user> → Security credentials → Create access key",
+        "required": True,
+    },
+    {
+        "name": "AWS_SECRET_ACCESS_KEY",
+        "purpose": "AWS authentication (paired with ACCESS_KEY_ID)",
+        "how_to_get": "Shown once when creating the access key in IAM Console",
+        "required": True,
+    },
+    {
+        "name": "AWS_ACCOUNT_ID",
+        "purpose": "Build ECR image URI (123456789012.dkr.ecr.<region>.amazonaws.com)",
+        "how_to_get": "aws sts get-caller-identity --query Account --output text",
+        "required": True,
+    },
+    {
+        "name": "AWS_REGION",
+        "purpose": "AWS region where EKS cluster lives",
+        "how_to_get": "Pre-filled as 'us-east-1' — change if your cluster is elsewhere",
+        "required": True,
+    },
+    {
+        "name": "EKS_CLUSTER_NAME",
+        "purpose": "Name of the EKS cluster (used for kubectl/argocd targeting)",
+        "how_to_get": "terraform -chdir=terraform output -raw eks_cluster_name",
+        "required": True,
+    },
+    {
+        "name": "ARGOCD_SERVER",
+        "purpose": "ArgoCD API server hostname (used for argocd CLI in deploy pipeline)",
+        "how_to_get": "kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+        "required": True,
+    },
+    {
+        "name": "ARGOCD_AUTH_TOKEN",
+        "purpose": "ArgoCD API token for automated deploys via argocd CLI",
+        "how_to_get": "argocd account generate-token --account admin  (run after setup-argocd.sh)",
+        "required": True,
+    },
+    {
+        "name": "SONAR_TOKEN",
+        "purpose": "SonarCloud code quality gate token",
+        "how_to_get": "sonarcloud.io → My Account → Security → Generate token",
+        "required": False,
+    },
+    {
+        "name": "SNYK_TOKEN",
+        "purpose": "Snyk vulnerability scanning token",
+        "how_to_get": "app.snyk.io → Account Settings → Auth Token",
+        "required": False,
+    },
+    {
+        "name": "SLACK_WEBHOOK_URL",
+        "purpose": "Slack Incoming Webhook for deploy notifications",
+        "how_to_get": "api.slack.com → Your Apps → Incoming Webhooks → Add New Webhook",
+        "required": False,
+    },
+]
+
+REQUIRED_VARS = [
+    {
+        "name": "STAGING_URL",
+        "environment": "staging",
+        "purpose": "Base URL of the staging app (used by E2E tests and DAST scan)",
+        "example": "https://staging.myapp.yourdomain.com",
+    },
+    {
+        "name": "PROD_URL",
+        "environment": "production",
+        "purpose": "Base URL of the production app (used by health check)",
+        "example": "https://myapp.yourdomain.com",
+    },
+]
+
+
+def run_secrets_command(args):
+    """Handle 'forgeflow secrets' subcommands."""
+    import subprocess
+    import re
+
+    secrets_command = getattr(args, "secrets_command", None)
+    path = Path(getattr(args, "path", ".")).resolve()
+
+    if secrets_command == "list" or secrets_command is None:
+        # ── LIST: Show every required secret with purpose and how-to-get ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Required GitHub Actions Secrets[/]")
+        console.print()
+        console.print("[bold]Required secrets[/] (pipeline will fail without these):")
+        console.print()
+
+        from rich.table import Table
+        tbl = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl.add_column("Secret", style="bold yellow", min_width=28)
+        tbl.add_column("Purpose", min_width=45)
+        tbl.add_column("How to get", style="dim")
+
+        for s in REQUIRED_SECRETS:
+            marker = "★" if s["required"] else "☆"
+            tbl.add_row(f"{marker} {s['name']}", s["purpose"], s["how_to_get"])
+
+        console.print(tbl)
+        console.print()
+        console.print("[bold]Environment variables[/] (non-sensitive, per-environment):")
+        console.print()
+
+        tbl2 = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl2.add_column("Variable", style="bold green", min_width=18)
+        tbl2.add_column("Environment", min_width=14)
+        tbl2.add_column("Purpose", min_width=45)
+        tbl2.add_column("Example", style="dim")
+        for v in REQUIRED_VARS:
+            tbl2.add_row(v["name"], v["environment"], v["purpose"], v["example"])
+        console.print(tbl2)
+        console.print()
+        console.print("[dim]★ required  ☆ optional[/]")
+        console.print()
+        console.print("[dim]Tip: Run 'forgeflow secrets check' to see which are already set.[/]")
+        console.print("[dim]     See RUNBOOK.md in the repo root for detailed setup steps.[/]")
+        console.print()
+
+    elif secrets_command == "check":
+        # ── CHECK: Query GitHub via gh CLI to see which secrets are set ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Secrets Status Check[/]")
+        console.print()
+
+        # Check gh CLI is available
+        try:
+            subprocess.run(["gh", "auth", "status"], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            console.print("[bold red]❌ gh CLI not found or not authenticated.[/]")
+            console.print("   Install: brew install gh")
+            console.print("   Login:   gh auth login")
+            return
+
+        # Get list of secrets set in this repo
+        try:
+            result = subprocess.run(
+                ["gh", "secret", "list", "--json", "name"],
+                capture_output=True, text=True, check=True, cwd=str(path)
+            )
+            import json as _json
+            set_secrets = {s["name"] for s in _json.loads(result.stdout)}
+        except Exception as e:
+            console.print(f"[bold red]❌ Could not list secrets: {e}[/]")
+            return
+
+        all_ok = True
+        console.print("[bold]GitHub Actions Secrets:[/]")
+        console.print()
+
+        for s in REQUIRED_SECRETS:
+            is_set = s["name"] in set_secrets
+            # Check if it has placeholder value (can't read the value, so we just note it)
+            if is_set:
+                status = "[bold green]✅ set[/]"
+            elif s["required"]:
+                status = "[bold red]❌ missing[/]"
+                all_ok = False
+            else:
+                status = "[yellow]⚠️  not set (optional)[/]"
+
+            marker = "★" if s["required"] else "☆"
+            console.print(f"  {marker} [bold]{s['name']}[/]  {status}")
+
+        console.print()
+        if all_ok:
+            console.print("[bold green]✅ All required secrets are set![/]")
+            console.print("[dim]   Note: Secrets may still have placeholder values — verify real values are in place.[/]")
+        else:
+            console.print("[bold red]❌ Some required secrets are missing.[/]")
+            console.print()
+            console.print("To bootstrap all secrets with placeholder values:")
+            console.print("  [bold]bash scripts/setup-github.sh[/]  [dim](if not already run)[/]")
+            console.print()
+            console.print("Then fill in real values at:")
+            console.print("  GitHub → Settings → Secrets and variables → Actions")
+            console.print("  See [bold]RUNBOOK.md[/] for step-by-step instructions.")
+        console.print()
+
+    elif secrets_command == "bootstrap":
+        # ── BOOTSTRAP: Run setup-github.sh ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Bootstrapping GitHub Secrets[/]")
+        console.print()
+
+        setup_script = path / "scripts" / "setup-github.sh"
+        if not setup_script.exists():
+            console.print(f"[bold red]❌ {setup_script} not found.[/]")
+            console.print("   Run [bold]forgeflow cd[/] first to generate it.")
+            return
+
+        console.print(f"Running: [bold]bash {setup_script}[/]")
+        console.print()
+
+        try:
+            subprocess.run(["bash", str(setup_script)], check=True, cwd=str(path))
+            console.print()
+            console.print("[bold green]✅ Bootstrap complete![/]")
+            console.print("   Fill in real values at GitHub → Settings → Secrets → Actions")
+            console.print("   See RUNBOOK.md for step-by-step instructions.")
+        except subprocess.CalledProcessError as e:
+            console.print(f"\n[bold red]❌ Setup script exited with code {e.returncode}[/]")
+            console.print("   Check the output above for error details.")
+        console.print()
+
+    else:
+        console.print("[bold red]Unknown secrets subcommand.[/]")
+        console.print("Usage: forgeflow secrets [list|check|bootstrap]")
+
+
 def main():
     """Main entry point - parse arguments and delegate to MissionControl."""
     parser = create_parser()
@@ -370,6 +602,11 @@ def main():
                 sys.exit(0)
             else:
                 sys.exit(1)
+
+        # Handle secrets command separately (no MissionControl needed)
+        if args.command == "secrets":
+            run_secrets_command(args)
+            sys.exit(0)
         
         # Create MissionControl instance with specified mode
         mc = MissionControl(mode=mode)
