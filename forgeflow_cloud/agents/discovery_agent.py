@@ -356,7 +356,7 @@ class DiscoveryAgent(BaseAgent):
     
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Execute discovery scan on repository."""
-        repo_path = Path(params.get('path', '.'))
+        repo_path = Path(params.get('repo_path', params.get('path', '.')))
         inventory = []
         frameworks_detected: Set[str] = set()
         

@@ -149,6 +149,58 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+
+
+  # ===========================================================================
+  # E2E Smoke Tests (PR gate — spins up app locally, no external env needed)
+  # ===========================================================================
+  e2e-smoke:
+    name: 💨 E2E Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Playwright
+        run: |
+          npm ci 2>/dev/null || true
+          npx playwright install --with-deps chromium
+
+      - name: Start application
+        run: |
+{e2e_start_cmd}
+          sleep 10
+        env:
+          PORT: 3000
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run smoke E2E tests
+        env:
+          BASE_URL: http://localhost:3000
+        run: |
+          # Run only smoke-tagged tests if they exist, otherwise run all
+          if find tests/e2e -name "*.spec.*" 2>/dev/null | grep -q .; then
+            npx playwright test --grep @smoke --reporter=line 2>/dev/null || \\
+            npx playwright test --reporter=line
+          else
+            echo "No E2E tests found — skipping smoke run"
+          fi
+
+      - name: Upload smoke test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-e2e-report-${{{{ github.sha }}}}
+          path: playwright-report/
+          retention-days: 7
 '''
 
 
@@ -964,7 +1016,7 @@ class CIAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        repo_path = Path(params.get("repo_path", params.get("path", "."))).resolve()
         overwrite = params.get("greenfield", False)
         include_gitlab = params.get("include_gitlab", True)
         include_dependabot = params.get("include_dependabot", True)
@@ -1039,10 +1091,23 @@ class CIAgent(BaseAgent):
         unit_test_steps = UNIT_TEST_STEPS_BY_LANGUAGE.get(primary_lang, UNIT_TEST_STEPS_BY_LANGUAGE['Python'])
         integration_test_steps = INTEGRATION_TEST_STEPS_BY_LANGUAGE.get(primary_lang, INTEGRATION_TEST_STEPS_BY_LANGUAGE['Python'])
         
+        # E2E smoke — start command per language
+        e2e_start_commands = {
+            'Python':     '          python -m uvicorn main:app --host 0.0.0.0 --port 3000 &',
+            'JavaScript': '          npm start &',
+            'TypeScript': '          npm run start &',
+            'Go':         '          go run . &',
+            'Rust':       '          cargo run &',
+            'Java':       '          ./mvnw spring-boot:run &',
+            'Ruby':       '          bundle exec rails server -p 3000 &',
+        }
+        e2e_start_cmd = e2e_start_commands.get(primary_lang, '          npm start &')
+
         ci_content = CI_WORKFLOW_TEMPLATE.format(
             lint_steps=lint_steps,
             unit_test_steps=unit_test_steps,
-            integration_test_steps=integration_test_steps
+            integration_test_steps=integration_test_steps,
+            e2e_start_cmd=e2e_start_cmd,
         )
         actions.append(self._safe_write(workflows_path / "ci.yml", ci_content, overwrite))
 

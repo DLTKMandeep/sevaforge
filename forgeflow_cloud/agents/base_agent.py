@@ -76,14 +76,14 @@ class BaseAgent(ABC):
     ) -> Dict[str, Any]:
         """
         Create a standardized result dictionary.
-
+        
         Args:
             status: "success", "warning", or "error"
             summary: Brief summary of the result
             data: Detailed result data
             findings: List of finding strings
-            actions: List of action dicts (used by IAC, CD, CI, E2E agents)
-
+            actions: List of action dictionaries (for generation agents)
+            
         Returns:
             Standardized result dictionary
         """
@@ -98,7 +98,7 @@ class BaseAgent(ABC):
         if actions is not None:
             result["actions"] = actions
         return result
-    
+
     def _safe_write(self, path, content: str, overwrite: bool = False) -> Dict[str, Any]:
         """Write a file with greenfield/brownfield mode awareness.
 
