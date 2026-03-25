@@ -98,6 +98,26 @@ STAGE_MAPPING = {
         "agent": "BridgeAgent",
         "description": "Push to GitHub repository"
     },
+    "iac": {
+        "mcp_server": "iac-mcp-server",
+        "agent": "IACAgent",
+        "description": "Generate Terraform, Docker, and cloud infrastructure configs"
+    },
+    "cd": {
+        "mcp_server": "cd-mcp-server",
+        "agent": "CDAgent",
+        "description": "Generate ArgoCD, Kustomize, and Kubernetes manifests"
+    },
+    "ci": {
+        "mcp_server": "ci-mcp-server",
+        "agent": "CIAgent",
+        "description": "Generate GitHub Actions, GitLab CI, and Dependabot configs"
+    },
+    "e2e": {
+        "mcp_server": "e2e-mcp-server",
+        "agent": "E2ETestingAgent",
+        "description": "Generate Playwright/Cypress E2E test scaffolding"
+    },
 }
 
 

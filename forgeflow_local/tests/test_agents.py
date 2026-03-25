@@ -35,8 +35,8 @@ class TestDiscoveryAgent:
         
         assert result["status"] == "success"
         assert "data" in result
-        assert "files" in result["data"]
-        assert len(result["data"]["files"]) > 0
+        assert "total_files" in result["data"]
+        assert result["data"]["total_files"] > 0
     
     def test_discover_empty_repo(self, empty_repo):
         """Test discovery on an empty repository."""
