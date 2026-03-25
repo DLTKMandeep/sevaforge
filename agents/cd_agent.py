@@ -598,16 +598,370 @@ affinity: {{}}
 '''
 
 
+# =============================================================================
+# DEPLOY WORKFLOW — pilot to prod with gates
+# =============================================================================
+
+DEPLOY_WORKFLOW_TEMPLATE = '''# =============================================================================
+# ForgeFlow Generated Deploy Pipeline
+# Full pilot-to-prod: build → staging → E2E gate → DAST → approval → prod → rollback
+# =============================================================================
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+# Never cancel in-flight deploys — a deploy must always finish or roll back
+concurrency:
+  group: deploy-${{{{ github.ref }}}}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{{{ github.repository }}}}
+
+jobs:
+  # ===========================================================================
+  # 1 ── Build & push container image
+  # ===========================================================================
+  build:
+    name: 🏗️ Build & Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{{{ github.sha }}}}
+      image:     ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ github.sha }}}}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{{{ env.REGISTRY }}}}
+          username: ${{{{ github.actor }}}}
+          password: ${{{{ secrets.GITHUB_TOKEN }}}}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{{{ github.ref == 'refs/heads/main' }}}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{{{ steps.meta.outputs.tags }}}}
+          labels: ${{{{ steps.meta.outputs.labels }}}}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+          provenance: true
+          sbom: true
+
+  # ===========================================================================
+  # 2 ── Deploy to staging (GitOps — update kustomize overlay)
+  # ===========================================================================
+  deploy-staging:
+    name: 🚀 Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: build
+    environment: staging
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          fetch-depth: 0
+
+      - name: Update staging image tag
+        run: |
+          cd infrastructure/k8s/overlays/staging
+          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
+          git config user.name  "ForgeFlow Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore(deploy/staging): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
+          git push
+
+      - name: Wait for ArgoCD sync
+        run: |
+          echo "⏳ Waiting 60s for ArgoCD to pick up staging update..."
+          sleep 60
+          echo "✅ Staging deployment triggered"
+          # If ArgoCD CLI is available:
+          # argocd app wait {app_name}-staging --health --sync --timeout 300
+
+  # ===========================================================================
+  # 3 ── E2E tests against staging  (gate — must pass to reach prod)
+  # ===========================================================================
+  e2e-staging:
+    name: 🧪 E2E Gate → Staging
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        env:
+          BASE_URL: ${{{{ vars.STAGING_URL }}}}
+        run: npx playwright test --reporter=html
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-${{{{ github.sha }}}}
+          path: playwright-report/
+          retention-days: 14
+
+  # ===========================================================================
+  # 4 ── DAST scan against staging  (gate — blocks on CRITICAL findings)
+  # ===========================================================================
+  dast-staging:
+    name: 🔒 DAST Gate → Staging
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    permissions:
+      issues: write
+    steps:
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          target:       ${{{{ vars.STAGING_URL }}}}
+          fail_action:  true        # CRITICAL findings block the pipeline
+          issue_title:  "DAST Scan – ${{{{ github.sha }}}}"
+
+  # ===========================================================================
+  # 5 ── Production deployment  (requires manual approval via GitHub Environment)
+  # ===========================================================================
+  deploy-prod:
+    name: 🚀 Deploy → Production
+    runs-on: ubuntu-latest
+    needs: [e2e-staging, dast-staging]
+    environment: production          # ← required reviewers + wait timer enforced here
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          fetch-depth: 0
+          ref: main                  # Always deploy from latest main
+
+      - name: Update production image tag
+        run: |
+          cd infrastructure/k8s/overlays/prod
+          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
+          git config user.name  "ForgeFlow Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore(deploy/prod): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
+          git push
+
+      - name: Wait for ArgoCD sync
+        run: |
+          echo "⏳ Waiting 90s for ArgoCD to pick up prod update..."
+          sleep 90
+          echo "✅ Production deployment triggered"
+
+  # ===========================================================================
+  # 6 ── Health check  (polls /health for up to 5 minutes)
+  # ===========================================================================
+  health-check:
+    name: ❤️ Health Check → Production
+    runs-on: ubuntu-latest
+    needs: deploy-prod
+    outputs:
+      healthy: ${{{{ steps.check.outputs.healthy }}}}
+    steps:
+      - name: Poll health endpoint
+        id: check
+        run: |
+          echo "healthy=false" >> $GITHUB_OUTPUT
+          for i in $(seq 1 10); do
+            status=$(curl -s -o /dev/null -w "%{{http_code}}" "${{{{ vars.PROD_URL }}}}/health" || echo "000")
+            echo "Attempt $i/10: HTTP $status"
+            if [ "$status" = "200" ]; then
+              echo "healthy=true" >> $GITHUB_OUTPUT
+              echo "✅ Production is healthy"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+  # ===========================================================================
+  # 7 ── Automatic rollback if health check fails
+  # ===========================================================================
+  rollback:
+    name: ⏪ Auto-Rollback Production
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: failure()
+    permissions:
+      contents: write
+      issues:   write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          fetch-depth: 5
+
+      - name: Revert production image tag
+        run: |
+          git config user.name  "ForgeFlow Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git revert HEAD --no-edit
+          git push
+          echo "⏪ Production rolled back"
+
+      - name: Open incident issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({{
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `🚨 Production rollback — ${{{{ github.sha }}}}`,
+              body: [
+                `Production deployment of \`${{{{ github.sha }}}}\` failed health checks.`,
+                `Auto-rollback completed.`,
+                ``,
+                `**Workflow run:** ${{{{ github.server_url }}}}/${{{{ github.repository }}}}/actions/runs/${{{{ github.run_id }}}}`,
+              ].join("\\n"),
+              labels: ["incident", "production", "auto-rollback"],
+            }})
+'''
+
+
+# =============================================================================
+# GITHUB ENVIRONMENTS SETUP SCRIPT
+# =============================================================================
+
+GITHUB_SETUP_SCRIPT = '''#!/usr/bin/env bash
+# =============================================================================
+# ForgeFlow — GitHub Environments & Branch Protection Setup
+# Run once after pushing to GitHub:  bash scripts/setup-github.sh
+#
+# Prerequisites: gh CLI authenticated (gh auth login)
+# =============================================================================
+set -euo pipefail
+
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+echo "Configuring GitHub for: $REPO"
+
+# ---------------------------------------------------------------------------
+# 1. Create GitHub Environments
+# ---------------------------------------------------------------------------
+echo "Creating environments..."
+
+gh api --method PUT "repos/$REPO/environments/staging" \\
+  --field wait_timer=0 \\
+  --field prevent_self_review=false \\
+  --silent && echo "  ✅ staging environment created"
+
+gh api --method PUT "repos/$REPO/environments/production" \\
+  --field wait_timer=5 \\
+  --field prevent_self_review=true \\
+  --silent && echo "  ✅ production environment created (5-min wait + self-review blocked)"
+
+# ---------------------------------------------------------------------------
+# 2. Add environment variables
+# ---------------------------------------------------------------------------
+echo "Setting environment variables..."
+
+# Set placeholder URLs — update these with real values
+gh variable set STAGING_URL --env staging --body "https://staging.{app_name}.yourdomain.com" 2>/dev/null || true
+gh variable set PROD_URL    --env production --body "https://{app_name}.yourdomain.com" 2>/dev/null || true
+echo "  ✅ STAGING_URL and PROD_URL set (update with real URLs)"
+
+# ---------------------------------------------------------------------------
+# 3. Branch protection on main
+# ---------------------------------------------------------------------------
+echo "Configuring branch protection on main..."
+
+gh api --method PUT "repos/$REPO/branches/main/protection" \\
+  --field required_status_checks=\\'{{
+    "strict": true,
+    "contexts": ["🔍 Lint Code", "🧪 Unit Tests", "🔗 Integration Tests", "🏗️ Build Image"]
+  }}\\' \\
+  --field enforce_admins=false \\
+  --field required_pull_request_reviews=\\'{{
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": false
+  }}\\' \\
+  --field restrictions=null \\
+  --field allow_force_pushes=false \\
+  --field allow_deletions=false \\
+  --silent && echo "  ✅ Branch protection enabled on main"
+
+# ---------------------------------------------------------------------------
+# 4. Summary
+# ---------------------------------------------------------------------------
+echo ""
+echo "================================================================"
+echo " GitHub setup complete for $REPO"
+echo "================================================================"
+echo ""
+echo " Next steps:"
+echo "  1. Update STAGING_URL in GitHub → Settings → Environments → staging"
+echo "  2. Update PROD_URL   in GitHub → Settings → Environments → production"
+echo "  3. Add required reviewers to the production environment in GitHub UI"
+echo "     (Settings → Environments → production → Required reviewers)"
+echo "  4. Add KUBECONFIG secret if deploying directly (not via ArgoCD)"
+echo ""
+echo " Pipeline flow:"
+echo "  merge to main"
+echo "    → build & push image"
+echo "    → deploy staging (GitOps)"
+echo "    → E2E tests + DAST scan (parallel, both must pass)"
+echo "    → manual approval (required reviewers in production env)"
+echo "    → deploy prod (GitOps)"
+echo "    → health check → auto-rollback if failed + incident issue opened"
+echo ""
+'''
+
+
 class CDAgent(BaseAgent):
     """
     Continuous Deployment Agent - Generates ArgoCD, Kustomize, and Kubernetes configurations.
-    
+
     Responsibilities:
     - ArgoCD Application manifests
-    - ArgoCD AppProject
-    - ArgoCD ApplicationSet
+    - ArgoCD AppProject / ApplicationSet
     - Kustomize base and overlays (dev, staging, prod)
     - Kubernetes manifests (deployment, service, configmap, hpa, ingress)
+    - deploy.yml — full pilot-to-prod pipeline with E2E gate, DAST, approval, rollback
+    - scripts/setup-github.sh — GitHub Environments + branch protection setup
     - FluxCD support (optional)
     - Helm charts (optional)
     """
@@ -660,6 +1014,14 @@ class CDAgent(BaseAgent):
         kustomize_actions = self._generate_kustomize(k8s_path, app_name, port, image, overwrite)
         actions.extend(kustomize_actions)
 
+        # Generate deploy.yml — pilot-to-prod pipeline with gates
+        deploy_actions = self._generate_deploy_workflow(repo_path, app_name, overwrite)
+        actions.extend(deploy_actions)
+
+        # Generate GitHub setup script
+        setup_actions = self._generate_github_setup(repo_path, app_name, overwrite)
+        actions.extend(setup_actions)
+
         # Generate FluxCD (optional)
         if include_flux:
             flux_actions = self._generate_flux(k8s_path, app_name, repo_url, overwrite)
@@ -669,15 +1031,21 @@ class CDAgent(BaseAgent):
         if include_helm:
             helm_actions = self._generate_helm(k8s_path, app_name, overwrite)
             actions.extend(helm_actions)
-        
+
+        created  = len([a for a in actions if a.get('action') == 'created'])
+        existing = len([a for a in actions if a.get('action') == 'exists'])
+
         return self.create_result(
             status="success",
-            summary=f"Generated CD configurations for {app_name}",
+            summary=f"Generated CD configurations for {app_name} ({created} files created)",
             data={
-                "app_name": app_name,
-                "k8s_path": str(k8s_path),
+                "app_name":    app_name,
+                "k8s_path":    str(k8s_path),
                 "environments": ["dev", "staging", "prod"],
-                "files_generated": len(actions),
+                "files_created":  created,
+                "files_existing": existing,
+                "deploy_pipeline": ".github/workflows/deploy.yml",
+                "github_setup":    "scripts/setup-github.sh",
             },
             findings=findings,
             actions=actions
@@ -810,5 +1178,31 @@ class CDAgent(BaseAgent):
   kubectl rollout status deployment/{app_name} -n {{{{ .Release.Namespace }}}}
 '''
         actions.append(self._safe_write(templates_path / "NOTES.txt", notes, overwrite))
-        
+
+        return actions
+
+    def _generate_deploy_workflow(self, repo_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
+        """Generate .github/workflows/deploy.yml — full pilot-to-prod pipeline."""
+        actions = []
+        workflows_path = repo_path / ".github" / "workflows"
+        workflows_path.mkdir(parents=True, exist_ok=True)
+        actions.append(self._safe_write(
+            workflows_path / "deploy.yml",
+            DEPLOY_WORKFLOW_TEMPLATE.format(app_name=app_name),
+            overwrite
+        ))
+        return actions
+
+    def _generate_github_setup(self, repo_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
+        """Generate scripts/setup-github.sh — GitHub Environments + branch protection."""
+        actions = []
+        scripts_path = repo_path / "scripts"
+        scripts_path.mkdir(exist_ok=True)
+        content = GITHUB_SETUP_SCRIPT.format(app_name=app_name)
+        result = self._safe_write(scripts_path / "setup-github.sh", content, overwrite)
+        # Make it executable
+        script_file = scripts_path / "setup-github.sh"
+        if script_file.exists():
+            script_file.chmod(0o755)
+        actions.append(result)
         return actions
