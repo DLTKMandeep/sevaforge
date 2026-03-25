@@ -149,6 +149,58 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+
+
+  # ===========================================================================
+  # E2E Smoke Tests (PR gate — spins up app locally, no external env needed)
+  # ===========================================================================
+  e2e-smoke:
+    name: 💨 E2E Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install Playwright
+        run: |
+          npm ci 2>/dev/null || true
+          npx playwright install --with-deps chromium
+
+      - name: Start application
+        run: |
+{e2e_start_cmd}
+          sleep 10
+        env:
+          PORT: 3000
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run smoke E2E tests
+        env:
+          BASE_URL: http://localhost:3000
+        run: |
+          # Run only smoke-tagged tests if they exist, otherwise run all
+          if find tests/e2e -name "*.spec.*" 2>/dev/null | grep -q .; then
+            npx playwright test --grep @smoke --reporter=line 2>/dev/null || \\
+            npx playwright test --reporter=line
+          else
+            echo "No E2E tests found — skipping smoke run"
+          fi
+
+      - name: Upload smoke test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-e2e-report-${{{{ github.sha }}}}
+          path: playwright-report/
+          retention-days: 7
 '''
 
 
@@ -964,22 +1016,22 @@ class CIAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        repo_path = Path(params.get("repo_path", params.get("path", "."))).resolve()
+        overwrite = params.get("greenfield", False)
         include_gitlab = params.get("include_gitlab", True)
         include_dependabot = params.get("include_dependabot", True)
-        overwrite = params.get("greenfield", False)
-
-        self.log(f"Generating CI configs for: {repo_path} (mode: {'greenfield' if overwrite else 'brownfield'})")
-
+        
+        self.log(f"Generating CI configs for: {repo_path}")
+        
         actions = []
         findings = []
-
+        
         # Detect app name and language
         app_name = self._detect_app_name(repo_path)
         primary_lang = self._detect_primary_language(repo_path)
-
+        
         self.log(f"Detected app: {app_name}, language: {primary_lang}")
-
+        
         # Generate GitHub Actions
         gh_actions = self._generate_github_actions(repo_path, app_name, primary_lang, overwrite)
         actions.extend(gh_actions)
@@ -1033,60 +1085,91 @@ class CIAgent(BaseAgent):
         actions = []
         workflows_path = repo_path / ".github" / "workflows"
         workflows_path.mkdir(parents=True, exist_ok=True)
-
+        
+        # CI workflow
         lint_steps = LINT_STEPS_BY_LANGUAGE.get(primary_lang, LINT_STEPS_BY_LANGUAGE['Python'])
         unit_test_steps = UNIT_TEST_STEPS_BY_LANGUAGE.get(primary_lang, UNIT_TEST_STEPS_BY_LANGUAGE['Python'])
         integration_test_steps = INTEGRATION_TEST_STEPS_BY_LANGUAGE.get(primary_lang, INTEGRATION_TEST_STEPS_BY_LANGUAGE['Python'])
+        
+        # E2E smoke — start command per language
+        e2e_start_commands = {
+            'Python':     '          python -m uvicorn main:app --host 0.0.0.0 --port 3000 &',
+            'JavaScript': '          npm start &',
+            'TypeScript': '          npm run start &',
+            'Go':         '          go run . &',
+            'Rust':       '          cargo run &',
+            'Java':       '          ./mvnw spring-boot:run &',
+            'Ruby':       '          bundle exec rails server -p 3000 &',
+        }
+        e2e_start_cmd = e2e_start_commands.get(primary_lang, '          npm start &')
+
         ci_content = CI_WORKFLOW_TEMPLATE.format(
-            lint_steps=lint_steps, unit_test_steps=unit_test_steps,
-            integration_test_steps=integration_test_steps
+            lint_steps=lint_steps,
+            unit_test_steps=unit_test_steps,
+            integration_test_steps=integration_test_steps,
+            e2e_start_cmd=e2e_start_cmd,
         )
         actions.append(self._safe_write(workflows_path / "ci.yml", ci_content, overwrite))
 
+        # Security workflow
         dependency_scan_steps = DEPENDENCY_SCAN_STEPS_BY_LANGUAGE.get(primary_lang, DEPENDENCY_SCAN_STEPS_BY_LANGUAGE['Python'])
         codeql_languages = CODEQL_LANGUAGES.get(primary_lang, 'python')
+
         security_content = SECURITY_WORKFLOW_TEMPLATE.format(
-            dependency_scan_steps=dependency_scan_steps, codeql_languages=codeql_languages
+            dependency_scan_steps=dependency_scan_steps,
+            codeql_languages=codeql_languages
         )
         actions.append(self._safe_write(workflows_path / "security.yml", security_content, overwrite))
+
+        # Release workflow
         actions.append(self._safe_write(workflows_path / "release.yml", RELEASE_WORKFLOW_TEMPLATE, overwrite))
-
+        
         return actions
-
+    
     def _generate_gitlab_ci(self, repo_path: Path, app_name: str, primary_lang: str, overwrite: bool = False) -> List[Dict]:
         """Generate GitLab CI configuration."""
         actions = []
-
+        
         lint_job = GITLAB_LINT_BY_LANGUAGE.get(primary_lang, GITLAB_LINT_BY_LANGUAGE['Python'])
         test_job = GITLAB_TEST_BY_LANGUAGE.get(primary_lang, GITLAB_TEST_BY_LANGUAGE['Python'])
         dependency_job = GITLAB_DEPENDENCY_SCAN_BY_LANGUAGE.get(primary_lang, GITLAB_DEPENDENCY_SCAN_BY_LANGUAGE['Python'])
         cache_paths = GITLAB_CACHE_BY_LANGUAGE.get(primary_lang, GITLAB_CACHE_BY_LANGUAGE['Python'])
         default_image = GITLAB_DEFAULT_IMAGE_BY_LANGUAGE.get(primary_lang, GITLAB_DEFAULT_IMAGE_BY_LANGUAGE['Python'])
+        
         gitlab_content = GITLAB_CI_TEMPLATE.format(
-            default_image=default_image, cache_paths=cache_paths,
-            lint_job=lint_job, test_job=test_job, dependency_job=dependency_job
+            default_image=default_image,
+            cache_paths=cache_paths,
+            lint_job=lint_job,
+            test_job=test_job,
+            dependency_job=dependency_job
         )
         actions.append(self._safe_write(repo_path / ".gitlab-ci.yml", gitlab_content, overwrite))
-
+        
         return actions
-
+    
     def _generate_dependabot(self, repo_path: Path, primary_lang: str, overwrite: bool = False) -> List[Dict]:
         """Generate Dependabot configuration."""
         actions = []
         github_path = repo_path / ".github"
         github_path.mkdir(exist_ok=True)
-
+        
         ecosystems = []
+        
+        # Add Docker if Dockerfile exists
         if (repo_path / "Dockerfile").exists():
             ecosystems.append(DEPENDABOT_ECOSYSTEM_DOCKER)
+        
+        # Add language-specific ecosystem
         if primary_lang in ['JavaScript', 'TypeScript']:
             ecosystems.append(DEPENDABOT_ECOSYSTEM_NPM)
         elif primary_lang == 'Python':
             ecosystems.append(DEPENDABOT_ECOSYSTEM_PIP)
         elif primary_lang == 'Go':
             ecosystems.append(DEPENDABOT_ECOSYSTEM_GOMOD)
-
-        dependabot_content = DEPENDABOT_CONFIG.format(ecosystem_configs='\n'.join(ecosystems))
+        
+        dependabot_content = DEPENDABOT_CONFIG.format(
+            ecosystem_configs='\n'.join(ecosystems)
+        )
         actions.append(self._safe_write(github_path / "dependabot.yml", dependabot_content, overwrite))
-
+        
         return actions
