@@ -964,7 +964,7 @@ class CIAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        repo_path = Path(params.get("repo_path", params.get("path", "."))).resolve()
         overwrite = params.get("greenfield", False)
         include_gitlab = params.get("include_gitlab", True)
         include_dependabot = params.get("include_dependabot", True)
