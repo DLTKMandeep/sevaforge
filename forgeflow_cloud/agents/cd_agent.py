@@ -911,7 +911,49 @@ echo "  ✅ PROD_URL set for production"
 echo "  ℹ️  Update with real URLs: GitHub → Settings → Environments → [env] → Variables"
 
 # ---------------------------------------------------------------------------
-# 3. Branch protection on main  (use --input with heredoc for clean JSON)
+# 3. Bootstrap GitHub Actions secrets (placeholder values — fill in real ones)
+# ---------------------------------------------------------------------------
+echo ""
+echo "Bootstrapping GitHub Actions secrets..."
+echo "  (Created with placeholders — fill in real values in GitHub → Settings → Secrets)"
+echo ""
+
+bootstrap_secret() {{
+  local name="$1"
+  local placeholder="$2"
+  local description="$3"
+  if gh secret list 2>/dev/null | grep -q "^$name"; then
+    echo "  ⏭️  $name already set — skipping"
+  else
+    echo -n "$placeholder" | gh secret set "$name"
+    echo "  ✅ $name  ←  $description"
+  fi
+}}
+
+# AWS / Cloud
+bootstrap_secret "AWS_ACCESS_KEY_ID"     "REPLACE_WITH_REAL_VALUE" "IAM access key"
+bootstrap_secret "AWS_SECRET_ACCESS_KEY" "REPLACE_WITH_REAL_VALUE" "IAM secret key"
+bootstrap_secret "AWS_ACCOUNT_ID"        "REPLACE_WITH_REAL_VALUE" "12-digit AWS account ID"
+bootstrap_secret "AWS_REGION"            "us-east-1"               "AWS region for EKS"
+bootstrap_secret "EKS_CLUSTER_NAME"      "REPLACE_WITH_REAL_VALUE" "EKS cluster name (terraform output)"
+
+# ArgoCD
+bootstrap_secret "ARGOCD_SERVER"         "REPLACE_WITH_REAL_VALUE" "ArgoCD server host (kubectl get svc -n argocd argocd-server)"
+bootstrap_secret "ARGOCD_AUTH_TOKEN"     "REPLACE_WITH_REAL_VALUE" "ArgoCD API token (argocd account generate-token)"
+
+# Code quality & scanning
+bootstrap_secret "SONAR_TOKEN"           "REPLACE_WITH_REAL_VALUE" "SonarCloud token (sonarcloud.io → Account → Security)"
+bootstrap_secret "SNYK_TOKEN"            "REPLACE_WITH_REAL_VALUE" "[optional] Snyk API token"
+bootstrap_secret "SLACK_WEBHOOK_URL"     "REPLACE_WITH_REAL_VALUE" "[optional] Slack Incoming Webhook URL"
+
+echo ""
+echo "  ⚠️  Open GitHub → Settings → Secrets → Actions"
+echo "     Replace every REPLACE_WITH_REAL_VALUE entry."
+echo "     See RUNBOOK.md for step-by-step instructions."
+echo ""
+
+# ---------------------------------------------------------------------------
+# 4. Branch protection on main  (use --input with heredoc for clean JSON)
 # ---------------------------------------------------------------------------
 echo ""
 echo "Configuring branch protection on main..."
@@ -940,26 +982,647 @@ echo "     - Stale reviews dismissed on new commits"
 echo "     - CI (lint, test, build) must pass before merge"
 
 # ---------------------------------------------------------------------------
-# 4. Summary
+# 5. Summary
 # ---------------------------------------------------------------------------
 echo ""
 echo "================================================================"
 echo " GitHub setup complete for $REPO"
 echo "================================================================"
 echo ""
-echo " One remaining manual step:"
-echo "  → https://github.com/$REPO/settings/environments"
-echo "     production → Required reviewers → add yourself or your team"
+echo " ✅ Done automatically:"
+echo "   - staging + production environments created"
+echo "   - STAGING_URL and PROD_URL variables set (update with real URLs)"
+echo "   - All required secrets bootstrapped with placeholder values"
+echo "   - Branch protection on main configured"
 echo ""
-echo " Update real URLs once infrastructure is deployed:"
-echo "  → STAGING_URL  (staging environment)"
-echo "  → PROD_URL     (production environment)"
+echo " ⚠️  Fill in real secret values:"
+echo "   → https://github.com/$REPO/settings/secrets/actions"
+echo "   See RUNBOOK.md for where to get each value."
+echo ""
+echo " ⚠️  Add production reviewer:"
+echo "   → https://github.com/$REPO/settings/environments"
+echo "      production → Required reviewers → add yourself or your team"
+echo ""
+echo " Next step — Bootstrap ArgoCD on EKS:"
+echo "   export EKS_CLUSTER_NAME=<your-cluster>   # terraform output eks_cluster_name"
+echo "   export AWS_REGION=us-east-1"
+echo "   export GITHUB_PAT=<repo-scoped-PAT>"
+echo "   bash scripts/setup-argocd.sh"
 echo ""
 echo " Pipeline flow on every merge to main:"
-echo "  build image → deploy staging → E2E + DAST (parallel)"
-echo "  → reviewer approval → deploy prod → health check"
-echo "  → auto-rollback + incident issue if health check fails"
+echo "  build → staging → E2E gate + DAST gate → approval → prod"
+echo "  → health check → auto-rollback if failed"
 echo ""
+'''
+
+
+# =============================================================================
+# GITHUB SECRETS BOOTSTRAP SCRIPT
+# Appended to setup-github.sh — creates all secrets with placeholder values
+# so the consumer only has to fill in real values, never create from scratch.
+# =============================================================================
+
+GITHUB_SECRETS_SECTION = '''
+# ---------------------------------------------------------------------------
+# {section_num}. Bootstrap GitHub Actions secrets (placeholder values)
+#    Secrets are created empty — fill real values in GitHub → Settings → Secrets
+# ---------------------------------------------------------------------------
+echo ""
+echo "Bootstrapping GitHub Actions secrets..."
+echo "  (All created with placeholder values — fill in real values afterwards)"
+echo ""
+
+bootstrap_secret() {{
+  local name="$1"
+  local placeholder="$2"
+  local description="$3"
+  # Only create if it doesn't already exist; never overwrite a real value
+  if gh secret list | grep -q "^$name"; then
+    echo "  ⏭️  $name already exists — skipping"
+  else
+    echo -n "$placeholder" | gh secret set "$name"
+    echo "  ✅ $name  →  $description"
+  fi
+}}
+
+# ── AWS / Cloud credentials ────────────────────────────────────────────────
+bootstrap_secret "AWS_ACCESS_KEY_ID"     "REPLACE_WITH_REAL_VALUE" "IAM access key (IAM → Users → Security credentials)"
+bootstrap_secret "AWS_SECRET_ACCESS_KEY" "REPLACE_WITH_REAL_VALUE" "IAM secret key (IAM → Users → Security credentials)"
+bootstrap_secret "AWS_ACCOUNT_ID"        "REPLACE_WITH_REAL_VALUE" "12-digit AWS account ID (aws sts get-caller-identity)"
+bootstrap_secret "AWS_REGION"            "us-east-1"               "AWS region where EKS cluster lives"
+bootstrap_secret "EKS_CLUSTER_NAME"      "REPLACE_WITH_REAL_VALUE" "EKS cluster name (terraform output eks_cluster_name)"
+
+# ── ArgoCD ─────────────────────────────────────────────────────────────────
+bootstrap_secret "ARGOCD_SERVER"         "REPLACE_WITH_REAL_VALUE" "ArgoCD server host (kubectl get svc -n argocd argocd-server)"
+bootstrap_secret "ARGOCD_AUTH_TOKEN"     "REPLACE_WITH_REAL_VALUE" "ArgoCD API token (argocd account generate-token --account admin)"
+
+# ── Code quality & security scanning ──────────────────────────────────────
+bootstrap_secret "SONAR_TOKEN"           "REPLACE_WITH_REAL_VALUE" "SonarCloud token (sonarcloud.io → My Account → Security)"
+bootstrap_secret "SNYK_TOKEN"            "REPLACE_WITH_REAL_VALUE" "Snyk API token (app.snyk.io → Account Settings) [optional]"
+
+# ── Notifications ──────────────────────────────────────────────────────────
+bootstrap_secret "SLACK_WEBHOOK_URL"     "REPLACE_WITH_REAL_VALUE" "Slack Incoming Webhook URL [optional]"
+
+echo ""
+echo "  ⚠️  Open GitHub → Settings → Secrets and fill in all REPLACE_WITH_REAL_VALUE entries."
+echo "  See RUNBOOK.md in the repo root for step-by-step instructions for each secret."
+echo ""
+'''
+
+
+# =============================================================================
+# ARGOCD BOOTSTRAP SCRIPT
+# Installs ArgoCD to EKS, creates repo creds, registers ForgeFlow-generated apps.
+# Run ONCE after Terraform provisions the cluster.
+# =============================================================================
+
+ARGOCD_SETUP_SCRIPT = '''#!/usr/bin/env bash
+# =============================================================================
+# ForgeFlow — ArgoCD Bootstrap Script
+# Sets up ArgoCD on EKS and wires it to this repository.
+#
+# Run once after:
+#   1. Terraform has created the EKS cluster
+#   2. You have configured kubectl (aws eks update-kubeconfig ...)
+#   3. scripts/setup-github.sh has been run (GitHub secrets exist)
+#
+# Prerequisites:
+#   kubectl, helm, argocd CLI, aws CLI (all authenticated)
+# =============================================================================
+set -euo pipefail
+
+REPO=$(git remote get-url origin | sed 's/\\.git$//')
+APP={app_name}
+ARGOCD_NAMESPACE=argocd
+ARGOCD_VERSION="v2.10.0"   # Pin to a known-good version
+
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║   ForgeFlow — ArgoCD Bootstrap for $APP"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 1. Update kubeconfig for EKS
+# ---------------------------------------------------------------------------
+echo "1/7  Configuring kubectl for EKS..."
+aws eks update-kubeconfig \\
+  --region  "${{AWS_REGION:-us-east-1}}" \\
+  --name    "${{EKS_CLUSTER_NAME:?Set EKS_CLUSTER_NAME env var}}"
+echo "     ✅ kubectl configured"
+
+# ---------------------------------------------------------------------------
+# 2. Install ArgoCD via Helm
+# ---------------------------------------------------------------------------
+echo "2/7  Installing ArgoCD $ARGOCD_VERSION..."
+helm repo add argo https://argoproj.github.io/argo-helm --force-update
+helm upgrade --install argocd argo/argo-cd \\
+  --namespace "$ARGOCD_NAMESPACE" \\
+  --create-namespace \\
+  --version "$(helm search repo argo/argo-cd --output json | python3 -c "import sys,json; print([c[\'version\'] for c in json.load(sys.stdin) if c[\'name\']==\'argo/argo-cd\'][0])")" \\
+  --set server.service.type=LoadBalancer \\
+  --set configs.params."server\\.insecure"=true \\
+  --wait --timeout 5m
+echo "     ✅ ArgoCD installed"
+
+# ---------------------------------------------------------------------------
+# 3. Retrieve ArgoCD admin password and server address
+# ---------------------------------------------------------------------------
+echo "3/7  Retrieving ArgoCD credentials..."
+ARGOCD_PASSWORD=$(kubectl -n "$ARGOCD_NAMESPACE" get secret argocd-initial-admin-secret \\
+  -o jsonpath="{{.data.password}}" | base64 --decode)
+ARGOCD_HOST=$(kubectl -n "$ARGOCD_NAMESPACE" get svc argocd-server \\
+  -o jsonpath="{{.status.loadBalancer.ingress[0].hostname}}")
+
+echo "     ArgoCD server: $ARGOCD_HOST"
+echo ""
+echo "     ⚠️  Save these credentials and update GitHub secrets:"
+echo "        ARGOCD_SERVER     = $ARGOCD_HOST"
+echo "        ARGOCD_AUTH_TOKEN = (generate below after login)"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 4. Log in with ArgoCD CLI and generate an API token
+# ---------------------------------------------------------------------------
+echo "4/7  Logging into ArgoCD CLI..."
+argocd login "$ARGOCD_HOST" \\
+  --username admin \\
+  --password "$ARGOCD_PASSWORD" \\
+  --insecure
+
+ARGOCD_TOKEN=$(argocd account generate-token --account admin)
+echo "     ArgoCD API token generated."
+echo ""
+echo "     ⚠️  Update ARGOCD_AUTH_TOKEN GitHub secret:"
+echo "        gh secret set ARGOCD_AUTH_TOKEN --body \\"$ARGOCD_TOKEN\\""
+echo ""
+
+# ---------------------------------------------------------------------------
+# 5. Register this repository with ArgoCD
+# ---------------------------------------------------------------------------
+echo "5/7  Adding repository to ArgoCD..."
+argocd repo add "$REPO" \\
+  --username git \\
+  --password "${{GITHUB_PAT:?Set GITHUB_PAT env var to a repo-scoped PAT}}" \\
+  --insecure-skip-server-verification || true
+echo "     ✅ Repository registered"
+
+# ---------------------------------------------------------------------------
+# 6. Install External Secrets Operator (reads from AWS Secrets Manager)
+# ---------------------------------------------------------------------------
+echo "6/7  Installing External Secrets Operator..."
+helm repo add external-secrets https://charts.external-secrets.io --force-update
+helm upgrade --install external-secrets external-secrets/external-secrets \\
+  --namespace external-secrets \\
+  --create-namespace \\
+  --set installCRDs=true \\
+  --wait --timeout 3m
+
+# Apply the SecretStore pointing to AWS Secrets Manager
+kubectl apply -f infrastructure/k8s/secrets/secret-store.yaml
+echo "     ✅ External Secrets Operator installed"
+
+# ---------------------------------------------------------------------------
+# 7. Apply ArgoCD application manifests
+# ---------------------------------------------------------------------------
+echo "7/7  Registering apps with ArgoCD..."
+kubectl apply -n "$ARGOCD_NAMESPACE" -f infrastructure/k8s/argocd/project.yaml
+kubectl apply -n "$ARGOCD_NAMESPACE" -f infrastructure/k8s/argocd/applicationset.yaml
+echo "     ✅ ArgoCD apps registered — ArgoCD will sync automatically"
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║   Bootstrap complete! Open ArgoCD UI:"
+echo "║   https://$ARGOCD_HOST"
+echo "║   Username: admin"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+echo "Next steps:"
+echo "  1. Update ARGOCD_AUTH_TOKEN in GitHub secrets (command printed above)"
+echo "  2. Update STAGING_URL and PROD_URL in GitHub environment variables"
+echo "  3. Merge a PR to main to trigger the first deploy pipeline"
+echo ""
+'''
+
+
+# =============================================================================
+# KUBERNETES EXTERNAL SECRETS MANIFESTS
+# Uses External Secrets Operator to pull values from AWS Secrets Manager.
+# Consumers create secrets in AWS SSM/Secrets Manager; K8s picks them up automatically.
+# =============================================================================
+
+K8S_SECRET_STORE = '''# =============================================================================
+# ForgeFlow Generated — External Secrets Operator: SecretStore
+# Points to AWS Secrets Manager in the cluster region.
+# Requires IRSA (IAM Roles for Service Accounts) on the pod SA.
+# =============================================================================
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: aws-secrets-manager
+  annotations:
+    forgeflow.io/generated: "true"
+spec:
+  provider:
+    aws:
+      service: SecretsManager
+      region: {aws_region}   # Override via KUSTOMIZE patch if region differs
+      auth:
+        jwt:
+          serviceAccountRef:
+            name: external-secrets-sa
+            namespace: external-secrets
+'''
+
+K8S_EXTERNAL_SECRET = '''# =============================================================================
+# ForgeFlow Generated — ExternalSecret for {app_name}
+# Pulls app secrets from AWS Secrets Manager path: forgeflow/{app_name}/{environment}
+#
+# Create the AWS secret once (team does this, not CI):
+#   aws secretsmanager create-secret \\
+#     --name "forgeflow/{app_name}/{environment}" \\
+#     --secret-string '{{"DATABASE_URL":"<value>","SECRET_KEY":"<value>"}}'
+# =============================================================================
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {app_name}-secrets
+  namespace: {app_name}-{environment}
+  annotations:
+    forgeflow.io/generated: "true"
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: {app_name}-secrets          # K8s Secret name pods reference
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        # Map AWS Secrets Manager keys → K8s Secret keys
+        DATABASE_URL: "{{{{ .DATABASE_URL }}}}"
+        SECRET_KEY:   "{{{{ .SECRET_KEY }}}}"
+  data:
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key:      forgeflow/{app_name}/{environment}
+        property: DATABASE_URL
+    - secretKey: SECRET_KEY
+      remoteRef:
+        key:      forgeflow/{app_name}/{environment}
+        property: SECRET_KEY
+'''
+
+K8S_IRSA_SA = '''# =============================================================================
+# ForgeFlow Generated — IRSA Service Account for External Secrets Operator
+# Annotate with the IAM role ARN output from Terraform.
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-sa
+  namespace: external-secrets
+  annotations:
+    # Replace with the IAM role ARN from: terraform output external_secrets_role_arn
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/REPLACE_WITH_TERRAFORM_OUTPUT"
+'''
+
+K8S_SECRETS_README = '''# Kubernetes Secrets — How ForgeFlow Manages Them
+
+ForgeFlow uses the [External Secrets Operator](https://external-secrets.io) pattern so
+**no plaintext secrets ever touch your Git repo or CI logs**.
+
+## Architecture
+
+```
+AWS Secrets Manager         External Secrets Operator        Your Pod
+────────────────────   →   ───────────────────────────   →  ──────────
+forgeflow/APP/ENV           ExternalSecret CR                env vars
+  DATABASE_URL               syncs every 5 min               from K8s Secret
+  SECRET_KEY                 creates K8s Secret
+```
+
+## Setup (one-time, per environment)
+
+### 1. Create the secret in AWS Secrets Manager
+```bash
+# Replace YOUR_APP_NAME and YOUR_ENV with your actual values, e.g. demo-api / staging
+aws secretsmanager create-secret \\
+  --name "forgeflow/YOUR_APP_NAME/staging" \\
+  --secret-string \'{{
+    "DATABASE_URL": "postgres://user:pass@host:5432/db",
+    "SECRET_KEY": "your-32-char-random-string"
+  }}\'
+```
+
+### 2. Annotate the IRSA service account with your IAM role ARN
+```bash
+# Get the role ARN from Terraform outputs
+terraform -chdir=terraform output external_secrets_role_arn
+
+# Patch the service account
+kubectl annotate sa external-secrets-sa \\
+  -n external-secrets \\
+  eks.amazonaws.com/role-arn=<ROLE_ARN> \\
+  --overwrite
+```
+
+### 3. Apply the manifests (done automatically by setup-argocd.sh)
+```bash
+kubectl apply -f infrastructure/k8s/secrets/
+```
+
+## Adding new secrets
+1. Add the key to the AWS secret: `aws secretsmanager put-secret-value ...`
+2. Add the key mapping to `external-secret-staging.yaml` and `external-secret-prod.yaml`
+3. Commit and push — ArgoCD syncs within 3 minutes
+'''
+
+
+# =============================================================================
+# RUNBOOK — Complete zero-to-deployed guide
+# =============================================================================
+
+RUNBOOK_MD = '''# ForgeFlow Runbook — Desktop to AWS in Production
+
+> Generated by ForgeFlow. This is your complete operational guide from first commit
+> to a live, monitored, GitOps-managed production deployment on AWS EKS.
+
+---
+
+## Table of Contents
+1. [Prerequisites](#1-prerequisites)
+2. [Required Secrets & Variables](#2-required-secrets--variables)
+3. [One-Time Setup Steps](#3-one-time-setup-steps)
+4. [How the Deploy Pipeline Works](#4-how-the-deploy-pipeline-works)
+5. [Day-2 Operations](#5-day-2-operations)
+6. [Troubleshooting](#6-troubleshooting)
+
+---
+
+## 1. Prerequisites
+
+| Tool | Version | Install |
+|------|---------|---------|
+| AWS CLI | ≥ 2.x | `brew install awscli` |
+| Terraform | ≥ 1.5 | `brew install terraform` |
+| kubectl | ≥ 1.28 | `brew install kubectl` |
+| Helm | ≥ 3.12 | `brew install helm` |
+| ArgoCD CLI | ≥ 2.9 | `brew install argocd` |
+| gh (GitHub CLI) | ≥ 2.x | `brew install gh` |
+| Docker | ≥ 24 | Docker Desktop |
+
+**Accounts needed:**
+- AWS account with permissions: EKS, ECR, IAM, Secrets Manager, VPC
+- GitHub account with repo push access
+- SonarCloud account (free tier is fine) — optional
+- Snyk account (free tier is fine) — optional
+
+---
+
+## 2. Required Secrets & Variables
+
+### GitHub Actions Secrets
+Set at: **GitHub → Settings → Secrets and variables → Actions → Secrets**
+
+After running `scripts/setup-github.sh`, all secrets are created with placeholder values.
+Replace each `REPLACE_WITH_REAL_VALUE` entry:
+
+| Secret | Purpose | How to get the value |
+|--------|---------|----------------------|
+| `AWS_ACCESS_KEY_ID` | AWS authentication | [IAM Console](https://console.aws.amazon.com/iam) → Users → _your user_ → Security credentials → Create access key |
+| `AWS_SECRET_ACCESS_KEY` | AWS authentication | Same as above (shown once at creation) |
+| `AWS_ACCOUNT_ID` | Build ECR image URIs | `aws sts get-caller-identity --query Account --output text` |
+| `AWS_REGION` | Target region | Pre-filled as `us-east-1` — change if different |
+| `EKS_CLUSTER_NAME` | Target cluster | `terraform -chdir=terraform output eks_cluster_name` |
+| `ARGOCD_SERVER` | ArgoCD API host | `kubectl get svc -n argocd argocd-server -o jsonpath=\'{{.status.loadBalancer.ingress[0].hostname}}\'` |
+| `ARGOCD_AUTH_TOKEN` | ArgoCD deploys | `argocd account generate-token --account admin` |
+| `SONAR_TOKEN` | Code quality gate | [SonarCloud](https://sonarcloud.io) → My Account → Security → Generate token |
+| `SNYK_TOKEN` | Vulnerability scan | [Snyk](https://app.snyk.io/account) → Account Settings → Auth Token _(optional)_ |
+| `SLACK_WEBHOOK_URL` | Deploy notifications | Slack API → Your App → Incoming Webhooks _(optional)_ |
+
+### GitHub Environment Variables (non-sensitive)
+Set at: **GitHub → Settings → Environments → [environment] → Variables**
+
+| Variable | Environment | Value |
+|----------|-------------|-------|
+| `STAGING_URL` | `staging` | `https://staging.{app_name}.yourdomain.com` |
+| `PROD_URL` | `production` | `https://{app_name}.yourdomain.com` |
+
+### AWS Secrets Manager (app-level secrets)
+These are picked up automatically by the External Secrets Operator — no manual K8s secret creation needed.
+
+```bash
+# Staging
+aws secretsmanager create-secret \\
+  --name "forgeflow/{app_name}/staging" \\
+  --secret-string \'{{
+    "DATABASE_URL": "postgres://user:pass@host/db",
+    "SECRET_KEY":   "your-random-secret-key"
+  }}\'
+
+# Production
+aws secretsmanager create-secret \\
+  --name "forgeflow/{app_name}/production" \\
+  --secret-string \'{{
+    "DATABASE_URL": "postgres://user:pass@host/db",
+    "SECRET_KEY":   "your-random-secret-key"
+  }}\'
+```
+
+---
+
+## 3. One-Time Setup Steps
+
+Run these **once** when setting up a new project. After this, every `git push main`
+triggers a fully automated pipeline.
+
+### Step 1 — Provision AWS infrastructure with Terraform
+```bash
+cd terraform
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+# Save outputs — you will need them for secrets above:
+terraform output
+```
+
+### Step 2 — Set up GitHub (environments, branch protection, secrets)
+```bash
+gh auth login                     # Authenticate GitHub CLI
+bash scripts/setup-github.sh     # Creates environments, protection, and all secrets (with placeholders)
+```
+Then open **GitHub → Settings → Secrets** and fill in each `REPLACE_WITH_REAL_VALUE` entry
+using the table in section 2 above.
+
+### Step 3 — Bootstrap ArgoCD on EKS
+```bash
+export EKS_CLUSTER_NAME=$(terraform -chdir=terraform output -raw eks_cluster_name)
+export AWS_REGION=us-east-1
+export GITHUB_PAT=ghp_...   # repo-scoped PAT for ArgoCD to pull manifests
+bash scripts/setup-argocd.sh
+```
+The script prints the `ARGOCD_AUTH_TOKEN` — copy it and run:
+```bash
+gh secret set ARGOCD_AUTH_TOKEN --body "<token printed above>"
+```
+
+### Step 4 — Create app secrets in AWS Secrets Manager
+```bash
+# Run the commands from section 2 → AWS Secrets Manager
+```
+
+### Step 5 — Make the repo public (free GitHub accounts) or add Environments entitlement
+```bash
+gh repo edit --visibility public   # only if on a free personal plan
+```
+
+### Step 6 — Merge your first PR to main 🚀
+The pipeline runs automatically:
+`build → deploy staging → E2E gate → DAST gate → approval → deploy prod → health check`
+
+---
+
+## 4. How the Deploy Pipeline Works
+
+```
+git push main
+     │
+     ▼
+┌─────────────┐
+│  1. Build   │  Docker build + push to GHCR (uses GITHUB_TOKEN — no setup needed)
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────┐
+│  2. Deploy       │  kustomize edit set image → git commit → ArgoCD syncs to EKS
+│     Staging      │  Waits 60s for ArgoCD to apply
+└──────┬───────────┘
+       │
+    ┌──┴──────────────────────────────────┐
+    │  (parallel gates — both must pass)  │
+    │                                     │
+    ▼                                     ▼
+┌────────────┐                    ┌────────────────┐
+│  3. E2E    │                    │  4. DAST       │
+│  Staging   │  Playwright tests  │  Staging       │  OWASP ZAP scan
+│  Gate      │  @smoke tagged     │  Gate          │  CRITICAL = block
+└────────────┘                    └────────────────┘
+       │
+       ▼
+┌────────────────────────────────────┐
+│  5. 👤 Manual Approval (Production) │  Required reviewer must click Approve
+│  GitHub Environment: production    │  5-minute minimum wait timer
+└──────────────────┬─────────────────┘
+                   │
+                   ▼
+         ┌──────────────────┐
+         │  6. Deploy Prod  │  kustomize → git commit → ArgoCD syncs to EKS
+         └────────┬─────────┘
+                  │
+                  ▼
+         ┌──────────────────┐
+         │  7. Health Check │  Polls /health for 5 minutes (10 × 30s)
+         └────────┬─────────┘
+                  │
+        ┌─────────┴──────────┐
+     success               failure
+        │                    │
+        ▼                    ▼
+   ✅ Done          ⏪ Auto-rollback
+                   📋 GitHub issue opened
+```
+
+---
+
+## 5. Day-2 Operations
+
+### Roll back production manually
+```bash
+# Option A: Revert the kustomize commit
+git revert HEAD --no-edit && git push
+
+# Option B: Use ArgoCD to roll back to a previous sync
+argocd app history {app_name}-prod
+argocd app rollback {app_name}-prod <revision-id>
+```
+
+### Rotate a secret
+```bash
+# Update in AWS Secrets Manager — External Secrets Operator picks it up within 5 min
+aws secretsmanager put-secret-value \\
+  --secret-id "forgeflow/{app_name}/production" \\
+  --secret-string \'{{...updated values...}}\'
+
+# Update GitHub Actions secrets if rotating AWS credentials
+gh secret set AWS_ACCESS_KEY_ID --body "<new-key>"
+gh secret set AWS_SECRET_ACCESS_KEY --body "<new-secret>"
+```
+
+### Scale the app
+```bash
+# Edit infrastructure/k8s/overlays/prod/kustomization.yaml
+# Commit and push — ArgoCD applies the change
+```
+
+### Check pipeline status
+```bash
+gh run list --workflow=deploy.yml --limit=10
+gh run view <run-id>
+```
+
+### Check ArgoCD sync status
+```bash
+argocd app list
+argocd app get {app_name}-staging
+argocd app get {app_name}-prod
+```
+
+---
+
+## 6. Troubleshooting
+
+### Pipeline fails at "Build & Push Image"
+- Verify the repo has **Packages: write** permission (set automatically for GITHUB_TOKEN)
+- Check Docker build logs in the Actions tab
+
+### Pipeline fails at "Deploy Staging" — "kustomize: command not found"
+```bash
+# kustomize needs to be installed on the runner
+# Add to the deploy job steps:
+- uses: imranismail/setup-kustomize@v2
+```
+
+### ArgoCD not syncing after kustomize commit
+```bash
+argocd app get {app_name}-staging --show-operation
+# Force sync if stuck:
+argocd app sync {app_name}-staging --force
+```
+
+### E2E tests fail — "Cannot connect to STAGING_URL"
+- Verify `STAGING_URL` environment variable is set correctly (GitHub → Environments → staging)
+- Check that the staging deployment completed: `kubectl rollout status deployment/{app_name} -n {app_name}-staging`
+- The `e2e-staging` job waits 60s after `deploy-staging` — increase if ArgoCD is slower
+
+### Health check fails immediately after deploy
+- Check pod logs: `kubectl logs -n {app_name}-prod -l app={app_name} --tail=50`
+- Verify `/health` endpoint returns HTTP 200 without auth
+- Check `PROD_URL` variable is set correctly
+
+### `gh secret set` returns 422 when running setup-github.sh
+- Your token may lack the `secrets` scope: `gh auth refresh -s write:org`
+- For org repos: ensure you have admin access
+
+### ExternalSecret shows `SecretSyncedError`
+```bash
+kubectl describe externalsecret {app_name}-secrets -n {app_name}-staging
+# Common causes:
+# 1. AWS secret doesn\'t exist yet → run the aws secretsmanager create-secret command
+# 2. IRSA role ARN not annotated on the SA → check setup-argocd.sh step 2
+# 3. Region mismatch in secret-store.yaml → edit and reapply
+```
 '''
 
 
@@ -1030,9 +1693,21 @@ class CDAgent(BaseAgent):
         deploy_actions = self._generate_deploy_workflow(repo_path, app_name, overwrite)
         actions.extend(deploy_actions)
 
-        # Generate GitHub setup script
+        # Generate GitHub setup script (with secrets bootstrap)
         setup_actions = self._generate_github_setup(repo_path, app_name, overwrite)
         actions.extend(setup_actions)
+
+        # Generate ArgoCD bootstrap script
+        argocd_setup_actions = self._generate_argocd_setup(repo_path, app_name, overwrite)
+        actions.extend(argocd_setup_actions)
+
+        # Generate K8s secrets manifests (External Secrets Operator)
+        secrets_actions = self._generate_k8s_secrets(k8s_path, app_name, overwrite)
+        actions.extend(secrets_actions)
+
+        # Generate RUNBOOK.md
+        runbook_actions = self._generate_runbook(repo_path, app_name, overwrite)
+        actions.extend(runbook_actions)
 
         # Generate FluxCD (optional)
         if include_flux:
@@ -1056,8 +1731,19 @@ class CDAgent(BaseAgent):
                 "environments": ["dev", "staging", "prod"],
                 "files_created":  created,
                 "files_existing": existing,
-                "deploy_pipeline": ".github/workflows/deploy.yml",
-                "github_setup":    "scripts/setup-github.sh",
+                "deploy_pipeline":  ".github/workflows/deploy.yml",
+                "github_setup":     "scripts/setup-github.sh",
+                "argocd_setup":     "scripts/setup-argocd.sh",
+                "k8s_secrets":      "infrastructure/k8s/secrets/",
+                "runbook":          "RUNBOOK.md",
+                "onboarding_steps": [
+                    "terraform apply (provision EKS, ECR, IAM)",
+                    "bash scripts/setup-github.sh (environments + secrets bootstrap)",
+                    "Fill in real values at GitHub → Settings → Secrets",
+                    "bash scripts/setup-argocd.sh (bootstrap ArgoCD on EKS)",
+                    "Create app secrets in AWS Secrets Manager",
+                    "Merge a PR to main — pipeline runs end-to-end",
+                ],
             },
             findings=findings,
             actions=actions
@@ -1206,15 +1892,71 @@ class CDAgent(BaseAgent):
         return actions
 
     def _generate_github_setup(self, repo_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
-        """Generate scripts/setup-github.sh — GitHub Environments + branch protection."""
+        """Generate scripts/setup-github.sh — GitHub Environments + branch protection + secrets bootstrap."""
         actions = []
         scripts_path = repo_path / "scripts"
         scripts_path.mkdir(exist_ok=True)
         content = GITHUB_SETUP_SCRIPT.format(app_name=app_name)
         result = self._safe_write(scripts_path / "setup-github.sh", content, overwrite)
-        # Make it executable
         script_file = scripts_path / "setup-github.sh"
         if script_file.exists():
             script_file.chmod(0o755)
         actions.append(result)
+        return actions
+
+    def _generate_argocd_setup(self, repo_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
+        """Generate scripts/setup-argocd.sh — bootstrap ArgoCD on EKS."""
+        actions = []
+        scripts_path = repo_path / "scripts"
+        scripts_path.mkdir(exist_ok=True)
+        content = ARGOCD_SETUP_SCRIPT.format(app_name=app_name)
+        result = self._safe_write(scripts_path / "setup-argocd.sh", content, overwrite)
+        script_file = scripts_path / "setup-argocd.sh"
+        if script_file.exists():
+            script_file.chmod(0o755)
+        actions.append(result)
+        return actions
+
+    def _generate_k8s_secrets(self, k8s_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
+        """Generate infrastructure/k8s/secrets/ — External Secrets Operator manifests."""
+        actions = []
+        secrets_path = k8s_path / "secrets"
+        secrets_path.mkdir(exist_ok=True)
+
+        # ClusterSecretStore pointing to AWS Secrets Manager
+        actions.append(self._safe_write(
+            secrets_path / "secret-store.yaml",
+            K8S_SECRET_STORE.format(aws_region="${AWS_REGION:-us-east-1}"),
+            overwrite
+        ))
+
+        # IRSA service account
+        actions.append(self._safe_write(
+            secrets_path / "irsa-service-account.yaml",
+            K8S_IRSA_SA,
+            overwrite
+        ))
+
+        # ExternalSecret per environment
+        for env in ["staging", "prod"]:
+            actions.append(self._safe_write(
+                secrets_path / f"external-secret-{env}.yaml",
+                K8S_EXTERNAL_SECRET.format(app_name=app_name, environment=env),
+                overwrite
+            ))
+
+        # Human-readable README
+        actions.append(self._safe_write(
+            secrets_path / "README.md",
+            K8S_SECRETS_README.format(app_name=app_name),
+            overwrite
+        ))
+
+        return actions
+
+    def _generate_runbook(self, repo_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
+        """Generate RUNBOOK.md — complete zero-to-deployed operational guide."""
+        actions = []
+        content = RUNBOOK_MD.format(app_name=app_name)
+        actions.append(self._safe_write(repo_path / "RUNBOOK.md", content, overwrite))
         return actions
