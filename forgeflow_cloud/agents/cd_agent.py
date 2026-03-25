@@ -629,7 +629,8 @@ class CDAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        overwrite = params.get("greenfield", False)
         repo_url = params.get("repo_url", "https://github.com/org/repo.git")
         include_flux = params.get("include_flux", False)
         include_helm = params.get("include_helm", False)
@@ -652,21 +653,21 @@ class CDAgent(BaseAgent):
         k8s_path.mkdir(parents=True, exist_ok=True)
         
         # Generate ArgoCD configs
-        argocd_actions = self._generate_argocd(k8s_path, app_name, repo_url)
+        argocd_actions = self._generate_argocd(k8s_path, app_name, repo_url, overwrite)
         actions.extend(argocd_actions)
-        
+
         # Generate Kustomize base and overlays
-        kustomize_actions = self._generate_kustomize(k8s_path, app_name, port, image)
+        kustomize_actions = self._generate_kustomize(k8s_path, app_name, port, image, overwrite)
         actions.extend(kustomize_actions)
-        
+
         # Generate FluxCD (optional)
         if include_flux:
-            flux_actions = self._generate_flux(k8s_path, app_name, repo_url)
+            flux_actions = self._generate_flux(k8s_path, app_name, repo_url, overwrite)
             actions.extend(flux_actions)
-        
+
         # Generate Helm chart (optional)
         if include_helm:
-            helm_actions = self._generate_helm(k8s_path, app_name)
+            helm_actions = self._generate_helm(k8s_path, app_name, overwrite)
             actions.extend(helm_actions)
         
         return self.create_result(
@@ -703,7 +704,7 @@ class CDAgent(BaseAgent):
                 ext_counts[lang] = count
         return max(ext_counts, key=ext_counts.get) if ext_counts else "Python"
     
-    def _generate_argocd(self, k8s_path: Path, app_name: str, repo_url: str) -> List[Dict]:
+    def _generate_argocd(self, k8s_path: Path, app_name: str, repo_url: str, overwrite: bool = False) -> List[Dict]:
         """Generate ArgoCD configuration files."""
         actions = []
         argocd_path = k8s_path / "argocd"
@@ -711,9 +712,8 @@ class CDAgent(BaseAgent):
         
         # AppProject
         project_content = ARGOCD_PROJECT.format(app_name=app_name, repo_url=repo_url)
-        (argocd_path / "project.yaml").write_text(project_content)
-        actions.append({"action": "created", "file": "infrastructure/k8s/argocd/project.yaml"})
-        
+        actions.append(self._safe_write(argocd_path / "project.yaml", project_content, overwrite))
+
         # Applications for each environment
         for env in ["dev", "staging", "prod"]:
             app_content = ARGOCD_APPLICATION.format(
@@ -721,17 +721,15 @@ class CDAgent(BaseAgent):
                 environment=env,
                 repo_url=repo_url
             )
-            (argocd_path / f"application-{env}.yaml").write_text(app_content)
-            actions.append({"action": "created", "file": f"infrastructure/k8s/argocd/application-{env}.yaml"})
-        
+            actions.append(self._safe_write(argocd_path / f"application-{env}.yaml", app_content, overwrite))
+
         # ApplicationSet
         appset_content = ARGOCD_APPLICATIONSET.format(app_name=app_name, repo_url=repo_url)
-        (argocd_path / "applicationset.yaml").write_text(appset_content)
-        actions.append({"action": "created", "file": "infrastructure/k8s/argocd/applicationset.yaml"})
+        actions.append(self._safe_write(argocd_path / "applicationset.yaml", appset_content, overwrite))
         
         return actions
     
-    def _generate_kustomize(self, k8s_path: Path, app_name: str, port: str, image: str) -> List[Dict]:
+    def _generate_kustomize(self, k8s_path: Path, app_name: str, port: str, image: str, overwrite: bool = False) -> List[Dict]:
         """Generate Kustomize base and overlays."""
         actions = []
         
@@ -739,26 +737,19 @@ class CDAgent(BaseAgent):
         base_path = k8s_path / "base"
         base_path.mkdir(exist_ok=True)
         
-        (base_path / "kustomization.yaml").write_text(KUSTOMIZE_BASE.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/kustomization.yaml"})
-        
-        (base_path / "deployment.yaml").write_text(K8S_DEPLOYMENT.format(app_name=app_name, port=port, image=image, tag="latest"))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/deployment.yaml"})
-        
-        (base_path / "service.yaml").write_text(K8S_SERVICE.format(app_name=app_name, port=port))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/service.yaml"})
-        
-        (base_path / "configmap.yaml").write_text(K8S_CONFIGMAP.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/configmap.yaml"})
-        
-        (base_path / "hpa.yaml").write_text(K8S_HPA.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/hpa.yaml"})
-        
-        (base_path / "ingress.yaml").write_text(K8S_INGRESS.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/ingress.yaml"})
-        
-        (base_path / "serviceaccount.yaml").write_text(K8S_SERVICEACCOUNT.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/base/serviceaccount.yaml"})
+        actions.append(self._safe_write(base_path / "kustomization.yaml", KUSTOMIZE_BASE.format(app_name=app_name), overwrite))
+
+        actions.append(self._safe_write(base_path / "deployment.yaml", K8S_DEPLOYMENT.format(app_name=app_name, port=port, image=image, tag="latest"), overwrite))
+
+        actions.append(self._safe_write(base_path / "service.yaml", K8S_SERVICE.format(app_name=app_name, port=port), overwrite))
+
+        actions.append(self._safe_write(base_path / "configmap.yaml", K8S_CONFIGMAP.format(app_name=app_name), overwrite))
+
+        actions.append(self._safe_write(base_path / "hpa.yaml", K8S_HPA.format(app_name=app_name), overwrite))
+
+        actions.append(self._safe_write(base_path / "ingress.yaml", K8S_INGRESS.format(app_name=app_name), overwrite))
+
+        actions.append(self._safe_write(base_path / "serviceaccount.yaml", K8S_SERVICEACCOUNT.format(app_name=app_name), overwrite))
         
         # Overlays
         overlays_path = k8s_path / "overlays"
@@ -767,62 +758,50 @@ class CDAgent(BaseAgent):
         # Dev overlay
         dev_path = overlays_path / "dev"
         dev_path.mkdir(exist_ok=True)
-        (dev_path / "kustomization.yaml").write_text(KUSTOMIZE_OVERLAY_DEV.format(app_name=app_name))
-        (dev_path / "deployment-patch.yaml").write_text(DEPLOYMENT_PATCH_DEV.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/dev/kustomization.yaml"})
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/dev/deployment-patch.yaml"})
-        
+        actions.append(self._safe_write(dev_path / "kustomization.yaml", KUSTOMIZE_OVERLAY_DEV.format(app_name=app_name), overwrite))
+        actions.append(self._safe_write(dev_path / "deployment-patch.yaml", DEPLOYMENT_PATCH_DEV.format(app_name=app_name), overwrite))
+
         # Staging overlay
         staging_path = overlays_path / "staging"
         staging_path.mkdir(exist_ok=True)
-        (staging_path / "kustomization.yaml").write_text(KUSTOMIZE_OVERLAY_STAGING.format(app_name=app_name))
-        (staging_path / "deployment-patch.yaml").write_text(DEPLOYMENT_PATCH_STAGING.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/staging/kustomization.yaml"})
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/staging/deployment-patch.yaml"})
-        
+        actions.append(self._safe_write(staging_path / "kustomization.yaml", KUSTOMIZE_OVERLAY_STAGING.format(app_name=app_name), overwrite))
+        actions.append(self._safe_write(staging_path / "deployment-patch.yaml", DEPLOYMENT_PATCH_STAGING.format(app_name=app_name), overwrite))
+
         # Prod overlay
         prod_path = overlays_path / "prod"
         prod_path.mkdir(exist_ok=True)
-        (prod_path / "kustomization.yaml").write_text(KUSTOMIZE_OVERLAY_PROD.format(app_name=app_name))
-        (prod_path / "deployment-patch.yaml").write_text(DEPLOYMENT_PATCH_PROD.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/prod/kustomization.yaml"})
-        actions.append({"action": "created", "file": "infrastructure/k8s/overlays/prod/deployment-patch.yaml"})
+        actions.append(self._safe_write(prod_path / "kustomization.yaml", KUSTOMIZE_OVERLAY_PROD.format(app_name=app_name), overwrite))
+        actions.append(self._safe_write(prod_path / "deployment-patch.yaml", DEPLOYMENT_PATCH_PROD.format(app_name=app_name), overwrite))
         
         return actions
     
-    def _generate_flux(self, k8s_path: Path, app_name: str, repo_url: str) -> List[Dict]:
+    def _generate_flux(self, k8s_path: Path, app_name: str, repo_url: str, overwrite: bool = False) -> List[Dict]:
         """Generate FluxCD configuration files."""
         actions = []
         flux_path = k8s_path / "flux"
         flux_path.mkdir(exist_ok=True)
         
-        (flux_path / "gitrepository.yaml").write_text(FLUX_GITREPOSITORY.format(app_name=app_name, repo_url=repo_url))
-        actions.append({"action": "created", "file": "infrastructure/k8s/flux/gitrepository.yaml"})
-        
+        actions.append(self._safe_write(flux_path / "gitrepository.yaml", FLUX_GITREPOSITORY.format(app_name=app_name, repo_url=repo_url), overwrite))
+
         for env in ["dev", "staging", "prod"]:
-            (flux_path / f"kustomization-{env}.yaml").write_text(
-                FLUX_KUSTOMIZATION.format(app_name=app_name, environment=env, repo_url=repo_url)
-            )
-            actions.append({"action": "created", "file": f"infrastructure/k8s/flux/kustomization-{env}.yaml"})
+            actions.append(self._safe_write(flux_path / f"kustomization-{env}.yaml", FLUX_KUSTOMIZATION.format(app_name=app_name, environment=env, repo_url=repo_url), overwrite))
         
         return actions
     
-    def _generate_helm(self, k8s_path: Path, app_name: str) -> List[Dict]:
+    def _generate_helm(self, k8s_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
         """Generate Helm chart structure."""
         actions = []
         helm_path = k8s_path / "helm" / app_name
         helm_path.mkdir(parents=True, exist_ok=True)
         
-        (helm_path / "Chart.yaml").write_text(HELM_CHART_YAML.format(app_name=app_name))
-        actions.append({"action": "created", "file": f"infrastructure/k8s/helm/{app_name}/Chart.yaml"})
-        
-        (helm_path / "values.yaml").write_text(HELM_VALUES_YAML.format(app_name=app_name))
-        actions.append({"action": "created", "file": f"infrastructure/k8s/helm/{app_name}/values.yaml"})
-        
+        actions.append(self._safe_write(helm_path / "Chart.yaml", HELM_CHART_YAML.format(app_name=app_name), overwrite))
+
+        actions.append(self._safe_write(helm_path / "values.yaml", HELM_VALUES_YAML.format(app_name=app_name), overwrite))
+
         # Create templates directory
         templates_path = helm_path / "templates"
         templates_path.mkdir(exist_ok=True)
-        
+
         # Add NOTES.txt
         notes = f'''1. Get the application URL by running:
   kubectl get ingress -n {{{{ .Release.Namespace }}}}
@@ -830,7 +809,6 @@ class CDAgent(BaseAgent):
 2. Check deployment status:
   kubectl rollout status deployment/{app_name} -n {{{{ .Release.Namespace }}}}
 '''
-        (templates_path / "NOTES.txt").write_text(notes)
-        actions.append({"action": "created", "file": f"infrastructure/k8s/helm/{app_name}/templates/NOTES.txt"})
+        actions.append(self._safe_write(templates_path / "NOTES.txt", notes, overwrite))
         
         return actions

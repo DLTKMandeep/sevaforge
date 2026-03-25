@@ -24,7 +24,7 @@ Deployment Modes:
     --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
 New Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 This CLI ONLY parses commands and delegates to MissionControl.
@@ -67,7 +67,7 @@ Deployment Modes:
     --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
 Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
 
 Examples:
     forgeflow discover --path ./my-repo
@@ -144,7 +144,34 @@ Environment Variables (PUBLIC mode):
     bridge_parser.add_argument("--message", default="Update from ForgeFlow", help="Commit message")
     bridge_parser.add_argument("--pr-title", help="Pull request title")
     bridge_parser.add_argument("--pr-body", help="Pull request body/description")
-    
+
+    # === iac ===
+    iac_parser = subparsers.add_parser("iac", help="Generate Infrastructure-as-Code (Terraform, Pulumi)")
+    iac_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    iac_parser.add_argument("--cloud", "-c", default="aws", choices=["aws", "gcp", "azure"],
+                            help="Cloud provider (default: aws)")
+    iac_parser.add_argument("--include-pulumi", action="store_true", help="Also generate Pulumi configs")
+
+    # === cd ===
+    cd_parser = subparsers.add_parser("cd", help="Generate Continuous Delivery configs (ArgoCD, Helm)")
+    cd_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    cd_parser.add_argument("--repo-url", help="Git repository URL for ArgoCD")
+    cd_parser.add_argument("--include-flux", action="store_true", help="Also generate Flux configs")
+
+    # === ci ===
+    ci_parser = subparsers.add_parser("ci", help="Generate Continuous Integration pipelines (GitHub Actions, GitLab)")
+    ci_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    ci_parser.add_argument("--no-gitlab", action="store_true", help="Skip GitLab CI generation")
+    ci_parser.add_argument("--no-dependabot", action="store_true", help="Skip Dependabot config")
+
+    # === e2e ===
+    e2e_parser = subparsers.add_parser("e2e", help="Generate E2E test scaffolding (Playwright, Cypress)")
+    e2e_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    e2e_parser.add_argument("--framework", "-f", default="playwright",
+                            choices=["playwright", "cypress", "selenium"],
+                            help="E2E framework (default: playwright)")
+    e2e_parser.add_argument("--no-ci", action="store_true", help="Skip CI integration for E2E tests")
+
     # === status ===
     status_parser = subparsers.add_parser("status", help="Check pipeline status")
     status_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
@@ -159,11 +186,13 @@ Environment Variables (PUBLIC mode):
     audit_parser.add_argument("--stack", default="auto", help="Deployment stack")
     
     # === run-all (full pipeline + bridge) ===
-    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → generate → review → test → scan → bridge")
+    runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
-    runall_parser.add_argument("--include-post-merge", action="store_true", 
+    runall_parser.add_argument("--include-post-merge", action="store_true",
                                help="Include post-merge stages (deploy, monitor)")
-    
+    runall_parser.add_argument("--greenfield", action="store_true",
+                               help="Greenfield mode: overwrite existing files (default: brownfield — skip existing)")
+
     return parser
 
 
@@ -241,7 +270,24 @@ def main():
                 pr_title=getattr(args, 'pr_title', None),
                 pr_body=getattr(args, 'pr_body', None)
             )
-            
+
+        elif args.command == "iac":
+            result = mc.iac(path, cloud=getattr(args, 'cloud', 'aws'),
+                            include_pulumi=getattr(args, 'include_pulumi', False))
+
+        elif args.command == "cd":
+            result = mc.cd(path, repo_url=getattr(args, 'repo_url', None),
+                           include_flux=getattr(args, 'include_flux', False))
+
+        elif args.command == "ci":
+            result = mc.ci(path,
+                           include_gitlab=not getattr(args, 'no_gitlab', False),
+                           include_dependabot=not getattr(args, 'no_dependabot', False))
+
+        elif args.command == "e2e":
+            result = mc.e2e(path, framework=getattr(args, 'framework', 'playwright'),
+                            include_ci=not getattr(args, 'no_ci', False))
+
         elif args.command == "status":
             result = mc.status(path)
             
@@ -278,7 +324,8 @@ def main():
             # Full pipeline: discover → normalize → docs → generate → review → test → scan → (approval) → bridge
             # Post-merge (optional): deploy → monitor
             include_post_merge = getattr(args, 'include_post_merge', False)
-            result = mc.run_all(path, include_post_merge=include_post_merge)
+            greenfield = getattr(args, 'greenfield', False)
+            result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
             if result.get("status") == "success":
                 sys.exit(0)
             else:

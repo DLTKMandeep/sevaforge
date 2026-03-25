@@ -748,7 +748,8 @@ class E2ETestingAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        overwrite = params.get("greenfield", False)
         framework = params.get("framework", "playwright").lower()
         include_ci = params.get("include_ci", True)
         
@@ -767,19 +768,19 @@ class E2ETestingAgent(BaseAgent):
         
         # Generate based on selected framework
         if framework == "playwright":
-            e2e_actions = self._generate_playwright(repo_path, port, start_command)
+            e2e_actions = self._generate_playwright(repo_path, port, start_command, overwrite)
             actions.extend(e2e_actions)
         elif framework == "cypress":
-            e2e_actions = self._generate_cypress(repo_path, port)
+            e2e_actions = self._generate_cypress(repo_path, port, overwrite)
             actions.extend(e2e_actions)
         else:
             # Generate both
-            actions.extend(self._generate_playwright(repo_path, port, start_command))
-            actions.extend(self._generate_cypress(repo_path, port))
-        
+            actions.extend(self._generate_playwright(repo_path, port, start_command, overwrite))
+            actions.extend(self._generate_cypress(repo_path, port, overwrite))
+
         # Generate CI workflow
         if include_ci:
-            ci_actions = self._generate_ci_workflow(repo_path, framework, port)
+            ci_actions = self._generate_ci_workflow(repo_path, framework, port, overwrite)
             actions.extend(ci_actions)
         
         return self.create_result(
@@ -838,79 +839,67 @@ class E2ETestingAgent(BaseAgent):
         
         return "npm run dev"
     
-    def _generate_playwright(self, repo_path: Path, port: str, start_command: str) -> List[Dict]:
+    def _generate_playwright(self, repo_path: Path, port: str, start_command: str, overwrite: bool = False) -> List[Dict]:
         """Generate Playwright configuration and test files."""
         actions = []
         
         # playwright.config.ts
         config_content = PLAYWRIGHT_CONFIG.format(port=port, start_command=start_command)
-        (repo_path / "playwright.config.ts").write_text(config_content)
-        actions.append({"action": "created", "file": "playwright.config.ts"})
-        
+        actions.append(self._safe_write(repo_path / "playwright.config.ts", config_content, overwrite))
+
         # Create tests/e2e directory
         tests_path = repo_path / "tests" / "e2e"
         tests_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Test files
-        (tests_path / "auth.spec.ts").write_text(PLAYWRIGHT_TEST_AUTH)
-        actions.append({"action": "created", "file": "tests/e2e/auth.spec.ts"})
-        
-        (tests_path / "navigation.spec.ts").write_text(PLAYWRIGHT_TEST_NAVIGATION)
-        actions.append({"action": "created", "file": "tests/e2e/navigation.spec.ts"})
-        
-        (tests_path / "forms.spec.ts").write_text(PLAYWRIGHT_TEST_FORMS)
-        actions.append({"action": "created", "file": "tests/e2e/forms.spec.ts"})
-        
+        actions.append(self._safe_write(tests_path / "auth.spec.ts", PLAYWRIGHT_TEST_AUTH, overwrite))
+
+        actions.append(self._safe_write(tests_path / "navigation.spec.ts", PLAYWRIGHT_TEST_NAVIGATION, overwrite))
+
+        actions.append(self._safe_write(tests_path / "forms.spec.ts", PLAYWRIGHT_TEST_FORMS, overwrite))
+
         api_content = PLAYWRIGHT_TEST_API.format(port=port)
-        (tests_path / "api.spec.ts").write_text(api_content)
-        actions.append({"action": "created", "file": "tests/e2e/api.spec.ts"})
-        
+        actions.append(self._safe_write(tests_path / "api.spec.ts", api_content, overwrite))
+
         # Fixtures
         fixtures_path = tests_path / "fixtures"
         fixtures_path.mkdir(exist_ok=True)
-        (fixtures_path / "test-fixtures.ts").write_text(PLAYWRIGHT_FIXTURES)
-        actions.append({"action": "created", "file": "tests/e2e/fixtures/test-fixtures.ts"})
-        
+        actions.append(self._safe_write(fixtures_path / "test-fixtures.ts", PLAYWRIGHT_FIXTURES, overwrite))
+
         # Global setup
-        (tests_path / "global-setup.ts").write_text(PLAYWRIGHT_GLOBAL_SETUP)
-        actions.append({"action": "created", "file": "tests/e2e/global-setup.ts"})
+        actions.append(self._safe_write(tests_path / "global-setup.ts", PLAYWRIGHT_GLOBAL_SETUP, overwrite))
         
         return actions
     
-    def _generate_cypress(self, repo_path: Path, port: str) -> List[Dict]:
+    def _generate_cypress(self, repo_path: Path, port: str, overwrite: bool = False) -> List[Dict]:
         """Generate Cypress configuration and test files."""
         actions = []
         
         # cypress.config.ts
         config_content = CYPRESS_CONFIG.format(port=port)
-        (repo_path / "cypress.config.ts").write_text(config_content)
-        actions.append({"action": "created", "file": "cypress.config.ts"})
-        
+        actions.append(self._safe_write(repo_path / "cypress.config.ts", config_content, overwrite))
+
         # Create cypress directory structure
         cypress_path = repo_path / "cypress"
         e2e_path = cypress_path / "e2e"
         support_path = cypress_path / "support"
-        
+
         e2e_path.mkdir(parents=True, exist_ok=True)
         support_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Support files
-        (support_path / "e2e.ts").write_text(CYPRESS_SUPPORT_E2E)
-        actions.append({"action": "created", "file": "cypress/support/e2e.ts"})
-        
-        (support_path / "commands.ts").write_text(CYPRESS_COMMANDS)
-        actions.append({"action": "created", "file": "cypress/support/commands.ts"})
-        
+        actions.append(self._safe_write(support_path / "e2e.ts", CYPRESS_SUPPORT_E2E, overwrite))
+
+        actions.append(self._safe_write(support_path / "commands.ts", CYPRESS_COMMANDS, overwrite))
+
         # Test files
-        (e2e_path / "auth.cy.ts").write_text(CYPRESS_TEST_AUTH)
-        actions.append({"action": "created", "file": "cypress/e2e/auth.cy.ts"})
-        
-        (e2e_path / "navigation.cy.ts").write_text(CYPRESS_TEST_NAVIGATION)
-        actions.append({"action": "created", "file": "cypress/e2e/navigation.cy.ts"})
+        actions.append(self._safe_write(e2e_path / "auth.cy.ts", CYPRESS_TEST_AUTH, overwrite))
+
+        actions.append(self._safe_write(e2e_path / "navigation.cy.ts", CYPRESS_TEST_NAVIGATION, overwrite))
         
         return actions
     
-    def _generate_ci_workflow(self, repo_path: Path, framework: str, port: str) -> List[Dict]:
+    def _generate_ci_workflow(self, repo_path: Path, framework: str, port: str, overwrite: bool = False) -> List[Dict]:
         """Generate CI workflow for E2E tests."""
         actions = []
         
@@ -921,8 +910,7 @@ class E2ETestingAgent(BaseAgent):
             workflow_content = E2E_WORKFLOW_PLAYWRIGHT.format(port=port)
         else:
             workflow_content = E2E_WORKFLOW_CYPRESS.format(port=port)
-        
-        (workflows_path / "e2e.yml").write_text(workflow_content)
-        actions.append({"action": "created", "file": ".github/workflows/e2e.yml"})
+
+        actions.append(self._safe_write(workflows_path / "e2e.yml", workflow_content, overwrite))
         
         return actions

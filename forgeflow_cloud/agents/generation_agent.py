@@ -1754,7 +1754,8 @@ class GenerationAgent(BaseAgent):
         if inventory_file.exists():
             try:
                 with open(inventory_file) as f:
-                    return {'inventory': json.load(f)}
+                    data = json.load(f)
+                    return data
             except Exception:
                 pass
         return None

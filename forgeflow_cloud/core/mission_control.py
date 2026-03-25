@@ -13,8 +13,8 @@ Responsibilities:
 4. Display findings to user with rich formatting
 5. Execute pipeline stages in proper sequence
 
-New Pipeline Sequence:
-    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+New Pipeline Sequence (v2.1):
+    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 Does NOT implement discovery/normalize/scan logic directly!
@@ -46,12 +46,15 @@ from .display import (
 )
 
 
-# New pipeline sequence
+# New pipeline sequence (v2.1 with specialized generation agents)
 PIPELINE_STAGES = [
     "discover",
     "normalize",
     "docs",
-    "generate",
+    "iac",       # Infrastructure as Code (Terraform, Docker)
+    "cd",        # Continuous Deployment (ArgoCD, Kustomize)
+    "ci",        # Continuous Integration (GitHub Actions, GitLab CI)
+    "e2e",       # E2E Testing (Playwright, Cypress)
     "review",
     "test",
     "scan"
@@ -154,29 +157,57 @@ class MissionControl:
             "operation": operation,
         }
         return self.execute("bridge", params)
-    
-    def run_all(self, path: str = ".", include_post_merge: bool = False) -> Dict[str, Any]:
+
+    def iac(self, path: str = ".", cloud: str = "aws", include_pulumi: bool = False) -> Dict[str, Any]:
+        """Generate Infrastructure-as-Code artifacts (IACAgent → iac-mcp-server)."""
+        return self.execute("iac", {"path": path, "cloud": cloud, "include_pulumi": include_pulumi})
+
+    def cd(self, path: str = ".", repo_url: str = None, include_flux: bool = False) -> Dict[str, Any]:
+        """Generate Continuous Delivery configurations (CDAgent → cd-mcp-server)."""
+        params = {"path": path, "include_flux": include_flux}
+        if repo_url:
+            params["repo_url"] = repo_url
+        return self.execute("cd", params)
+
+    def ci(self, path: str = ".", include_gitlab: bool = True, include_dependabot: bool = True) -> Dict[str, Any]:
+        """Generate Continuous Integration pipelines (CIAgent → ci-mcp-server)."""
+        return self.execute("ci", {"path": path, "include_gitlab": include_gitlab, "include_dependabot": include_dependabot})
+
+    def e2e(self, path: str = ".", framework: str = "playwright", include_ci: bool = True) -> Dict[str, Any]:
+        """Generate E2E testing setup (E2ETestingAgent → e2e-mcp-server)."""
+        return self.execute("e2e", {"path": path, "framework": framework, "include_ci": include_ci})
+
+    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False) -> Dict[str, Any]:
         """
-        Run full pipeline with new sequence:
-        DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
-        
+        Run full pipeline with new sequence (v2.1):
+        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+
         Post-merge (optional): DEPLOY → MONITOR
-        
+
+        Args:
+            path: Repository path to run pipeline on
+            include_post_merge: Whether to run deploy + monitor after bridge
+            greenfield: If True, generation agents overwrite existing files (new project).
+                        If False (default), existing files are preserved (brownfield).
+
         If any stage fails, stops and reports the failure.
         If all stages pass, prompts for manual approval before running bridge.
         """
         stages = [
-            ("discover", lambda: self._execute_stage("discover", path)),
-            ("normalize", lambda: self._execute_stage("normalize", path)),
-            ("docs", lambda: self._execute_stage("docs", path)),
-            ("generate", lambda: self._execute_stage("generate", path)),
-            ("review", lambda: self._execute_stage("review", path)),
-            ("test", lambda: self._execute_stage("test", path)),
-            ("scan", lambda: self._execute_stage("scan", path)),
+            ("discover", lambda: self._execute_stage("discover", path, greenfield)),
+            ("normalize", lambda: self._execute_stage("normalize", path, greenfield)),
+            ("docs", lambda: self._execute_stage("docs", path, greenfield)),
+            ("iac", lambda: self._execute_stage("iac", path, greenfield)),
+            ("cd", lambda: self._execute_stage("cd", path, greenfield)),
+            ("ci", lambda: self._execute_stage("ci", path, greenfield)),
+            ("e2e", lambda: self._execute_stage("e2e", path, greenfield)),
+            ("review", lambda: self._execute_stage("review", path, greenfield)),
+            ("test", lambda: self._execute_stage("test", path, greenfield)),
+            ("scan", lambda: self._execute_stage("scan", path, greenfield)),
         ]
-        
+
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
-        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
+        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
         console.print()
         
         results: List[tuple] = []
@@ -293,9 +324,9 @@ class MissionControl:
             "included_post_merge": True
         }
     
-    def _execute_stage(self, stage: str, path: str) -> Dict[str, Any]:
+    def _execute_stage(self, stage: str, path: str, greenfield: bool = False) -> Dict[str, Any]:
         """Execute a single stage without display (used by run_all)."""
-        params = {"path": path}
+        params = {"path": path, "greenfield": greenfield}
         return self.orchestrator.run_mission(stage, params)
     
     def status(self, path: str = ".") -> Dict[str, Any]:

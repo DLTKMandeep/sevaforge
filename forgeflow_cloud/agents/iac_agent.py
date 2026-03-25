@@ -725,7 +725,8 @@ class IACAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        overwrite = params.get("greenfield", False)
         cloud = params.get("cloud", "aws").lower()
         include_pulumi = params.get("include_pulumi", False)
         
@@ -745,16 +746,16 @@ class IACAgent(BaseAgent):
         infra_path.mkdir(exist_ok=True)
         
         # Generate Terraform
-        terraform_actions = self._generate_terraform(infra_path, app_name, cloud)
+        terraform_actions = self._generate_terraform(infra_path, app_name, cloud, overwrite)
         actions.extend(terraform_actions)
-        
+
         # Generate Docker files
-        docker_actions = self._generate_docker_files(repo_path, primary_lang, app_name)
+        docker_actions = self._generate_docker_files(repo_path, primary_lang, app_name, overwrite)
         actions.extend(docker_actions)
-        
+
         # Generate Pulumi (optional)
         if include_pulumi:
-            pulumi_actions = self._generate_pulumi(infra_path, app_name)
+            pulumi_actions = self._generate_pulumi(infra_path, app_name, overwrite)
             actions.extend(pulumi_actions)
         
         return self.create_result(
@@ -821,7 +822,7 @@ class IACAgent(BaseAgent):
             return max(counts, key=counts.get)
         return "Python"  # Default
     
-    def _generate_terraform(self, infra_path: Path, app_name: str, cloud: str) -> List[Dict]:
+    def _generate_terraform(self, infra_path: Path, app_name: str, cloud: str, overwrite: bool = False) -> List[Dict]:
         """Generate Terraform configuration files."""
         actions = []
         terraform_path = infra_path / "terraform"
@@ -835,17 +836,14 @@ class IACAgent(BaseAgent):
             app_name=app_name,
             cloud=cloud
         )
-        (terraform_path / "main.tf").write_text(main_content)
-        actions.append({"action": "created", "file": "infrastructure/terraform/main.tf"})
-        
+        actions.append(self._safe_write(terraform_path / "main.tf", main_content, overwrite))
+
         # variables.tf
         vars_content = TERRAFORM_VARIABLES.format(app_name=app_name)
-        (terraform_path / "variables.tf").write_text(vars_content)
-        actions.append({"action": "created", "file": "infrastructure/terraform/variables.tf"})
-        
+        actions.append(self._safe_write(terraform_path / "variables.tf", vars_content, overwrite))
+
         # outputs.tf
-        (terraform_path / "outputs.tf").write_text(TERRAFORM_OUTPUTS)
-        actions.append({"action": "created", "file": "infrastructure/terraform/outputs.tf"})
+        actions.append(self._safe_write(terraform_path / "outputs.tf", TERRAFORM_OUTPUTS, overwrite))
         
         # Create modules directory
         modules_path = terraform_path / "modules"
@@ -854,65 +852,56 @@ class IACAgent(BaseAgent):
         # Network module
         network_path = modules_path / "network"
         network_path.mkdir(exist_ok=True)
-        (network_path / "main.tf").write_text(TERRAFORM_NETWORK)
-        actions.append({"action": "created", "file": "infrastructure/terraform/modules/network/main.tf"})
-        
+        actions.append(self._safe_write(network_path / "main.tf", TERRAFORM_NETWORK, overwrite))
+
         # Cluster module
         cluster_path = modules_path / "cluster"
         cluster_path.mkdir(exist_ok=True)
-        (cluster_path / "main.tf").write_text(TERRAFORM_CLUSTER)
-        actions.append({"action": "created", "file": "infrastructure/terraform/modules/cluster/main.tf"})
-        
+        actions.append(self._safe_write(cluster_path / "main.tf", TERRAFORM_CLUSTER, overwrite))
+
         # Storage module
         storage_path = modules_path / "storage"
         storage_path.mkdir(exist_ok=True)
-        (storage_path / "main.tf").write_text(TERRAFORM_STORAGE)
-        actions.append({"action": "created", "file": "infrastructure/terraform/modules/storage/main.tf"})
-        
+        actions.append(self._safe_write(storage_path / "main.tf", TERRAFORM_STORAGE, overwrite))
+
         # IAM module
         iam_path = modules_path / "iam"
         iam_path.mkdir(exist_ok=True)
-        (iam_path / "main.tf").write_text(TERRAFORM_IAM)
-        actions.append({"action": "created", "file": "infrastructure/terraform/modules/iam/main.tf"})
+        actions.append(self._safe_write(iam_path / "main.tf", TERRAFORM_IAM, overwrite))
         
         return actions
     
-    def _generate_docker_files(self, repo_path: Path, primary_lang: str, app_name: str) -> List[Dict]:
+    def _generate_docker_files(self, repo_path: Path, primary_lang: str, app_name: str, overwrite: bool = False) -> List[Dict]:
         """Generate Docker-related files."""
         actions = []
         
         # Dockerfile
         dockerfile = DOCKERFILE_TEMPLATES.get(primary_lang, DOCKERFILE_TEMPLATES["Python"])
-        (repo_path / "Dockerfile").write_text(dockerfile)
-        actions.append({"action": "created", "file": "Dockerfile"})
-        
+        actions.append(self._safe_write(repo_path / "Dockerfile", dockerfile, overwrite))
+
         # .dockerignore
-        (repo_path / ".dockerignore").write_text(DOCKERIGNORE_TEMPLATE)
-        actions.append({"action": "created", "file": ".dockerignore"})
-        
+        actions.append(self._safe_write(repo_path / ".dockerignore", DOCKERIGNORE_TEMPLATE, overwrite))
+
         # docker-compose.yml
         app_port = "3000" if primary_lang in ["JavaScript", "TypeScript"] else "8000"
         compose_content = DOCKER_COMPOSE_TEMPLATE.format(
             app_name=app_name,
             app_port=app_port
         )
-        (repo_path / "docker-compose.yml").write_text(compose_content)
-        actions.append({"action": "created", "file": "docker-compose.yml"})
+        actions.append(self._safe_write(repo_path / "docker-compose.yml", compose_content, overwrite))
         
         return actions
     
-    def _generate_pulumi(self, infra_path: Path, app_name: str) -> List[Dict]:
+    def _generate_pulumi(self, infra_path: Path, app_name: str, overwrite: bool = False) -> List[Dict]:
         """Generate Pulumi configuration files."""
         actions = []
         pulumi_path = infra_path / "pulumi"
         pulumi_path.mkdir(exist_ok=True)
         
         # index.ts
-        (pulumi_path / "index.ts").write_text(PULUMI_INDEX_TS.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/pulumi/index.ts"})
-        
+        actions.append(self._safe_write(pulumi_path / "index.ts", PULUMI_INDEX_TS.format(app_name=app_name), overwrite))
+
         # Pulumi.yaml
-        (pulumi_path / "Pulumi.yaml").write_text(PULUMI_YAML.format(app_name=app_name))
-        actions.append({"action": "created", "file": "infrastructure/pulumi/Pulumi.yaml"})
+        actions.append(self._safe_write(pulumi_path / "Pulumi.yaml", PULUMI_YAML.format(app_name=app_name), overwrite))
         
         return actions

@@ -964,7 +964,8 @@ class CIAgent(BaseAgent):
             except:
                 params = {"repo_path": params}
         
-        repo_path = Path(params.get("repo_path", ".")).resolve()
+        repo_path = Path(params.get("repo_path") or params.get("path", ".")).resolve()
+        overwrite = params.get("greenfield", False)
         include_gitlab = params.get("include_gitlab", True)
         include_dependabot = params.get("include_dependabot", True)
         
@@ -980,17 +981,17 @@ class CIAgent(BaseAgent):
         self.log(f"Detected app: {app_name}, language: {primary_lang}")
         
         # Generate GitHub Actions
-        gh_actions = self._generate_github_actions(repo_path, app_name, primary_lang)
+        gh_actions = self._generate_github_actions(repo_path, app_name, primary_lang, overwrite)
         actions.extend(gh_actions)
-        
+
         # Generate GitLab CI
         if include_gitlab:
-            gitlab_actions = self._generate_gitlab_ci(repo_path, app_name, primary_lang)
+            gitlab_actions = self._generate_gitlab_ci(repo_path, app_name, primary_lang, overwrite)
             actions.extend(gitlab_actions)
-        
+
         # Generate Dependabot config
         if include_dependabot:
-            dependabot_actions = self._generate_dependabot(repo_path, primary_lang)
+            dependabot_actions = self._generate_dependabot(repo_path, primary_lang, overwrite)
             actions.extend(dependabot_actions)
         
         return self.create_result(
@@ -1027,7 +1028,7 @@ class CIAgent(BaseAgent):
                 ext_counts[lang] = count
         return max(ext_counts, key=ext_counts.get) if ext_counts else "Python"
     
-    def _generate_github_actions(self, repo_path: Path, app_name: str, primary_lang: str) -> List[Dict]:
+    def _generate_github_actions(self, repo_path: Path, app_name: str, primary_lang: str, overwrite: bool = False) -> List[Dict]:
         """Generate GitHub Actions workflow files."""
         actions = []
         workflows_path = repo_path / ".github" / "workflows"
@@ -1043,27 +1044,24 @@ class CIAgent(BaseAgent):
             unit_test_steps=unit_test_steps,
             integration_test_steps=integration_test_steps
         )
-        (workflows_path / "ci.yml").write_text(ci_content)
-        actions.append({"action": "created", "file": ".github/workflows/ci.yml"})
-        
+        actions.append(self._safe_write(workflows_path / "ci.yml", ci_content, overwrite))
+
         # Security workflow
         dependency_scan_steps = DEPENDENCY_SCAN_STEPS_BY_LANGUAGE.get(primary_lang, DEPENDENCY_SCAN_STEPS_BY_LANGUAGE['Python'])
         codeql_languages = CODEQL_LANGUAGES.get(primary_lang, 'python')
-        
+
         security_content = SECURITY_WORKFLOW_TEMPLATE.format(
             dependency_scan_steps=dependency_scan_steps,
             codeql_languages=codeql_languages
         )
-        (workflows_path / "security.yml").write_text(security_content)
-        actions.append({"action": "created", "file": ".github/workflows/security.yml"})
-        
+        actions.append(self._safe_write(workflows_path / "security.yml", security_content, overwrite))
+
         # Release workflow
-        (workflows_path / "release.yml").write_text(RELEASE_WORKFLOW_TEMPLATE)
-        actions.append({"action": "created", "file": ".github/workflows/release.yml"})
+        actions.append(self._safe_write(workflows_path / "release.yml", RELEASE_WORKFLOW_TEMPLATE, overwrite))
         
         return actions
     
-    def _generate_gitlab_ci(self, repo_path: Path, app_name: str, primary_lang: str) -> List[Dict]:
+    def _generate_gitlab_ci(self, repo_path: Path, app_name: str, primary_lang: str, overwrite: bool = False) -> List[Dict]:
         """Generate GitLab CI configuration."""
         actions = []
         
@@ -1080,12 +1078,11 @@ class CIAgent(BaseAgent):
             test_job=test_job,
             dependency_job=dependency_job
         )
-        (repo_path / ".gitlab-ci.yml").write_text(gitlab_content)
-        actions.append({"action": "created", "file": ".gitlab-ci.yml"})
+        actions.append(self._safe_write(repo_path / ".gitlab-ci.yml", gitlab_content, overwrite))
         
         return actions
     
-    def _generate_dependabot(self, repo_path: Path, primary_lang: str) -> List[Dict]:
+    def _generate_dependabot(self, repo_path: Path, primary_lang: str, overwrite: bool = False) -> List[Dict]:
         """Generate Dependabot configuration."""
         actions = []
         github_path = repo_path / ".github"
@@ -1108,7 +1105,6 @@ class CIAgent(BaseAgent):
         dependabot_content = DEPENDABOT_CONFIG.format(
             ecosystem_configs='\n'.join(ecosystems)
         )
-        (github_path / "dependabot.yml").write_text(dependabot_content)
-        actions.append({"action": "created", "file": ".github/dependabot.yml"})
+        actions.append(self._safe_write(github_path / "dependabot.yml", dependabot_content, overwrite))
         
         return actions
