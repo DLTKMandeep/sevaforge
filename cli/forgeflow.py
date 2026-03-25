@@ -3,10 +3,17 @@
 ForgeFlow CLI Entry Point
 
 Usage:
+    forgeflow init [project-name]         # Greenfield: Interactive project wizard
+    forgeflow init --guided               # Greenfield: Step-by-step guided mode
+    forgeflow init --quick                # Greenfield: Quick start with defaults
     forgeflow [--mode MODE] discover [--path PATH]
     forgeflow [--mode MODE] normalize [--path PATH]
     forgeflow [--mode MODE] scan [--path PATH] [--severity LEVEL]
     forgeflow [--mode MODE] generate [--path PATH] [--stack STACK]
+    forgeflow [--mode MODE] iac [--path PATH] [--cloud PROVIDER]
+    forgeflow [--mode MODE] cd [--path PATH] [--repo-url URL]
+    forgeflow [--mode MODE] ci [--path PATH]
+    forgeflow [--mode MODE] e2e [--path PATH] [--framework FRAMEWORK]
     forgeflow [--mode MODE] review [--path PATH]
     forgeflow [--mode MODE] test [--path PATH]
     forgeflow [--mode MODE] deploy [--path PATH] [--target ENV]
@@ -16,18 +23,17 @@ Usage:
     forgeflow [--mode MODE] status [--path PATH]
     forgeflow [--mode MODE] doctor
     forgeflow [--mode MODE] audit [--path PATH]
-    forgeflow [--mode MODE] iac [--path PATH] [--cloud CLOUD]
-    forgeflow [--mode MODE] cd [--path PATH] [--repo-url URL]
-    forgeflow [--mode MODE] ci [--path PATH]
-    forgeflow [--mode MODE] e2e [--path PATH] [--framework FRAMEWORK]
     forgeflow [--mode MODE] run-all [PATH]
+
+Project Modes:
+    Greenfield: New project from scratch (forgeflow init)
+    Brownfield: Existing repository (forgeflow run-all, discover, etc.)
 
 Deployment Modes:
     --mode local   : All MCPs run locally (default, full offline capability)
     --mode hybrid  : Mix of local and public MCPs (requires internet for some features)
-    --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
-New Pipeline Sequence (v2.1):
+Pipeline Sequence (v2.1):
     DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
@@ -58,6 +64,61 @@ from core.display import (
 )
 
 
+def is_greenfield_directory(path: str) -> bool:
+    """
+    Detect if directory is a Greenfield (new/empty) project.
+    
+    Returns True if:
+    - Directory doesn't exist
+    - Directory is empty
+    - Directory only contains .git folder
+    - No source files detected
+    """
+    target = Path(path).absolute()
+    
+    if not target.exists():
+        return True
+    
+    if not target.is_dir():
+        return False
+    
+    # Check contents
+    contents = list(target.iterdir())
+    
+    # Empty directory
+    if len(contents) == 0:
+        return True
+    
+    # Only .git folder
+    if len(contents) == 1 and contents[0].name == '.git':
+        return True
+    
+    # Check for source files
+    source_indicators = [
+        'package.json', 'requirements.txt', 'pyproject.toml',
+        'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle',
+        'main.py', 'index.js', 'main.go', 'src', 'lib',
+        'app.py', 'server.py', 'app.js', 'server.js'
+    ]
+    
+    for indicator in source_indicators:
+        if (target / indicator).exists():
+            return False
+    
+    # Check for any source code files
+    source_extensions = {'.py', '.js', '.ts', '.go', '.java', '.rs', '.rb', '.php'}
+    for item in contents:
+        if item.is_file() and item.suffix in source_extensions:
+            return False
+        if item.is_dir() and item.name not in {'.git', '.github', 'node_modules', '__pycache__', '.venv', 'venv'}:
+            # Check subdirectory for source files
+            for subitem in item.rglob('*'):
+                if subitem.is_file() and subitem.suffix in source_extensions:
+                    return False
+    
+    return True
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser with all canonical commands."""
     parser = argparse.ArgumentParser(
@@ -65,33 +126,44 @@ def create_parser() -> argparse.ArgumentParser:
         description="ForgeFlow - AI Platform Engineering CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Project Modes:
+    Greenfield : New project from scratch (forgeflow init)
+    Brownfield : Existing repository (forgeflow run-all, discover, etc.)
+
 Deployment Modes:
     --mode local   : All MCPs run locally (default, full offline capability)
     --mode hybrid  : Mix of local and public MCPs (requires internet)
-    --mode public  : All MCPs run in cloud (thin client, requires FORGEFLOW_API_KEY)
 
-Pipeline Sequence:
+Pipeline Sequence (v2.1):
     DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
 
 Examples:
+    # Greenfield - New Project
+    forgeflow init my-new-api              # Interactive wizard
+    forgeflow init --quick my-service      # Quick start with defaults
+    forgeflow init --guided                # Step-by-step guided mode
+    
+    # Brownfield - Existing Repo
     forgeflow discover --path ./my-repo
     forgeflow scan --severity high
-    forgeflow generate --stack kubernetes
-    forgeflow --mode hybrid bridge --repo owner/repo
-    forgeflow --mode public discover --path ./my-repo
+    forgeflow iac --cloud aws              # Generate Terraform + Docker
+    forgeflow ci                           # Generate GitHub Actions + GitLab CI
     forgeflow run-all ./my-repo
-
-Environment Variables (PUBLIC mode):
-    FORGEFLOW_API_KEY  : API key for ForgeFlow cloud service
-    FORGEFLOW_API_URL  : Optional custom API endpoint
         """
     )
     
     # Global mode flag
-    parser.add_argument("--mode", "-m", choices=["local", "hybrid", "public"], default="local",
-                        help="Deployment mode: local (default), hybrid, or public")
+    parser.add_argument("--mode", "-m", choices=["local", "hybrid"], default="local",
+                        help="Deployment mode: local (default) or hybrid")
     
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # === init (Greenfield) ===
+    init_parser = subparsers.add_parser("init", help="Initialize new Greenfield project with interactive wizard")
+    init_parser.add_argument("project_name", nargs="?", help="Project name (will be created as directory)")
+    init_parser.add_argument("--guided", "-g", action="store_true", help="Step-by-step guided mode with explanations")
+    init_parser.add_argument("--quick", "-q", action="store_true", help="Quick start with sensible defaults")
+    init_parser.add_argument("--path", "-p", default=".", help="Parent directory for new project (default: .)")
     
     # === discover ===
     discover_parser = subparsers.add_parser("discover", help="Discover repository structure and components")
@@ -109,11 +181,41 @@ Environment Variables (PUBLIC mode):
                              help="Minimum severity threshold (default: medium)")
     
     # === generate ===
-    generate_parser = subparsers.add_parser("generate", help="Generate deployment artifacts")
+    generate_parser = subparsers.add_parser("generate", help="Generate deployment artifacts (legacy, uses GenerationAgent)")
     generate_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
     generate_parser.add_argument("--stack", default="auto",
                                  choices=["auto", "docker", "kubernetes", "terraform", "helm"],
                                  help="Deployment stack (default: auto-detect)")
+    
+    # === iac === (IACAgent → iac-mcp-server)
+    iac_parser = subparsers.add_parser("iac", help="Generate Infrastructure as Code (Terraform, Docker, Pulumi)")
+    iac_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    iac_parser.add_argument("--cloud", "-c", default="aws",
+                            choices=["aws", "gcp", "azure"],
+                            help="Cloud provider (default: aws)")
+    iac_parser.add_argument("--include-pulumi", action="store_true", help="Include Pulumi configuration")
+    
+    # === cd === (CDAgent → cd-mcp-server)
+    cd_parser = subparsers.add_parser("cd", help="Generate Continuous Deployment configs (ArgoCD, Kustomize, K8s)")
+    cd_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    cd_parser.add_argument("--repo-url", default="https://github.com/org/repo.git",
+                           help="Git repository URL")
+    cd_parser.add_argument("--include-flux", action="store_true", help="Include FluxCD configuration")
+    cd_parser.add_argument("--include-helm", action="store_true", help="Include Helm charts")
+    
+    # === ci === (CIAgent → ci-mcp-server)
+    ci_parser = subparsers.add_parser("ci", help="Generate CI pipelines (GitHub Actions, GitLab CI, Dependabot)")
+    ci_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    ci_parser.add_argument("--no-gitlab", action="store_true", help="Skip GitLab CI generation")
+    ci_parser.add_argument("--no-dependabot", action="store_true", help="Skip Dependabot configuration")
+    
+    # === e2e === (E2ETestingAgent → e2e-mcp-server)
+    e2e_parser = subparsers.add_parser("e2e", help="Generate E2E testing setup (Playwright, Cypress)")
+    e2e_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    e2e_parser.add_argument("--framework", "-f", default="playwright",
+                            choices=["playwright", "cypress", "both"],
+                            help="Testing framework (default: playwright)")
+    e2e_parser.add_argument("--no-ci", action="store_true", help="Skip CI workflow generation")
     
     # === review === (CodeReviewAgent → git-mcp-server)
     review_parser = subparsers.add_parser("review", help="Run code review and quality analysis")
@@ -149,33 +251,6 @@ Environment Variables (PUBLIC mode):
     bridge_parser.add_argument("--pr-title", help="Pull request title")
     bridge_parser.add_argument("--pr-body", help="Pull request body/description")
     
-    # === iac ===
-    iac_parser = subparsers.add_parser("iac", help="Generate Infrastructure-as-Code (Terraform, Pulumi)")
-    iac_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
-    iac_parser.add_argument("--cloud", "-c", default="aws", choices=["aws", "gcp", "azure"],
-                            help="Cloud provider (default: aws)")
-    iac_parser.add_argument("--include-pulumi", action="store_true", help="Also generate Pulumi configs")
-
-    # === cd ===
-    cd_parser = subparsers.add_parser("cd", help="Generate Continuous Delivery configs (ArgoCD, Helm)")
-    cd_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
-    cd_parser.add_argument("--repo-url", help="Git repository URL for ArgoCD")
-    cd_parser.add_argument("--include-flux", action="store_true", help="Also generate Flux configs")
-
-    # === ci ===
-    ci_parser = subparsers.add_parser("ci", help="Generate Continuous Integration pipelines (GitHub Actions, GitLab)")
-    ci_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
-    ci_parser.add_argument("--no-gitlab", action="store_true", help="Skip GitLab CI generation")
-    ci_parser.add_argument("--no-dependabot", action="store_true", help="Skip Dependabot config")
-
-    # === e2e ===
-    e2e_parser = subparsers.add_parser("e2e", help="Generate E2E test scaffolding (Playwright, Cypress)")
-    e2e_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
-    e2e_parser.add_argument("--framework", "-f", default="playwright",
-                            choices=["playwright", "cypress", "selenium"],
-                            help="E2E framework (default: playwright)")
-    e2e_parser.add_argument("--no-ci", action="store_true", help="Skip CI integration for E2E tests")
-
     # === status ===
     status_parser = subparsers.add_parser("status", help="Check pipeline status")
     status_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
@@ -189,6 +264,19 @@ Environment Variables (PUBLIC mode):
     audit_parser.add_argument("--severity", "-s", default="medium", help="Security severity threshold")
     audit_parser.add_argument("--stack", default="auto", help="Deployment stack")
     
+    # === secrets ===
+    secrets_parser = subparsers.add_parser("secrets", help="Manage GitHub Actions secrets for ForgeFlow pipelines")
+    secrets_sub = secrets_parser.add_subparsers(dest="secrets_command", help="Secrets sub-commands")
+
+    secrets_list = secrets_sub.add_parser("list", help="List all secrets required by ForgeFlow-generated workflows")
+    secrets_list.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
+    secrets_check = secrets_sub.add_parser("check", help="Check which required secrets are set in GitHub (requires gh CLI)")
+    secrets_check.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
+    secrets_bootstrap = secrets_sub.add_parser("bootstrap", help="Run scripts/setup-github.sh to bootstrap all secrets with placeholders")
+    secrets_bootstrap.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+
     # === run-all (full pipeline + bridge) ===
     runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
@@ -198,6 +286,295 @@ Environment Variables (PUBLIC mode):
                                help="Greenfield mode: overwrite existing files (default: brownfield — skip existing)")
 
     return parser
+
+
+def run_greenfield_init(args):
+    """
+    Run the Greenfield project initialization wizard.
+    
+    Returns the path to the created project.
+    """
+    from core.wizard import run_wizard, run_quick_wizard, confirm_config
+    from core.stack_suggester import suggest_stack, display_stack_suggestion, approve_stack
+    from agents.scaffolding_agent import ScaffoldingAgent
+    
+    project_name = args.project_name
+    parent_path = Path(args.path).absolute()
+    guided = getattr(args, 'guided', False)
+    quick = getattr(args, 'quick', False)
+    
+    console.print()
+    console.print("[bold cyan]🔨 ForgeFlow Greenfield Project Initialization[/]")
+    console.print()
+    
+    # Step 1: Run wizard
+    if quick:
+        config = run_quick_wizard(project_name)
+    else:
+        config = run_wizard(project_name, guided=guided)
+    
+    # Step 2: Confirm configuration
+    if not confirm_config(config):
+        console.print("[yellow]Initialization cancelled.[/]")
+        return None
+    
+    # Step 3: Generate stack suggestions
+    console.print()
+    console.print("[bold]Generating optimal stack recommendations...[/]")
+    stack = suggest_stack(config)
+    display_stack_suggestion(stack, config)
+    
+    # Step 4: Approve stack
+    if not approve_stack(stack):
+        console.print("[yellow]You can modify the stack or restart the wizard.[/]")
+        return None
+    
+    # Step 5: Scaffold project
+    console.print()
+    console.print("[bold green]🚀 Scaffolding project...[/]")
+    console.print()
+    
+    scaffolder = ScaffoldingAgent()
+    result = scaffolder.execute({
+        "path": str(parent_path),
+        "config": config,
+        "stack": stack
+    })
+    
+    if result.get("status") == "success":
+        project_path = result.get("data", {}).get("project_path", "")
+        console.print()
+        print_success_banner(f"Project '{config['project_name']}' created successfully!")
+        console.print()
+        console.print("[bold]Next steps:[/]")
+        console.print(f"  1. cd {config['project_name']}")
+        console.print("  2. forgeflow run-all .  # Run full pipeline")
+        console.print("  3. docker compose up    # Start local development")
+        console.print()
+        return project_path
+    else:
+        print_error_banner("Failed to scaffold project", "init")
+        console.print(f"[red]Error: {result.get('summary', 'Unknown error')}[/]")
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Required secrets registry — single source of truth
+# ─────────────────────────────────────────────────────────────────────────────
+REQUIRED_SECRETS = [
+    {
+        "name": "AWS_ACCESS_KEY_ID",
+        "purpose": "AWS authentication for ECR push and EKS access",
+        "how_to_get": "IAM Console → Users → <user> → Security credentials → Create access key",
+        "required": True,
+    },
+    {
+        "name": "AWS_SECRET_ACCESS_KEY",
+        "purpose": "AWS authentication (paired with ACCESS_KEY_ID)",
+        "how_to_get": "Shown once when creating the access key in IAM Console",
+        "required": True,
+    },
+    {
+        "name": "AWS_ACCOUNT_ID",
+        "purpose": "Build ECR image URI (123456789012.dkr.ecr.<region>.amazonaws.com)",
+        "how_to_get": "aws sts get-caller-identity --query Account --output text",
+        "required": True,
+    },
+    {
+        "name": "AWS_REGION",
+        "purpose": "AWS region where EKS cluster lives",
+        "how_to_get": "Pre-filled as 'us-east-1' — change if your cluster is elsewhere",
+        "required": True,
+    },
+    {
+        "name": "EKS_CLUSTER_NAME",
+        "purpose": "Name of the EKS cluster (used for kubectl/argocd targeting)",
+        "how_to_get": "terraform -chdir=terraform output -raw eks_cluster_name",
+        "required": True,
+    },
+    {
+        "name": "ARGOCD_SERVER",
+        "purpose": "ArgoCD API server hostname (used for argocd CLI in deploy pipeline)",
+        "how_to_get": "kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+        "required": True,
+    },
+    {
+        "name": "ARGOCD_AUTH_TOKEN",
+        "purpose": "ArgoCD API token for automated deploys via argocd CLI",
+        "how_to_get": "argocd account generate-token --account admin  (run after setup-argocd.sh)",
+        "required": True,
+    },
+    {
+        "name": "SONAR_TOKEN",
+        "purpose": "SonarCloud code quality gate token",
+        "how_to_get": "sonarcloud.io → My Account → Security → Generate token",
+        "required": False,
+    },
+    {
+        "name": "SNYK_TOKEN",
+        "purpose": "Snyk vulnerability scanning token",
+        "how_to_get": "app.snyk.io → Account Settings → Auth Token",
+        "required": False,
+    },
+    {
+        "name": "SLACK_WEBHOOK_URL",
+        "purpose": "Slack Incoming Webhook for deploy notifications",
+        "how_to_get": "api.slack.com → Your Apps → Incoming Webhooks → Add New Webhook",
+        "required": False,
+    },
+]
+
+REQUIRED_VARS = [
+    {
+        "name": "STAGING_URL",
+        "environment": "staging",
+        "purpose": "Base URL of the staging app (used by E2E tests and DAST scan)",
+        "example": "https://staging.myapp.yourdomain.com",
+    },
+    {
+        "name": "PROD_URL",
+        "environment": "production",
+        "purpose": "Base URL of the production app (used by health check)",
+        "example": "https://myapp.yourdomain.com",
+    },
+]
+
+
+def run_secrets_command(args):
+    """Handle 'forgeflow secrets' subcommands."""
+    import subprocess
+    import re
+
+    secrets_command = getattr(args, "secrets_command", None)
+    path = Path(getattr(args, "path", ".")).resolve()
+
+    if secrets_command == "list" or secrets_command is None:
+        # ── LIST: Show every required secret with purpose and how-to-get ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Required GitHub Actions Secrets[/]")
+        console.print()
+        console.print("[bold]Required secrets[/] (pipeline will fail without these):")
+        console.print()
+
+        from rich.table import Table
+        tbl = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl.add_column("Secret", style="bold yellow", min_width=28)
+        tbl.add_column("Purpose", min_width=45)
+        tbl.add_column("How to get", style="dim")
+
+        for s in REQUIRED_SECRETS:
+            marker = "★" if s["required"] else "☆"
+            tbl.add_row(f"{marker} {s['name']}", s["purpose"], s["how_to_get"])
+
+        console.print(tbl)
+        console.print()
+        console.print("[bold]Environment variables[/] (non-sensitive, per-environment):")
+        console.print()
+
+        tbl2 = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl2.add_column("Variable", style="bold green", min_width=18)
+        tbl2.add_column("Environment", min_width=14)
+        tbl2.add_column("Purpose", min_width=45)
+        tbl2.add_column("Example", style="dim")
+        for v in REQUIRED_VARS:
+            tbl2.add_row(v["name"], v["environment"], v["purpose"], v["example"])
+        console.print(tbl2)
+        console.print()
+        console.print("[dim]★ required  ☆ optional[/]")
+        console.print()
+        console.print("[dim]Tip: Run 'forgeflow secrets check' to see which are already set.[/]")
+        console.print("[dim]     See RUNBOOK.md in the repo root for detailed setup steps.[/]")
+        console.print()
+
+    elif secrets_command == "check":
+        # ── CHECK: Query GitHub via gh CLI to see which secrets are set ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Secrets Status Check[/]")
+        console.print()
+
+        # Check gh CLI is available
+        try:
+            subprocess.run(["gh", "auth", "status"], capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            console.print("[bold red]❌ gh CLI not found or not authenticated.[/]")
+            console.print("   Install: brew install gh")
+            console.print("   Login:   gh auth login")
+            return
+
+        # Get list of secrets set in this repo
+        try:
+            result = subprocess.run(
+                ["gh", "secret", "list", "--json", "name"],
+                capture_output=True, text=True, check=True, cwd=str(path)
+            )
+            import json as _json
+            set_secrets = {s["name"] for s in _json.loads(result.stdout)}
+        except Exception as e:
+            console.print(f"[bold red]❌ Could not list secrets: {e}[/]")
+            return
+
+        all_ok = True
+        console.print("[bold]GitHub Actions Secrets:[/]")
+        console.print()
+
+        for s in REQUIRED_SECRETS:
+            is_set = s["name"] in set_secrets
+            # Check if it has placeholder value (can't read the value, so we just note it)
+            if is_set:
+                status = "[bold green]✅ set[/]"
+            elif s["required"]:
+                status = "[bold red]❌ missing[/]"
+                all_ok = False
+            else:
+                status = "[yellow]⚠️  not set (optional)[/]"
+
+            marker = "★" if s["required"] else "☆"
+            console.print(f"  {marker} [bold]{s['name']}[/]  {status}")
+
+        console.print()
+        if all_ok:
+            console.print("[bold green]✅ All required secrets are set![/]")
+            console.print("[dim]   Note: Secrets may still have placeholder values — verify real values are in place.[/]")
+        else:
+            console.print("[bold red]❌ Some required secrets are missing.[/]")
+            console.print()
+            console.print("To bootstrap all secrets with placeholder values:")
+            console.print("  [bold]bash scripts/setup-github.sh[/]  [dim](if not already run)[/]")
+            console.print()
+            console.print("Then fill in real values at:")
+            console.print("  GitHub → Settings → Secrets and variables → Actions")
+            console.print("  See [bold]RUNBOOK.md[/] for step-by-step instructions.")
+        console.print()
+
+    elif secrets_command == "bootstrap":
+        # ── BOOTSTRAP: Run setup-github.sh ──
+        console.print()
+        console.print("[bold cyan]🔐 ForgeFlow — Bootstrapping GitHub Secrets[/]")
+        console.print()
+
+        setup_script = path / "scripts" / "setup-github.sh"
+        if not setup_script.exists():
+            console.print(f"[bold red]❌ {setup_script} not found.[/]")
+            console.print("   Run [bold]forgeflow cd[/] first to generate it.")
+            return
+
+        console.print(f"Running: [bold]bash {setup_script}[/]")
+        console.print()
+
+        try:
+            subprocess.run(["bash", str(setup_script)], check=True, cwd=str(path))
+            console.print()
+            console.print("[bold green]✅ Bootstrap complete![/]")
+            console.print("   Fill in real values at GitHub → Settings → Secrets → Actions")
+            console.print("   See RUNBOOK.md for step-by-step instructions.")
+        except subprocess.CalledProcessError as e:
+            console.print(f"\n[bold red]❌ Setup script exited with code {e.returncode}[/]")
+            console.print("   Check the output above for error details.")
+        console.print()
+
+    else:
+        console.print("[bold red]Unknown secrets subcommand.[/]")
+        console.print("Usage: forgeflow secrets [list|check|bootstrap]")
 
 
 def main():
@@ -218,16 +595,21 @@ def main():
         path = os.path.abspath(path)
     
     try:
+        # Handle init command separately (no MissionControl needed)
+        if args.command == "init":
+            result_path = run_greenfield_init(args)
+            if result_path:
+                sys.exit(0)
+            else:
+                sys.exit(1)
+
+        # Handle secrets command separately (no MissionControl needed)
+        if args.command == "secrets":
+            run_secrets_command(args)
+            sys.exit(0)
+        
         # Create MissionControl instance with specified mode
         mc = MissionControl(mode=mode)
-        
-        # PUBLIC mode: Check API key is configured
-        if mode == "public":
-            api_key = os.environ.get("FORGEFLOW_API_KEY")
-            if not api_key:
-                console.print("[bold yellow]⚠️  WARNING: FORGEFLOW_API_KEY not set[/]")
-                console.print("[dim]Set your API key: export FORGEFLOW_API_KEY=your_key_here[/]")
-                console.print()
         
         # Show mode indicator for non-local mode
         if mode != "local":
@@ -246,6 +628,28 @@ def main():
         elif args.command == "generate":
             result = mc.generate(path, args.stack)
             # Display generated files in enhanced format
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "iac":
+            result = mc.iac(path, cloud=args.cloud, include_pulumi=args.include_pulumi)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "cd":
+            result = mc.cd(path, repo_url=args.repo_url,
+                          include_flux=args.include_flux, include_helm=args.include_helm)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "ci":
+            result = mc.ci(path, include_gitlab=not args.no_gitlab,
+                          include_dependabot=not args.no_dependabot)
+            if result.get("status") == "success":
+                print_generated_files(result)
+            
+        elif args.command == "e2e":
+            result = mc.e2e(path, framework=args.framework, include_ci=not args.no_ci)
             if result.get("status") == "success":
                 print_generated_files(result)
             
@@ -275,23 +679,6 @@ def main():
                 pr_body=getattr(args, 'pr_body', None)
             )
             
-        elif args.command == "iac":
-            result = mc.iac(path, cloud=getattr(args, 'cloud', 'aws'),
-                            include_pulumi=getattr(args, 'include_pulumi', False))
-
-        elif args.command == "cd":
-            result = mc.cd(path, repo_url=getattr(args, 'repo_url', None),
-                           include_flux=getattr(args, 'include_flux', False))
-
-        elif args.command == "ci":
-            result = mc.ci(path,
-                           include_gitlab=not getattr(args, 'no_gitlab', False),
-                           include_dependabot=not getattr(args, 'no_dependabot', False))
-
-        elif args.command == "e2e":
-            result = mc.e2e(path, framework=getattr(args, 'framework', 'playwright'),
-                            include_ci=not getattr(args, 'no_ci', False))
-
         elif args.command == "status":
             result = mc.status(path)
             
@@ -325,15 +712,57 @@ def main():
             sys.exit(0)
         
         elif args.command == "run-all":
-            # Full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → (approval) → bridge
-            # Post-merge (optional): deploy → monitor
-            include_post_merge = getattr(args, 'include_post_merge', False)
-            greenfield = getattr(args, 'greenfield', False)
-            result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
-            if result.get("status") == "success":
-                sys.exit(0)
+            # Check if this is a Greenfield or Brownfield project
+            if is_greenfield_directory(path):
+                console.print()
+                console.print("[bold yellow]📁 Empty or new directory detected![/]")
+                console.print()
+                console.print("This looks like a [bold cyan]Greenfield[/] project (new/empty directory).")
+                console.print()
+                console.print("Options:")
+                console.print("  1. Run [bold]forgeflow init[/] to create a new project with the wizard")
+                console.print("  2. Add source files to the directory first")
+                console.print()
+                
+                from rich.prompt import Confirm
+                if Confirm.ask("Would you like to run the Greenfield wizard now?", default=True):
+                    # Create mock args for init
+                    class InitArgs:
+                        project_name = Path(path).name if path != "." else None
+                        path = str(Path(path).parent) if path != "." else "."
+                        guided = False
+                        quick = False
+                    
+                    result_path = run_greenfield_init(InitArgs())
+                    if result_path:
+                        # Ask if they want to continue with pipeline
+                        if Confirm.ask("Run the full pipeline on the new project?", default=True):
+                            path = result_path
+                            # Auto-detected greenfield: always use greenfield=True
+                            result = mc.run_all(path,
+                                include_post_merge=getattr(args, 'include_post_merge', False),
+                                greenfield=True)
+                            if result.get("status") == "success":
+                                sys.exit(0)
+                            else:
+                                sys.exit(1)
+                        else:
+                            sys.exit(0)
+                    else:
+                        sys.exit(1)
+                else:
+                    console.print("[dim]Run 'forgeflow init' when ready to create your project.[/]")
+                    sys.exit(0)
             else:
-                sys.exit(1)
+                # Full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → (approval) → bridge
+                # Post-merge (optional): deploy → monitor
+                include_post_merge = getattr(args, 'include_post_merge', False)
+                greenfield = getattr(args, 'greenfield', False)
+                result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
+                if result.get("status") == "success":
+                    sys.exit(0)
+                else:
+                    sys.exit(1)
         
         else:
             parser.print_help()
