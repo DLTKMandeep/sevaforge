@@ -13,8 +13,8 @@ Responsibilities:
 4. Display findings to user with rich formatting
 5. Execute pipeline stages in proper sequence
 
-New Pipeline Sequence (v2.1):
-    DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+New Pipeline Sequence:
+    DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
     Post-merge (optional): DEPLOY → MONITOR
 
 Does NOT implement discovery/normalize/scan logic directly!
@@ -123,6 +123,85 @@ class MissionControl:
         """Generate deployment artifacts."""
         return self.execute("generate", {"path": path, "stack": stack})
     
+    # === Specialized Generation Commands (v2.1) ===
+    
+    def iac(self, path: str = ".", cloud: str = "aws", include_pulumi: bool = False) -> Dict[str, Any]:
+        """Generate Infrastructure as Code (IACAgent → iac-mcp-server).
+        
+        Generates:
+        - Terraform files (main.tf, variables.tf, outputs.tf)
+        - Terraform modules (network, cluster, storage, iam)
+        - Dockerfile based on detected language
+        - docker-compose.yml for local development
+        - Pulumi configuration (optional)
+        """
+        return self.execute("iac", {
+            "repo_path": path,
+            "cloud": cloud,
+            "include_pulumi": include_pulumi
+        })
+    
+    def cd(self, path: str = ".", repo_url: str = "https://github.com/org/repo.git",
+           include_flux: bool = False, include_helm: bool = False,
+           overwrite: bool = False) -> Dict[str, Any]:
+        """Generate Continuous Deployment configs (CDAgent → cd-mcp-server).
+
+        Generates:
+        - .github/workflows/infra.yml    (Terraform provisioning — runs in GitHub Actions)
+        - .github/workflows/bootstrap.yml (ArgoCD bootstrap — runs in GitHub Actions)
+        - .github/workflows/deploy.yml   (full pilot-to-prod pipeline)
+        - ArgoCD Application manifests
+        - ArgoCD AppProject + ApplicationSet
+        - Kustomize base and overlays (dev, staging, prod)
+        - Kubernetes manifests (deployment, service, configmap, hpa)
+        - scripts/setup-github.sh        (one-time 4-secret setup)
+        - infrastructure/k8s/secrets/    (External Secrets Operator manifests)
+        - RUNBOOK.md
+        - FluxCD configuration (optional)
+        - Helm charts (optional)
+        """
+        return self.execute("cd", {
+            "repo_path": path,
+            "repo_url": repo_url,
+            "include_flux": include_flux,
+            "include_helm": include_helm,
+            "overwrite": overwrite,
+        })
+    
+    def ci(self, path: str = ".", include_gitlab: bool = True, 
+           include_dependabot: bool = True) -> Dict[str, Any]:
+        """Generate Continuous Integration pipelines (CIAgent → ci-mcp-server).
+        
+        Generates:
+        - GitHub Actions workflows (ci.yml, security.yml, release.yml)
+        - GitLab CI (.gitlab-ci.yml)
+        - Dependabot configuration
+        - Linting, unit tests, integration tests
+        - Build and push container
+        """
+        return self.execute("ci", {
+            "repo_path": path,
+            "include_gitlab": include_gitlab,
+            "include_dependabot": include_dependabot
+        })
+    
+    def e2e(self, path: str = ".", framework: str = "playwright",
+            include_ci: bool = True) -> Dict[str, Any]:
+        """Generate E2E testing setup (E2ETestingAgent → e2e-mcp-server).
+        
+        Generates:
+        - Playwright configuration and test templates
+        - Cypress configuration (alternative)
+        - Test templates (auth, navigation, forms, api)
+        - CI workflow for E2E tests
+        - Test reporting setup
+        """
+        return self.execute("e2e", {
+            "repo_path": path,
+            "framework": framework,
+            "include_ci": include_ci
+        })
+    
     def review(self, path: str = ".") -> Dict[str, Any]:
         """Run code review and quality analysis (CodeReviewAgent → git-mcp-server)."""
         return self.execute("review", {"path": path})
@@ -139,9 +218,25 @@ class MissionControl:
         """Set up monitoring and observability (MonitoringAgent → observability-mcp-server)."""
         return self.execute("monitor", {"path": path})
     
-    def docs(self, path: str = ".") -> Dict[str, Any]:
-        """Generate documentation and diagrams."""
-        return self.execute("docs", {"path": path})
+    def docs(self, path: str = ".", full: bool = False, architecture: bool = False,
+             threat_model: bool = False, erd: bool = False, deployment: bool = False) -> Dict[str, Any]:
+        """Generate documentation and diagrams.
+        
+        Options:
+            --full: Generate all documentation (default if no option specified)
+            --architecture: Generate C4-style architecture diagrams
+            --threat-model: Generate STRIDE-based threat model
+            --erd: Generate Entity Relationship Diagram
+            --deployment: Generate deployment architecture diagrams
+        """
+        return self.execute("docs", {
+            "path": path,
+            "full": full,
+            "architecture": architecture,
+            "threat_model": threat_model,
+            "erd": erd,
+            "deployment": deployment
+        })
     
     def bridge(self, repo: str = None, branch: str = None, operation: str = "status",
                base_branch: str = "main", message: str = None, pr_title: str = None, 
@@ -158,25 +253,6 @@ class MissionControl:
         }
         return self.execute("bridge", params)
     
-    def iac(self, path: str = ".", cloud: str = "aws", include_pulumi: bool = False) -> Dict[str, Any]:
-        """Generate Infrastructure-as-Code artifacts (IACAgent → iac-mcp-server)."""
-        return self.execute("iac", {"path": path, "cloud": cloud, "include_pulumi": include_pulumi})
-
-    def cd(self, path: str = ".", repo_url: str = None, include_flux: bool = False) -> Dict[str, Any]:
-        """Generate Continuous Delivery configurations (CDAgent → cd-mcp-server)."""
-        params = {"path": path, "include_flux": include_flux}
-        if repo_url:
-            params["repo_url"] = repo_url
-        return self.execute("cd", params)
-
-    def ci(self, path: str = ".", include_gitlab: bool = True, include_dependabot: bool = True) -> Dict[str, Any]:
-        """Generate Continuous Integration pipelines (CIAgent → ci-mcp-server)."""
-        return self.execute("ci", {"path": path, "include_gitlab": include_gitlab, "include_dependabot": include_dependabot})
-
-    def e2e(self, path: str = ".", framework: str = "playwright", include_ci: bool = True) -> Dict[str, Any]:
-        """Generate E2E testing setup (E2ETestingAgent → e2e-mcp-server)."""
-        return self.execute("e2e", {"path": path, "framework": framework, "include_ci": include_ci})
-
     def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False) -> Dict[str, Any]:
         """
         Run full pipeline with new sequence (v2.1):
@@ -205,7 +281,7 @@ class MissionControl:
             ("test", lambda: self._execute_stage("test", path, greenfield)),
             ("scan", lambda: self._execute_stage("scan", path, greenfield)),
         ]
-
+        
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
         console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
         console.print()
