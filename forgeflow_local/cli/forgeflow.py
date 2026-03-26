@@ -202,6 +202,7 @@ Examples:
                            help="Git repository URL")
     cd_parser.add_argument("--include-flux", action="store_true", help="Include FluxCD configuration")
     cd_parser.add_argument("--include-helm", action="store_true", help="Include Helm charts")
+    cd_parser.add_argument("--overwrite", action="store_true", help="Overwrite existing generated files")
     
     # === ci === (CIAgent → ci-mcp-server)
     ci_parser = subparsers.add_parser("ci", help="Generate CI pipelines (GitHub Actions, GitLab CI, Dependabot)")
@@ -638,7 +639,8 @@ def main():
             
         elif args.command == "cd":
             result = mc.cd(path, repo_url=args.repo_url,
-                          include_flux=args.include_flux, include_helm=args.include_helm)
+                          include_flux=args.include_flux, include_helm=args.include_helm,
+                          overwrite=getattr(args, 'overwrite', False))
             if result.get("status") == "success":
                 print_generated_files(result)
             

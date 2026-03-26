@@ -142,15 +142,21 @@ class MissionControl:
         })
     
     def cd(self, path: str = ".", repo_url: str = "https://github.com/org/repo.git",
-           include_flux: bool = False, include_helm: bool = False) -> Dict[str, Any]:
+           include_flux: bool = False, include_helm: bool = False,
+           overwrite: bool = False) -> Dict[str, Any]:
         """Generate Continuous Deployment configs (CDAgent → cd-mcp-server).
-        
+
         Generates:
+        - .github/workflows/infra.yml    (Terraform provisioning — runs in GitHub Actions)
+        - .github/workflows/bootstrap.yml (ArgoCD bootstrap — runs in GitHub Actions)
+        - .github/workflows/deploy.yml   (full pilot-to-prod pipeline)
         - ArgoCD Application manifests
-        - ArgoCD AppProject
-        - ArgoCD ApplicationSet
+        - ArgoCD AppProject + ApplicationSet
         - Kustomize base and overlays (dev, staging, prod)
         - Kubernetes manifests (deployment, service, configmap, hpa)
+        - scripts/setup-github.sh        (one-time 4-secret setup)
+        - infrastructure/k8s/secrets/    (External Secrets Operator manifests)
+        - RUNBOOK.md
         - FluxCD configuration (optional)
         - Helm charts (optional)
         """
@@ -158,7 +164,8 @@ class MissionControl:
             "repo_path": path,
             "repo_url": repo_url,
             "include_flux": include_flux,
-            "include_helm": include_helm
+            "include_helm": include_helm,
+            "overwrite": overwrite,
         })
     
     def ci(self, path: str = ".", include_gitlab: bool = True, 
