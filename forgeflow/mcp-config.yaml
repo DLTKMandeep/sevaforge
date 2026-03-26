@@ -1,0 +1,199 @@
+# ForgeFlow MCP Server Configuration
+# Defines all available MCP servers and their startup commands
+#
+# This is the base MCP configuration. For deployment mode settings,
+# see config/forgeflow-config.yaml
+
+mcp_version: "1.0"
+
+# Deployment mode reference (actual config in forgeflow-config.yaml)
+# Supported modes: local, hybrid
+deployment_mode: local
+
+servers:
+  # Discovery Agent -> discovery-mcp-server
+  discovery-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/discovery_mcp/server.py"]
+    capabilities: ["discover", "inventory", "scan_files"]
+    agent: "DiscoveryAgent"
+    type: local
+
+  # Normalization Agent -> normalize-mcp-server
+  normalize-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/normalize_mcp/server.py"]
+    capabilities: ["normalize", "standardize", "lint"]
+    agent: "NormalizationAgent"
+    type: local
+
+  # Security Agent -> security-mcp-server
+  security-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/security_mcp/server.py"]
+    capabilities: ["scan", "security", "vulnerabilities"]
+    agent: "SecurityAgent"
+    type: local
+    # Hybrid mode can enable external integrations
+    hybrid_integrations:
+      - snyk
+      - trivy
+      - sonarqube
+
+  # Generation Agent -> deployment-mcp-server (legacy, orchestrates sub-agents)
+  deployment-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/deployment_mcp/server.py"]
+    capabilities: ["generate", "dockerfile", "terraform", "helm"]
+    agent: "GenerationAgent"
+    type: local
+
+  # IAC Agent -> iac-mcp-server (Terraform, Docker, Pulumi)
+  iac-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/iac_mcp/server.py"]
+    capabilities: ["iac", "terraform", "docker", "pulumi", "infrastructure"]
+    agent: "IACAgent"
+    type: local
+
+  # CD Agent -> cd-mcp-server (ArgoCD, Kustomize, K8s manifests)
+  cd-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/cd_mcp/server.py"]
+    capabilities: ["cd", "argocd", "kustomize", "kubernetes", "flux", "helm"]
+    agent: "CDAgent"
+    type: local
+
+  # CI Agent -> ci-mcp-server (GitHub Actions, GitLab CI)
+  ci-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/ci_mcp/server.py"]
+    capabilities: ["ci", "github_actions", "gitlab_ci", "pipelines", "dependabot"]
+    agent: "CIAgent"
+    type: local
+
+  # E2E Testing Agent -> e2e-mcp-server (Playwright, Cypress)
+  e2e-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/e2e_mcp/server.py"]
+    capabilities: ["e2e", "playwright", "cypress", "testing", "automation"]
+    agent: "E2ETestingAgent"
+    type: local
+
+  # Deployment Agent -> cloud-mcp-server
+  cloud-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/cloud_mcp/server.py"]
+    capabilities: ["deploy", "aws", "gcp", "azure"]
+    agent: "DeploymentAgent"
+    type: local
+    # Hybrid mode can connect to cloud APIs
+    hybrid_integrations:
+      - aws
+      - gcp
+      - azure
+
+  # Testing Agent -> cicd-mcp-server
+  cicd-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/cicd_mcp/server.py"]
+    capabilities: ["test", "ci", "cd", "pipeline"]
+    agent: "TestingAgent"
+    type: local
+    # Hybrid mode can integrate with CI systems
+    hybrid_integrations:
+      - github_actions
+      - jenkins
+      - circleci
+
+  # Monitoring Agent -> observability-mcp-server
+  observability-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/observability_mcp/server.py"]
+    capabilities: ["monitor", "metrics", "logs", "alerts"]
+    agent: "MonitoringAgent"
+    type: local
+    # Hybrid mode can integrate with observability platforms
+    hybrid_integrations:
+      - prometheus
+      - grafana
+      - datadog
+
+  # Documentation Agent -> diagram-generator-mcp-server
+  diagram-generator-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/diagram_generator_mcp/server.py"]
+    capabilities: ["docs", "diagrams", "documentation"]
+    agent: "DocumentationAgent"
+    type: local
+
+  # Code Review Agent -> git-mcp-server
+  git-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/git_mcp/server.py"]
+    capabilities: ["review", "diff", "commits", "code_quality"]
+    agent: "CodeReviewAgent"
+    type: local
+
+  # Bridge Agent -> github-mcp-server
+  github-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/github_mcp/server.py"]
+    capabilities: ["bridge", "github", "pr", "issues"]
+    agent: "BridgeAgent"
+    type: local
+    # Hybrid mode can use official GitHub MCP
+    hybrid_command: "npx"
+    hybrid_args: ["-y", "@modelcontextprotocol/server-github"]
+
+# Command to server mapping for quick lookup
+command_mapping:
+  discover: "discovery-mcp-server"
+  normalize: "normalize-mcp-server"
+  scan: "security-mcp-server"
+  generate: "deployment-mcp-server"
+  iac: "iac-mcp-server"
+  cd: "cd-mcp-server"
+  ci: "ci-mcp-server"
+  e2e: "e2e-mcp-server"
+  deploy: "cloud-mcp-server"
+  test: "cicd-mcp-server"
+  monitor: "observability-mcp-server"
+  docs: "diagram-generator-mcp-server"
+  review: "git-mcp-server"
+  bridge: "github-mcp-server"
+  # status and doctor are standalone - no MCP server needed
+
+# Pipeline sequence definitions
+pipelines:
+  # Standard audit pipeline
+  audit:
+    - discover
+    - normalize
+    - scan
+    - generate
+  
+  # Full run-all pipeline (v2.1 with specialized agents)
+  run_all:
+    pre_approval:
+      - discover
+      - normalize
+      - docs
+      - iac        # Infrastructure as Code (Terraform, Docker)
+      - cd         # Continuous Deployment (ArgoCD, Kustomize)
+      - ci         # Continuous Integration (GitHub Actions, GitLab CI)
+      - e2e        # E2E Testing (Playwright, Cypress)
+      - review
+      - test
+      - scan
+    approval_gate: bridge
+    post_merge:
+      - deploy
+      - monitor
+  
+  # Legacy generate pipeline (backward compatibility)
+  generate_legacy:
+    - iac
+    - cd
+    - ci
+    - e2e
