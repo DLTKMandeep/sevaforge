@@ -1,8 +1,0 @@
-# ForgeFlow Kubernetes Namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: forgeflow
-  labels:
-    app: forgeflow
-    environment: production
