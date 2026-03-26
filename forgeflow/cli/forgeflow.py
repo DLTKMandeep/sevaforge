@@ -599,18 +599,17 @@ def run_secrets_command(args):
         console.print()
 
     elif secrets_command == "bootstrap":
-        # ── BOOTSTRAP: Interactive wizard — no shell script required ──
-        import getpass
+        # ── BOOTSTRAP: Zero-friction onboarding — reads creds from local tooling ──
+        import configparser
         import json as _json
 
         console.print()
         console.print("[bold cyan]╔══════════════════════════════════════════════════════╗[/]")
-        console.print("[bold cyan]║  ForgeFlow — One-Time Onboarding Wizard              ║[/]")
+        console.print("[bold cyan]║  ForgeFlow — One-Time Onboarding                     ║[/]")
         console.print("[bold cyan]╚══════════════════════════════════════════════════════╝[/]")
         console.print()
-        console.print("I'll collect [bold]4 values[/] from you, set them as GitHub secrets,")
-        console.print("and create the staging + production environments.")
-        console.print("After this, [bold]git push[/] is all you ever need to do.")
+        console.print("Reading your existing [bold]AWS[/] and [bold]GitHub[/] credentials automatically.")
+        console.print("No manual input needed — just make sure [bold]aws[/] and [bold]gh[/] are configured.")
         console.print()
 
         # ── 0. Verify gh CLI is authenticated ─────────────────────────────────
@@ -641,26 +640,49 @@ def run_secrets_command(args):
         console.print(f"[dim]Repo: {repo_name}[/]")
         console.print()
 
-        # ── 1. Collect the 4 required values ─────────────────────────────────
-        console.print("[bold]Step 1 of 3 — AWS credentials[/]")
-        console.print("[dim]Create an IAM user with AdministratorAccess and generate an access key.[/]")
-        console.print("[dim]IAM Console → Users → Create user → Security credentials → Create access key[/]")
-        console.print()
+        # ── 1. Read AWS credentials from ~/.aws/credentials ───────────────────
+        console.print("[bold]Step 1 of 3 — Reading AWS credentials[/]")
 
-        aws_key_id = ""
-        while not aws_key_id.strip():
-            aws_key_id = getpass.getpass("  AWS Access Key ID     : ").strip()
+        aws_key_id = os.environ.get("AWS_ACCESS_KEY_ID", "")
+        aws_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+        aws_region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION", "")
 
-        aws_secret = ""
-        while not aws_secret.strip():
-            aws_secret = getpass.getpass("  AWS Secret Access Key : ").strip()
+        if not aws_key_id or not aws_secret:
+            aws_creds_path = os.path.expanduser("~/.aws/credentials")
+            aws_config_path = os.path.expanduser("~/.aws/config")
+            if os.path.exists(aws_creds_path):
+                cfg = configparser.ConfigParser()
+                cfg.read(aws_creds_path)
+                profile = os.environ.get("AWS_PROFILE", "default")
+                section = profile if cfg.has_section(profile) else (cfg.sections()[0] if cfg.sections() else None)
+                if section:
+                    aws_key_id = cfg.get(section, "aws_access_key_id", fallback="")
+                    aws_secret = cfg.get(section, "aws_secret_access_key", fallback="")
+                    console.print(f"  [green]✅ AWS credentials read from ~/.aws/credentials [{section}][/]")
+                else:
+                    console.print("  [bold red]❌ No profiles found in ~/.aws/credentials[/]")
+                    console.print("     Run: aws configure")
+                    return
+            else:
+                console.print("  [bold red]❌ ~/.aws/credentials not found.[/]")
+                console.print("     Run: aws configure")
+                return
 
-        aws_region = input("  AWS Region            [us-east-1]: ").strip() or "us-east-1"
-        console.print()
+        if not aws_region:
+            aws_config_path = os.path.expanduser("~/.aws/config")
+            if os.path.exists(aws_config_path):
+                cfg = configparser.ConfigParser()
+                cfg.read(aws_config_path)
+                profile = os.environ.get("AWS_PROFILE", "default")
+                section = f"profile {profile}" if profile != "default" else "default"
+                aws_region = cfg.get(section, "region", fallback="") or cfg.get("default", "region", fallback="us-east-1")
+            else:
+                aws_region = "us-east-1"
 
-        # Auto-detect AWS Account ID (saves the user from having to look it up)
+        console.print(f"  [green]✅ AWS Region: {aws_region}[/]")
+
+        # Auto-detect AWS Account ID
         aws_account_id = ""
-        console.print("[dim]  Detecting AWS Account ID automatically...[/]")
         try:
             caller = subprocess.run(
                 ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
@@ -674,25 +696,31 @@ def run_secrets_command(args):
                 aws_account_id = caller.stdout.strip()
                 console.print(f"  [green]✅ AWS Account ID: {aws_account_id}[/]")
             else:
-                console.print("  [yellow]⚠️  Could not auto-detect Account ID — you can add it manually later.[/]")
+                console.print("  [yellow]⚠️  Could not verify AWS credentials — check your IAM access key.[/]")
         except FileNotFoundError:
-            console.print("  [yellow]⚠️  aws CLI not found — Account ID will be set manually if needed.[/]")
+            console.print("  [yellow]⚠️  aws CLI not found — skipping Account ID detection.[/]")
         console.print()
 
-        console.print("[bold]Step 2 of 3 — GitHub Personal Access Token[/]")
-        console.print("[dim]Needed so bootstrap.yml can write ARGOCD_SERVER + ARGOCD_AUTH_TOKEN[/]")
-        console.print("[dim]back as GitHub secrets automatically after the cluster is provisioned.[/]")
-        console.print()
-        console.print("[dim]Create at: github.com → Settings → Developer settings → Personal access tokens[/]")
-        console.print("[dim]Scopes needed: repo (full), write:secrets[/]")
-        console.print()
-
+        # ── 2. Read GH_PAT from gh CLI token store ────────────────────────────
+        console.print("[bold]Step 2 of 3 — Reading GitHub token[/]")
         gh_pat = ""
-        while not gh_pat.strip():
-            gh_pat = getpass.getpass("  GitHub PAT            : ").strip()
+        try:
+            token_result = subprocess.run(
+                ["gh", "auth", "token"],
+                capture_output=True, text=True, check=True
+            )
+            gh_pat = token_result.stdout.strip()
+            if gh_pat:
+                console.print("  [green]✅ GitHub token read from gh CLI[/]")
+            else:
+                console.print("  [bold red]❌ gh auth token returned empty. Run: gh auth login[/]")
+                return
+        except subprocess.CalledProcessError:
+            console.print("  [bold red]❌ Could not read gh token. Run: gh auth login[/]")
+            return
         console.print()
 
-        # ── 2. Write secrets via gh CLI ────────────────────────────────────
+        # ── 3. Write secrets via gh CLI ────────────────────────────────────
         console.print("[bold]Step 3 of 3 — Writing secrets to GitHub[/]")
         console.print()
 
