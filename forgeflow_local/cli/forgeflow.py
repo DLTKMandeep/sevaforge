@@ -362,66 +362,77 @@ def run_greenfield_init(args):
 # ─────────────────────────────────────────────────────────────────────────────
 # Required secrets registry — single source of truth
 # ─────────────────────────────────────────────────────────────────────────────
+# Secrets set ONCE by the human — everything else is auto-managed by ForgeFlow workflows.
+#   infra.yml    → auto-writes: EKS_CLUSTER_NAME (as GitHub variable)
+#   bootstrap.yml → auto-writes: ARGOCD_SERVER, ARGOCD_AUTH_TOKEN (as GitHub secrets)
 REQUIRED_SECRETS = [
     {
         "name": "AWS_ACCESS_KEY_ID",
-        "purpose": "AWS authentication for ECR push and EKS access",
+        "purpose": "AWS auth — allows Terraform to provision EKS and GitHub Actions to push to ECR",
         "how_to_get": "IAM Console → Users → <user> → Security credentials → Create access key",
         "required": True,
+        "sensitive": True,
     },
     {
         "name": "AWS_SECRET_ACCESS_KEY",
-        "purpose": "AWS authentication (paired with ACCESS_KEY_ID)",
+        "purpose": "AWS auth — paired with ACCESS_KEY_ID",
         "how_to_get": "Shown once when creating the access key in IAM Console",
         "required": True,
-    },
-    {
-        "name": "AWS_ACCOUNT_ID",
-        "purpose": "Build ECR image URI (123456789012.dkr.ecr.<region>.amazonaws.com)",
-        "how_to_get": "aws sts get-caller-identity --query Account --output text",
-        "required": True,
+        "sensitive": True,
     },
     {
         "name": "AWS_REGION",
-        "purpose": "AWS region where EKS cluster lives",
-        "how_to_get": "Pre-filled as 'us-east-1' — change if your cluster is elsewhere",
+        "purpose": "AWS region where EKS cluster will be provisioned (e.g. us-east-1)",
+        "how_to_get": "Choose your target region, e.g. us-east-1, us-west-2, eu-west-1",
         "required": True,
+        "sensitive": False,
+        "default": "us-east-1",
     },
     {
-        "name": "EKS_CLUSTER_NAME",
-        "purpose": "Name of the EKS cluster (used for kubectl/argocd targeting)",
-        "how_to_get": "terraform -chdir=terraform output -raw eks_cluster_name",
+        "name": "GH_PAT",
+        "purpose": "GitHub Personal Access Token — lets bootstrap.yml write secrets back into this repo automatically",
+        "how_to_get": "github.com → Settings → Developer settings → Personal access tokens → Fine-grained (repo + secrets scope)",
         "required": True,
+        "sensitive": True,
     },
+    # ── Auto-managed — never set by hand ──────────────────────────────────────
     {
         "name": "ARGOCD_SERVER",
-        "purpose": "ArgoCD API server hostname (used for argocd CLI in deploy pipeline)",
-        "how_to_get": "kubectl get svc -n argocd argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+        "purpose": "[auto] ArgoCD LoadBalancer hostname — written by bootstrap.yml after cluster is up",
+        "how_to_get": "Set automatically by bootstrap.yml — no action needed",
         "required": True,
+        "sensitive": False,
+        "auto_managed": True,
     },
     {
         "name": "ARGOCD_AUTH_TOKEN",
-        "purpose": "ArgoCD API token for automated deploys via argocd CLI",
-        "how_to_get": "argocd account generate-token --account admin  (run after setup-argocd.sh)",
+        "purpose": "[auto] ArgoCD API token — generated and written by bootstrap.yml",
+        "how_to_get": "Set automatically by bootstrap.yml — no action needed",
         "required": True,
+        "sensitive": True,
+        "auto_managed": True,
     },
+    # ── Optional quality / notification secrets ──────────────────────────────
     {
         "name": "SONAR_TOKEN",
-        "purpose": "SonarCloud code quality gate token",
+        "purpose": "SonarCloud code quality gate — skip to disable quality gate",
         "how_to_get": "sonarcloud.io → My Account → Security → Generate token",
         "required": False,
+        "sensitive": True,
     },
     {
         "name": "SNYK_TOKEN",
-        "purpose": "Snyk vulnerability scanning token",
+        "purpose": "Snyk dependency vulnerability scan — skip to disable",
         "how_to_get": "app.snyk.io → Account Settings → Auth Token",
         "required": False,
+        "sensitive": True,
     },
     {
         "name": "SLACK_WEBHOOK_URL",
-        "purpose": "Slack Incoming Webhook for deploy notifications",
+        "purpose": "Slack deploy notifications — skip to disable",
         "how_to_get": "api.slack.com → Your Apps → Incoming Webhooks → Add New Webhook",
         "required": False,
+        "sensitive": True,
     },
 ]
 
@@ -451,25 +462,57 @@ def run_secrets_command(args):
 
     if secrets_command == "list" or secrets_command is None:
         # ── LIST: Show every required secret with purpose and how-to-get ──
+        from rich.table import Table
+
         console.print()
-        console.print("[bold cyan]🔐 ForgeFlow — Required GitHub Actions Secrets[/]")
+        console.print("[bold cyan]🔐 ForgeFlow — Secrets Overview[/]")
         console.print()
-        console.print("[bold]Required secrets[/] (pipeline will fail without these):")
+        console.print("[bold]You set these 4 values ONCE via:[/] [bold cyan]forgeflow secrets bootstrap[/]")
         console.print()
 
-        from rich.table import Table
         tbl = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
-        tbl.add_column("Secret", style="bold yellow", min_width=28)
-        tbl.add_column("Purpose", min_width=45)
+        tbl.add_column("Secret", style="bold yellow", min_width=26)
+        tbl.add_column("Purpose", min_width=50)
         tbl.add_column("How to get", style="dim")
 
         for s in REQUIRED_SECRETS:
-            marker = "★" if s["required"] else "☆"
-            tbl.add_row(f"{marker} {s['name']}", s["purpose"], s["how_to_get"])
+            if s.get("auto_managed") or not s["required"]:
+                continue
+            tbl.add_row(s["name"], s["purpose"], s["how_to_get"])
 
         console.print(tbl)
         console.print()
-        console.print("[bold]Environment variables[/] (non-sensitive, per-environment):")
+        console.print("[bold]These are auto-managed by ForgeFlow GitHub Actions[/] (never touch them manually):")
+        console.print()
+
+        tbl_auto = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl_auto.add_column("Secret", style="bold green", min_width=26)
+        tbl_auto.add_column("Purpose", min_width=50)
+        tbl_auto.add_column("Written by", style="dim")
+
+        for s in REQUIRED_SECRETS:
+            if not s.get("auto_managed"):
+                continue
+            tbl_auto.add_row(s["name"], s["purpose"], "bootstrap.yml (GitHub Actions)")
+
+        console.print(tbl_auto)
+        console.print()
+        console.print("[bold]Optional quality / notification secrets[/] (skip to disable those features):")
+        console.print()
+
+        tbl_opt = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
+        tbl_opt.add_column("Secret", style="dim yellow", min_width=26)
+        tbl_opt.add_column("Purpose", min_width=50)
+        tbl_opt.add_column("How to get", style="dim")
+
+        for s in REQUIRED_SECRETS:
+            if s.get("auto_managed") or s["required"]:
+                continue
+            tbl_opt.add_row(s["name"], s["purpose"], s["how_to_get"])
+
+        console.print(tbl_opt)
+        console.print()
+        console.print("[bold]Environment variables[/] (non-sensitive, written by bootstrap.yml):")
         console.print()
 
         tbl2 = Table(show_header=True, header_style="bold magenta", box=None, pad_edge=False)
@@ -481,10 +524,8 @@ def run_secrets_command(args):
             tbl2.add_row(v["name"], v["environment"], v["purpose"], v["example"])
         console.print(tbl2)
         console.print()
-        console.print("[dim]★ required  ☆ optional[/]")
-        console.print()
-        console.print("[dim]Tip: Run 'forgeflow secrets check' to see which are already set.[/]")
-        console.print("[dim]     See RUNBOOK.md in the repo root for detailed setup steps.[/]")
+        console.print("[dim]Tip: Run [bold]forgeflow secrets check[/] to see which are already set.[/]")
+        console.print("[dim]     Run [bold]forgeflow secrets bootstrap[/] to set them interactively.[/]")
         console.print()
 
     elif secrets_command == "check":
@@ -514,63 +555,244 @@ def run_secrets_command(args):
             console.print(f"[bold red]❌ Could not list secrets: {e}[/]")
             return
 
-        all_ok = True
-        console.print("[bold]GitHub Actions Secrets:[/]")
+        all_human_ok = True
+        console.print("[bold]Human-managed secrets[/] (set once via [bold]forgeflow secrets bootstrap[/]):")
         console.print()
 
         for s in REQUIRED_SECRETS:
+            if s.get("auto_managed"):
+                continue   # Skip auto-managed in this section
             is_set = s["name"] in set_secrets
-            # Check if it has placeholder value (can't read the value, so we just note it)
             if is_set:
                 status = "[bold green]✅ set[/]"
             elif s["required"]:
                 status = "[bold red]❌ missing[/]"
-                all_ok = False
+                all_human_ok = False
             else:
                 status = "[yellow]⚠️  not set (optional)[/]"
-
             marker = "★" if s["required"] else "☆"
             console.print(f"  {marker} [bold]{s['name']}[/]  {status}")
 
         console.print()
-        if all_ok:
-            console.print("[bold green]✅ All required secrets are set![/]")
-            console.print("[dim]   Note: Secrets may still have placeholder values — verify real values are in place.[/]")
+        console.print("[bold]Auto-managed secrets[/] (written by ForgeFlow GitHub Actions — do not touch):")
+        console.print()
+
+        for s in REQUIRED_SECRETS:
+            if not s.get("auto_managed"):
+                continue
+            is_set = s["name"] in set_secrets
+            if is_set:
+                status = "[green]✅ set by bootstrap.yml[/]"
+            else:
+                status = "[dim]⏳ will be set after first infra.yml run[/]"
+            console.print(f"  🤖 [bold]{s['name']}[/]  {status}")
+
+        console.print()
+        if all_human_ok:
+            console.print("[bold green]✅ All human-managed secrets are in place.[/]")
+            console.print("[dim]   Now just: git push origin main[/]")
         else:
-            console.print("[bold red]❌ Some required secrets are missing.[/]")
+            console.print("[bold red]❌ Some secrets are missing.[/]")
             console.print()
-            console.print("To bootstrap all secrets with placeholder values:")
-            console.print("  [bold]bash scripts/setup-github.sh[/]  [dim](if not already run)[/]")
-            console.print()
-            console.print("Then fill in real values at:")
-            console.print("  GitHub → Settings → Secrets and variables → Actions")
-            console.print("  See [bold]RUNBOOK.md[/] for step-by-step instructions.")
+            console.print("Run the ForgeFlow onboarding wizard to set them:")
+            console.print("  [bold cyan]forgeflow secrets bootstrap[/]")
         console.print()
 
     elif secrets_command == "bootstrap":
-        # ── BOOTSTRAP: Run setup-github.sh ──
+        # ── BOOTSTRAP: Interactive wizard — no shell script required ──
+        import getpass
+        import json as _json
+
         console.print()
-        console.print("[bold cyan]🔐 ForgeFlow — Bootstrapping GitHub Secrets[/]")
+        console.print("[bold cyan]╔══════════════════════════════════════════════════════╗[/]")
+        console.print("[bold cyan]║  ForgeFlow — One-Time Onboarding Wizard              ║[/]")
+        console.print("[bold cyan]╚══════════════════════════════════════════════════════╝[/]")
+        console.print()
+        console.print("I'll collect [bold]4 values[/] from you, set them as GitHub secrets,")
+        console.print("and create the staging + production environments.")
+        console.print("After this, [bold]git push[/] is all you ever need to do.")
         console.print()
 
-        setup_script = path / "scripts" / "setup-github.sh"
-        if not setup_script.exists():
-            console.print(f"[bold red]❌ {setup_script} not found.[/]")
-            console.print("   Run [bold]forgeflow cd[/] first to generate it.")
+        # ── 0. Verify gh CLI is authenticated ─────────────────────────────────
+        try:
+            subprocess.run(["gh", "auth", "status"], capture_output=True, check=True)
+        except FileNotFoundError:
+            console.print("[bold red]❌ gh CLI not found.[/]")
+            console.print("   Install: brew install gh   (macOS)")
+            console.print("           winget install GitHub.cli   (Windows)")
+            console.print("   Then:   gh auth login")
+            return
+        except subprocess.CalledProcessError:
+            console.print("[bold red]❌ gh CLI not authenticated.[/]")
+            console.print("   Run: gh auth login")
             return
 
-        console.print(f"Running: [bold]bash {setup_script}[/]")
+        # Detect repo from git remote
+        try:
+            repo_result = subprocess.run(
+                ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                capture_output=True, text=True, check=True, cwd=str(path)
+            )
+            repo_name = repo_result.stdout.strip()
+        except subprocess.CalledProcessError:
+            console.print("[bold red]❌ Could not detect GitHub repo. Make sure you're inside a git repo with a GitHub remote.[/]")
+            return
+
+        console.print(f"[dim]Repo: {repo_name}[/]")
         console.print()
 
+        # ── 1. Collect the 4 required values ─────────────────────────────────
+        console.print("[bold]Step 1 of 3 — AWS credentials[/]")
+        console.print("[dim]Create an IAM user with AdministratorAccess and generate an access key.[/]")
+        console.print("[dim]IAM Console → Users → Create user → Security credentials → Create access key[/]")
+        console.print()
+
+        aws_key_id = ""
+        while not aws_key_id.strip():
+            aws_key_id = getpass.getpass("  AWS Access Key ID     : ").strip()
+
+        aws_secret = ""
+        while not aws_secret.strip():
+            aws_secret = getpass.getpass("  AWS Secret Access Key : ").strip()
+
+        aws_region = input("  AWS Region            [us-east-1]: ").strip() or "us-east-1"
+        console.print()
+
+        # Auto-detect AWS Account ID (saves the user from having to look it up)
+        aws_account_id = ""
+        console.print("[dim]  Detecting AWS Account ID automatically...[/]")
         try:
-            subprocess.run(["bash", str(setup_script)], check=True, cwd=str(path))
+            caller = subprocess.run(
+                ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
+                capture_output=True, text=True,
+                env={**os.environ,
+                     "AWS_ACCESS_KEY_ID": aws_key_id,
+                     "AWS_SECRET_ACCESS_KEY": aws_secret,
+                     "AWS_DEFAULT_REGION": aws_region}
+            )
+            if caller.returncode == 0:
+                aws_account_id = caller.stdout.strip()
+                console.print(f"  [green]✅ AWS Account ID: {aws_account_id}[/]")
+            else:
+                console.print("  [yellow]⚠️  Could not auto-detect Account ID — you can add it manually later.[/]")
+        except FileNotFoundError:
+            console.print("  [yellow]⚠️  aws CLI not found — Account ID will be set manually if needed.[/]")
+        console.print()
+
+        console.print("[bold]Step 2 of 3 — GitHub Personal Access Token[/]")
+        console.print("[dim]Needed so bootstrap.yml can write ARGOCD_SERVER + ARGOCD_AUTH_TOKEN[/]")
+        console.print("[dim]back as GitHub secrets automatically after the cluster is provisioned.[/]")
+        console.print()
+        console.print("[dim]Create at: github.com → Settings → Developer settings → Personal access tokens[/]")
+        console.print("[dim]Scopes needed: repo (full), write:secrets[/]")
+        console.print()
+
+        gh_pat = ""
+        while not gh_pat.strip():
+            gh_pat = getpass.getpass("  GitHub PAT            : ").strip()
+        console.print()
+
+        # ── 2. Write secrets via gh CLI ────────────────────────────────────
+        console.print("[bold]Step 3 of 3 — Writing secrets to GitHub[/]")
+        console.print()
+
+        secrets_to_set = [
+            ("AWS_ACCESS_KEY_ID",     aws_key_id),
+            ("AWS_SECRET_ACCESS_KEY", aws_secret),
+            ("AWS_REGION",            aws_region),
+            ("GH_PAT",                gh_pat),
+        ]
+        if aws_account_id:
+            secrets_to_set.append(("AWS_ACCOUNT_ID", aws_account_id))
+
+        failed = []
+        for secret_name, secret_value in secrets_to_set:
+            try:
+                result = subprocess.run(
+                    ["gh", "secret", "set", secret_name, "--body", secret_value],
+                    capture_output=True, text=True, check=True, cwd=str(path)
+                )
+                console.print(f"  [green]✅ {secret_name}[/]")
+            except subprocess.CalledProcessError as e:
+                console.print(f"  [red]❌ {secret_name} — {e.stderr.strip()}[/]")
+                failed.append(secret_name)
+
+        console.print()
+
+        # ── 3. Create GitHub environments ──────────────────────────────────
+        console.print("[dim]Creating GitHub environments (staging + production)...[/]")
+
+        for env_name in ["staging", "production"]:
+            try:
+                subprocess.run(
+                    ["gh", "api", "--method", "PUT",
+                     f"repos/{repo_name}/environments/{env_name}"],
+                    capture_output=True, text=True, check=True, cwd=str(path)
+                )
+                console.print(f"  [green]✅ Environment: {env_name}[/]")
+            except subprocess.CalledProcessError as e:
+                console.print(f"  [yellow]⚠️  Could not create '{env_name}' environment: {e.stderr.strip()}[/]")
+
+        # Production environment: add 5-minute wait (deployment protection rule)
+        try:
+            subprocess.run(
+                ["gh", "api", "--method", "POST",
+                 f"repos/{repo_name}/environments/production/deployment_branch_policies",
+                 "--field", "type=branch_policy"],
+                capture_output=True, text=True, cwd=str(path)
+            )
+        except Exception:
+            pass  # Non-critical — protection rules require certain GitHub plan tiers
+
+        console.print()
+
+        # ── 4. Enable branch protection on main ───────────────────────────
+        console.print("[dim]Configuring branch protection on main...[/]")
+        try:
+            protection_payload = _json.dumps({
+                "required_status_checks": None,
+                "enforce_admins": False,
+                "required_pull_request_reviews": {
+                    "required_approving_review_count": 1,
+                    "dismiss_stale_reviews": True,
+                },
+                "restrictions": None,
+            })
+            subprocess.run(
+                ["gh", "api", "--method", "PUT",
+                 f"repos/{repo_name}/branches/main/protection",
+                 "--input", "-"],
+                input=protection_payload,
+                capture_output=True, text=True, cwd=str(path)
+            )
+            console.print("  [green]✅ Branch protection on main[/]")
+        except Exception:
+            console.print("  [yellow]⚠️  Branch protection skipped (may require admin permissions)[/]")
+
+        console.print()
+
+        # ── 5. Summary ─────────────────────────────────────────────────────
+        if failed:
+            console.print(f"[bold red]⚠️  {len(failed)} secret(s) failed to set: {', '.join(failed)}[/]")
+            console.print("   Retry with: forgeflow secrets bootstrap")
+        else:
+            console.print("[bold green]╔══════════════════════════════════════════════════════╗[/]")
+            console.print("[bold green]║  ✅  Onboarding Complete!                            ║[/]")
+            console.print("[bold green]╚══════════════════════════════════════════════════════╝[/]")
             console.print()
-            console.print("[bold green]✅ Bootstrap complete![/]")
-            console.print("   Fill in real values at GitHub → Settings → Secrets → Actions")
-            console.print("   See RUNBOOK.md for step-by-step instructions.")
-        except subprocess.CalledProcessError as e:
-            console.print(f"\n[bold red]❌ Setup script exited with code {e.returncode}[/]")
-            console.print("   Check the output above for error details.")
+            console.print(f"  Secrets set : {len(secrets_to_set)}")
+            console.print(f"  Environments: staging, production")
+            console.print()
+            console.print("[bold]Your one and only next step:[/]")
+            console.print()
+            console.print("  [bold cyan]git push origin main[/]")
+            console.print()
+            console.print("  ForgeFlow's GitHub Actions will then automatically:")
+            console.print("  [dim]1. infra.yml    — provision EKS cluster + VPC via Terraform[/]")
+            console.print("  [dim]2. bootstrap.yml — install ArgoCD, write ARGOCD_SERVER + ARGOCD_AUTH_TOKEN[/]")
+            console.print("  [dim]3. deploy.yml   — build image → staging → E2E gate → prod[/]")
+            console.print()
+            console.print("[dim]Nothing else runs on your desktop. The cloud handles everything.[/]")
         console.print()
 
     else:
