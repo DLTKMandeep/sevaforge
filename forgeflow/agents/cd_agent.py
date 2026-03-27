@@ -118,16 +118,16 @@ spec:
             memory_request: "512Mi"
   template:
     metadata:
-      name: '{{{{app_name}}}}-{{{{environment}}}}'
+      name: '{{{{app_name}}-{{{{environment}}'
     spec:
       project: {app_name}
       source:
         repoURL: {repo_url}
         targetRevision: HEAD
-        path: 'infrastructure/k8s/overlays/{{{{environment}}}}'
+        path: 'infrastructure/k8s/overlays/{{{{environment}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{{{app_name}}}}-{{{{environment}}}}'
+        namespace: '{{{{app_name}}-{{{{environment}}'
       syncPolicy:
         automated:
           prune: true
@@ -628,12 +628,12 @@ permissions:
 
 # Never cancel in-flight deploys — a deploy must always finish or roll back
 concurrency:
-  group: deploy-${{{{ github.ref }}}}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{{{ github.repository }}}}
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ===========================================================================
@@ -646,8 +646,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{{{ github.sha }}}}
-      image:     ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ github.sha }}}}
+      image_tag: ${{ github.sha }}
+      image:     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -655,26 +655,26 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          registry: ${{{{ env.REGISTRY }}}}
-          username: ${{{{ github.actor }}}}
-          password: ${{{{ secrets.GITHUB_TOKEN }}}}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=
-            type=raw,value=latest,enable=${{{{ github.ref == 'refs/heads/main' }}}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{{{ steps.meta.outputs.tags }}}}
-          labels: ${{{{ steps.meta.outputs.labels }}}}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
           provenance: true
@@ -693,17 +693,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Update staging image tag
         run: |
           cd infrastructure/k8s/overlays/staging
-          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
+          kustomize edit set image app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
           git config user.name  "ForgeFlow Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore(deploy/staging): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore(deploy/staging): ${{ needs.build.outputs.image_tag }} [skip ci]"
           git push
 
       - name: Wait for ArgoCD sync
@@ -736,14 +736,14 @@ jobs:
 
       - name: Run E2E tests
         env:
-          BASE_URL: ${{{{ vars.STAGING_URL }}}}
+          BASE_URL: ${{ vars.STAGING_URL }}
         run: npx playwright test --reporter=html
 
       - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-report-${{{{ github.sha }}}}
+          name: e2e-report-${{ github.sha }}
           path: playwright-report/
           retention-days: 14
 
@@ -760,9 +760,9 @@ jobs:
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.11.0
         with:
-          target:       ${{{{ vars.STAGING_URL }}}}
+          target:       ${{ vars.STAGING_URL }}
           fail_action:  true        # CRITICAL findings block the pipeline
-          issue_title:  "DAST Scan – ${{{{ github.sha }}}}"
+          issue_title:  "DAST Scan – ${{ github.sha }}"
 
   # ===========================================================================
   # 5 ── Production deployment  (requires manual approval via GitHub Environment)
@@ -777,18 +777,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: main                  # Always deploy from latest main
 
       - name: Update production image tag
         run: |
           cd infrastructure/k8s/overlays/prod
-          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
+          kustomize edit set image app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
           git config user.name  "ForgeFlow Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore(deploy/prod): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore(deploy/prod): ${{ needs.build.outputs.image_tag }} [skip ci]"
           git push
 
       - name: Wait for ArgoCD sync
@@ -805,14 +805,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-prod
     outputs:
-      healthy: ${{{{ steps.check.outputs.healthy }}}}
+      healthy: ${{ steps.check.outputs.healthy }}
     steps:
       - name: Poll health endpoint
         id: check
         run: |
           echo "healthy=false" >> $GITHUB_OUTPUT
           for i in $(seq 1 10); do
-            status=$(curl -s -o /dev/null -w "%{{http_code}}" "${{{{ vars.PROD_URL }}}}/health" || echo "000")
+            status=$(curl -s -o /dev/null -w "%{{http_code}}" "${{ vars.PROD_URL }}/health" || echo "000")
             echo "Attempt $i/10: HTTP $status"
             if [ "$status" = "200" ]; then
               echo "healthy=true" >> $GITHUB_OUTPUT
@@ -838,7 +838,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 5
 
       - name: Revert production image tag
@@ -856,12 +856,12 @@ jobs:
             github.rest.issues.create({{
               owner: context.repo.owner,
               repo:  context.repo.repo,
-              title: `🚨 Production rollback — ${{{{ github.sha }}}}`,
+              title: `🚨 Production rollback — ${{ github.sha }}`,
               body: [
-                `Production deployment of \`${{{{ github.sha }}}}\` failed health checks.`,
+                `Production deployment of \`${{ github.sha }}\` failed health checks.`,
                 `Auto-rollback completed.`,
                 ``,
-                `**Workflow run:** ${{{{ github.server_url }}}}/${{{{ github.repository }}}}/actions/runs/${{{{ github.run_id }}}}`,
+                `**Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
               ].join("\\n"),
               labels: ["incident", "production", "auto-rollback"],
             }})
@@ -1251,26 +1251,26 @@ on:
         default: ''
 
 concurrency:
-  group: terraform-${{{{ github.ref }}}}
+  group: terraform-${{ github.ref }}
   cancel-in-progress: false   # Never cancel infra changes mid-flight
 
 env:
   TF_DIR: infrastructure/terraform
   # S3 bucket for Terraform state — derived from repo name (no manual setup needed)
-  TF_STATE_BUCKET: ${{{{ github.repository_owner }}}}-${{{{ github.event.repository.name }}}}-tfstate
+  TF_STATE_BUCKET: ${{ github.repository_owner }}-${{ github.event.repository.name }}-tfstate
   TF_STATE_KEY: infrastructure/terraform.tfstate
 
 jobs:
   terraform:
-    name: "\U0001f3d7\ufe0f Terraform ${{{{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}}}"
+    name: "\U0001f3d7\ufe0f Terraform ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}"
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write   # Post plan output as PR comment
       id-token: write        # For OIDC (future)
     outputs:
-      eks_cluster_name: ${{{{ steps.outputs.outputs.eks_cluster_name }}}}
-      infra_changed: ${{{{ steps.apply.outputs.infra_changed }}}}
+      eks_cluster_name: ${{ steps.outputs.outputs.eks_cluster_name }}
+      infra_changed: ${{ steps.apply.outputs.infra_changed }}
 
     steps:
       - uses: actions/checkout@v4
@@ -1278,9 +1278,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}
-          aws-secret-access-key: ${{{{ secrets.AWS_SECRET_ACCESS_KEY }}}}
-          aws-region:            ${{{{ secrets.AWS_REGION }}}}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -1291,7 +1291,7 @@ jobs:
       # ── Ensure S3 state bucket exists (idempotent — safe to run every time) ──
       - name: Bootstrap Terraform state bucket
         run: |
-          REGION="${{{{ secrets.AWS_REGION }}}}"
+          REGION="${{ secrets.AWS_REGION }}"
           BUCKET="${{TF_STATE_BUCKET}}"
           echo "State bucket: $BUCKET"
 
@@ -1311,7 +1311,7 @@ jobs:
             --versioning-configuration Status=Enabled
           aws s3api put-bucket-encryption --bucket "$BUCKET" \\
             --server-side-encryption-configuration \\
-            \'{{"Rules":[{{"ApplyServerSideEncryptionByDefault":{{"SSEAlgorithm":"AES256"}}}}]}}\'
+            \'{{"Rules":[{{"ApplyServerSideEncryptionByDefault":{{"SSEAlgorithm":"AES256"}}]}}\'
           aws s3api put-public-access-block --bucket "$BUCKET" \\
             --public-access-block-configuration \\
             \'BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true\'
@@ -1324,7 +1324,7 @@ jobs:
           terraform init \\
             -backend-config="bucket=${{TF_STATE_BUCKET}}" \\
             -backend-config="key=${{TF_STATE_KEY}}" \\
-            -backend-config="region=${{{{ secrets.AWS_REGION }}}}" \\
+            -backend-config="region=${{ secrets.AWS_REGION }}" \\
             -backend-config="encrypt=true"
 
       - name: Terraform Validate
@@ -1344,7 +1344,7 @@ jobs:
         with:
           script: |
             const fs = require(\'fs\');
-            const plan = fs.readFileSync(\'${{{{ env.TF_DIR }}}}/plan.txt\', \'utf8\');
+            const plan = fs.readFileSync(\'${{ env.TF_DIR }}/plan.txt\', \'utf8\');
             const truncated = plan.length > 60000 ? plan.substring(0, 60000) + \'\\n... (truncated)\' : plan;
             github.rest.issues.createComment({{
               owner: context.repo.owner,
@@ -1375,7 +1375,7 @@ jobs:
         id: outputs
         if: github.ref == \'refs/heads/main\' && github.event_name != \'pull_request\' && github.event.inputs.destroy != \'destroy\'
         env:
-          GH_TOKEN: ${{{{ secrets.GH_PAT }}}}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           cd $TF_DIR
           EKS_CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
@@ -1386,7 +1386,7 @@ jobs:
           # Store as GitHub Actions variables (readable by all workflows, not sensitive)
           gh variable set EKS_CLUSTER_NAME --body "$EKS_CLUSTER_NAME"
           gh variable set VPC_ID           --body "$VPC_ID"
-          gh variable set AWS_REGION       --body "${{{{ secrets.AWS_REGION }}}}"
+          gh variable set AWS_REGION       --body "${{ secrets.AWS_REGION }}"
 
           echo "✅ GitHub variables updated:"
           echo "   EKS_CLUSTER_NAME = $EKS_CLUSTER_NAME"
@@ -1405,7 +1405,7 @@ jobs:
       - name: Dispatch bootstrap workflow
         uses: actions/github-script@v7
         with:
-          github-token: ${{{{ secrets.GH_PAT }}}}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             await github.rest.actions.createWorkflowDispatch({{
               owner: context.repo.owner,
@@ -1413,7 +1413,7 @@ jobs:
               workflow_id: \'bootstrap.yml\',
               ref: \'main\',
               inputs: {{
-                eks_cluster_name: \'${{{{ needs.terraform.outputs.eks_cluster_name }}}}\'
+                eks_cluster_name: \'${{ needs.terraform.outputs.eks_cluster_name }}\'
               }}
             }});
             console.log(\'✅ Bootstrap workflow triggered\');
@@ -1467,17 +1467,17 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}
-          aws-secret-access-key: ${{{{ secrets.AWS_SECRET_ACCESS_KEY }}}}
-          aws-region:            ${{{{ secrets.AWS_REGION }}}}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
 
       # Resolve cluster name — use input, fall back to GitHub variable
       - name: Resolve EKS cluster name
         id: cluster
         run: |
-          NAME="${{{{ inputs.eks_cluster_name }}}}"
+          NAME="${{ inputs.eks_cluster_name }}"
           if [ -z "$NAME" ]; then
-            NAME="${{{{ vars.EKS_CLUSTER_NAME }}}}"
+            NAME="${{ vars.EKS_CLUSTER_NAME }}"
           fi
           if [ -z "$NAME" ]; then
             echo "❌ EKS_CLUSTER_NAME not provided. Run infra.yml first or pass it as input."
@@ -1489,8 +1489,8 @@ jobs:
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \\
-            --region ${{{{ secrets.AWS_REGION }}}} \\
-            --name ${{{{ steps.cluster.outputs.name }}}}
+            --region ${{ secrets.AWS_REGION }} \\
+            --name ${{ steps.cluster.outputs.name }}
           kubectl cluster-info
 
       - name: Setup Helm
@@ -1549,7 +1549,7 @@ jobs:
           chmod +x /usr/local/bin/argocd
 
           # Login
-          HOST="${{{{ steps.argocd_host.outputs.host }}}}"
+          HOST="${{ steps.argocd_host.outputs.host }}"
           argocd login "$HOST" \\
             --username admin \\
             --password "$PASSWORD" \\
@@ -1569,11 +1569,11 @@ jobs:
       # ── 4. Write ArgoCD credentials back as GitHub secrets ────────────────
       - name: Store ArgoCD secrets in GitHub
         env:
-          GH_TOKEN: ${{{{ secrets.GH_PAT }}}}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          echo "${{{{ steps.argocd_token.outputs.token }}}}" | \\
+          echo "${{ steps.argocd_token.outputs.token }}" | \\
             gh secret set ARGOCD_AUTH_TOKEN
-          echo "${{{{ steps.argocd_host.outputs.host }}}}" | \\
+          echo "${{ steps.argocd_host.outputs.host }}" | \\
             gh secret set ARGOCD_SERVER
 
           echo "✅ ARGOCD_SERVER and ARGOCD_AUTH_TOKEN written to GitHub secrets"
@@ -1582,12 +1582,12 @@ jobs:
       # ── 5. Register this repo with ArgoCD ─────────────────────────────────
       - name: Register repository with ArgoCD
         run: |
-          HOST="${{{{ steps.argocd_host.outputs.host }}}}"
-          REPO="https://github.com/${{{{ github.repository }}}}"
+          HOST="${{ steps.argocd_host.outputs.host }}"
+          REPO="https://github.com/${{ github.repository }}"
 
           argocd repo add "$REPO" \\
             --username git \\
-            --password "${{{{ secrets.GH_PAT }}}}" \\
+            --password "${{ secrets.GH_PAT }}" \\
             --server "$HOST" \\
             --insecure \\
             --grpc-web || true
@@ -1618,12 +1618,12 @@ jobs:
       # ── 8. Wait for staging namespace and capture app URLs ────────────────
       - name: Capture and store app URLs
         env:
-          GH_TOKEN: ${{{{ secrets.GH_PAT }}}}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "Waiting 90s for ArgoCD to create namespaces and services..."
           sleep 90
 
-          APP_NAME=$(basename "${{{{ github.repository }}}}")
+          APP_NAME=$(basename "${{ github.repository }}")
 
           # Try to get staging ingress / LoadBalancer hostname
           STAGING_HOST=$(kubectl get svc -n "${{APP_NAME}}-staging" \\
@@ -1658,9 +1658,9 @@ jobs:
           echo "║   ArgoCD Bootstrap Complete                              ║"
           echo "╚══════════════════════════════════════════════════════════╝"
           echo ""
-          echo "  ArgoCD UI:   https://${{{{ steps.argocd_host.outputs.host }}}}"
+          echo "  ArgoCD UI:   https://${{ steps.argocd_host.outputs.host }}"
           echo "  Username:    admin"
-          echo "  Cluster:     ${{{{ steps.cluster.outputs.name }}}}"
+          echo "  Cluster:     ${{ steps.cluster.outputs.name }}"
           echo ""
           echo "  GitHub secrets written automatically:"
           echo "    ✅ ARGOCD_SERVER"
@@ -1728,8 +1728,8 @@ spec:
       engineVersion: v2
       data:
         # Map AWS Secrets Manager keys → K8s Secret keys
-        DATABASE_URL: "{{{{ .DATABASE_URL }}}}"
-        SECRET_KEY:   "{{{{ .SECRET_KEY }}}}"
+        DATABASE_URL: "{{{{ .DATABASE_URL }}"
+        SECRET_KEY:   "{{{{ .SECRET_KEY }}"
   data:
     - secretKey: DATABASE_URL
       remoteRef:
@@ -2363,10 +2363,10 @@ class CDAgent(BaseAgent):
 
         # Add NOTES.txt
         notes = f'''1. Get the application URL by running:
-  kubectl get ingress -n {{{{ .Release.Namespace }}}}
+  kubectl get ingress -n {{{{ .Release.Namespace }}
 
 2. Check deployment status:
-  kubectl rollout status deployment/{app_name} -n {{{{ .Release.Namespace }}}}
+  kubectl rollout status deployment/{app_name} -n {{{{ .Release.Namespace }}
 '''
         actions.append(self._safe_write(templates_path / "NOTES.txt", notes, overwrite))
 
