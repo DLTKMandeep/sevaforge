@@ -620,6 +620,12 @@ on:
         type: choice
         options: [staging, production]
 
+# Top-level permissions required for GHCR push on new repos
+permissions:
+  contents: write
+  packages: write
+  issues: write
+
 # Never cancel in-flight deploys — a deploy must always finish or roll back
 concurrency:
   group: deploy-${{{{ github.ref }}}}
