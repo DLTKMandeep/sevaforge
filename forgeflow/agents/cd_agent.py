@@ -1292,7 +1292,7 @@ jobs:
       - name: Bootstrap Terraform state bucket
         run: |
           REGION="${{ secrets.AWS_REGION }}"
-          BUCKET="${{TF_STATE_BUCKET}}"
+          BUCKET="${TF_STATE_BUCKET}"
           echo "State bucket: $BUCKET"
 
           # Create bucket if it doesn\'t exist
@@ -1322,8 +1322,8 @@ jobs:
         run: |
           cd $TF_DIR
           terraform init \\
-            -backend-config="bucket=${{TF_STATE_BUCKET}}" \\
-            -backend-config="key=${{TF_STATE_KEY}}" \\
+            -backend-config="bucket=${TF_STATE_BUCKET}" \\
+            -backend-config="key=${TF_STATE_KEY}" \\
             -backend-config="region=${{ secrets.AWS_REGION }}" \\
             -backend-config="encrypt=true"
 
@@ -1335,7 +1335,7 @@ jobs:
         run: |
           cd $TF_DIR
           terraform plan -out=tfplan -no-color 2>&1 | tee plan.txt
-          echo "exit_code=${{PIPESTATUS[0]}}" >> $GITHUB_OUTPUT
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
       # Post plan as PR comment so reviewers can see exactly what will change
       - name: Post plan to PR
@@ -1346,7 +1346,7 @@ jobs:
             const fs = require(\'fs\');
             const plan = fs.readFileSync(\'${{ env.TF_DIR }}/plan.txt\', \'utf8\');
             const truncated = plan.length > 60000 ? plan.substring(0, 60000) + \'\\n... (truncated)\' : plan;
-            github.rest.issues.createComment({{
+            github.rest.issues.createComment({
               owner: context.repo.owner,
               repo:  context.repo.repo,
               issue_number: context.issue.number,
@@ -1626,25 +1626,25 @@ jobs:
           APP_NAME=$(basename "${{ github.repository }}")
 
           # Try to get staging ingress / LoadBalancer hostname
-          STAGING_HOST=$(kubectl get svc -n "${{APP_NAME}}-staging" \\
+          STAGING_HOST=$(kubectl get svc -n "${APP_NAME}-staging" \\
             -o jsonpath=\'{{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}}\' \\
             2>/dev/null || true)
 
-          PROD_HOST=$(kubectl get svc -n "${{APP_NAME}}-prod" \\
+          PROD_HOST=$(kubectl get svc -n "${APP_NAME}-prod" \\
             -o jsonpath=\'{{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}}\' \\
             2>/dev/null || true)
 
           if [ -n "$STAGING_HOST" ]; then
-            gh variable set STAGING_URL --env staging --body "http://${{STAGING_HOST}}"
-            echo "✅ STAGING_URL = http://${{STAGING_HOST}}"
+            gh variable set STAGING_URL --env staging --body "http://${STAGING_HOST}"
+            echo "✅ STAGING_URL = http://${STAGING_HOST}"
           else
             echo "⚠️  Staging service not yet ready — update STAGING_URL manually once the app is deployed"
             gh variable set STAGING_URL --env staging --body "http://REPLACE_AFTER_FIRST_DEPLOY"
           fi
 
           if [ -n "$PROD_HOST" ]; then
-            gh variable set PROD_URL --env production --body "http://${{PROD_HOST}}"
-            echo "✅ PROD_URL = http://${{PROD_HOST}}"
+            gh variable set PROD_URL --env production --body "http://${PROD_HOST}"
+            echo "✅ PROD_URL = http://${PROD_HOST}"
           else
             echo "⚠️  Prod service not yet ready — update PROD_URL manually once the app is deployed"
             gh variable set PROD_URL --env production --body "http://REPLACE_AFTER_FIRST_DEPLOY"
