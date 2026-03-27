@@ -31,12 +31,12 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{{{ github.ref }}}}
   cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{{{ github.repository }}}}
 
 jobs:
   # ===========================================================================
@@ -108,8 +108,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
-      image_digest: ${{ steps.build.outputs.digest }}
+      image_tag: ${{{{ steps.meta.outputs.tags }}}}
+      image_digest: ${{{{ steps.build.outputs.digest }}}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,15 +121,15 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{{{ env.REGISTRY }}}}
+          username: ${{{{ github.actor }}}}
+          password: ${{{{ secrets.GITHUB_TOKEN }}}}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -142,9 +142,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{{{ github.event_name != 'pull_request' }}}}
+          tags: ${{{{ steps.meta.outputs.tags }}}}
+          labels: ${{{{ steps.meta.outputs.labels }}}}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -198,7 +198,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-e2e-report-${{ github.sha }}
+          name: smoke-e2e-report-${{{{ github.sha }}}}
           path: playwright-report/
           retention-days: 7
 '''
@@ -243,14 +243,15 @@ jobs:
       - name: Gitleaks scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
           GITLEAKS_ENABLE_COMMENTS: true
 
       - name: TruffleHog scan
+        if: github.event_name == 'pull_request'
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
+          base: ${{{{ github.event.pull_request.base.sha }}}}
           head: HEAD
           extra_args: --only-verified
 
@@ -267,7 +268,7 @@ jobs:
 
       - name: Upload SARIF results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: dependency-results.sarif
 
@@ -282,15 +283,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: {codeql_languages}
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:{codeql_languages}"
 
@@ -307,18 +308,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build image for scanning
-        run: docker build -t ${{ github.repository }}:scan .
+        run: docker build -t ${{{{ github.repository }}}}:scan .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ github.repository }}:scan'
+          image-ref: '${{{{ github.repository }}}}:scan'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
 '''
@@ -458,7 +459,7 @@ variables:
 default:
   image: {default_image}
   cache:
-    key: ${CI_COMMIT_REF_SLUG}
+    key: ${{CI_COMMIT_REF_SLUG}}
     paths:
 {cache_paths}
 
@@ -481,7 +482,7 @@ security:sast:
   services:
     - docker:dind
   script:
-    - docker run --rm -v "${CI_PROJECT_DIR}:/src" returntocorp/semgrep semgrep --config=auto /src
+    - docker run --rm -v "${{CI_PROJECT_DIR}}:/src" returntocorp/semgrep semgrep --config=auto /src
   allow_failure: true
 
 security:dependency:
@@ -528,10 +529,10 @@ deploy:dev:
   image: bitnami/kubectl:latest
   environment:
     name: development
-    url: https://dev.${CI_PROJECT_NAME}.example.com
+    url: https://dev.${{CI_PROJECT_NAME}}.example.com
   script:
-    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-dev
-    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-dev
+    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-dev
+    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-dev
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: on_success
@@ -541,10 +542,10 @@ deploy:staging:
   image: bitnami/kubectl:latest
   environment:
     name: staging
-    url: https://staging.${CI_PROJECT_NAME}.example.com
+    url: https://staging.${{CI_PROJECT_NAME}}.example.com
   script:
-    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-staging
-    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-staging
+    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-staging
+    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-staging
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
@@ -554,10 +555,10 @@ deploy:prod:
   image: bitnami/kubectl:latest
   environment:
     name: production
-    url: https://${CI_PROJECT_NAME}.example.com
+    url: https://${{CI_PROJECT_NAME}}.example.com
   script:
-    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-prod
-    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-prod
+    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-prod
+    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-prod
   rules:
     - if: $CI_COMMIT_TAG =~ /^v.*/
       when: manual
@@ -804,12 +805,7 @@ DEPENDENCY_SCAN_STEPS_BY_LANGUAGE = {
         run: pip install pip-audit
 
       - name: Run pip-audit
-        run: pip-audit -r requirements.txt --format=json --output=dependency-results.json || true
-
-      - name: Convert to SARIF
-        run: |
-          pip install pip-audit-to-sarif
-          pip-audit-to-sarif dependency-results.json > dependency-results.sarif
+        run: pip-audit -r requirements.txt --format=sarif --output=dependency-results.sarif || true
 ''',
     'JavaScript': '''
       - name: Set up Node.js

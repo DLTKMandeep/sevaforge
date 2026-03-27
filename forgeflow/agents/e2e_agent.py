@@ -288,32 +288,32 @@ test.describe('API Endpoints', () => {{
   const baseURL = process.env.API_URL || 'http://localhost:{port}/api';
 
   test('should return health check', async ({{ request }}) => {{
-    const response = await request.get(`${baseURL}/health`);
-    
+    const response = await request.get(`${{baseURL}}/health`);
+
     expect(response.ok()).toBeTruthy();
-    
+
     const body = await response.json();
     expect(body.status).toBe('ok');
   }});
 
   test('should return 401 for protected endpoints without auth', async ({{ request }}) => {{
-    const response = await request.get(`${baseURL}/protected`);
-    
+    const response = await request.get(`${{baseURL}}/protected`);
+
     expect(response.status()).toBe(401);
   }});
 
   test('should handle CORS correctly', async ({{ request }}) => {{
-    const response = await request.get(`${baseURL}/health`, {{
+    const response = await request.get(`${{baseURL}}/health`, {{
       headers: {{
         'Origin': 'http://localhost:3000',
       }},
     }});
-    
+
     expect(response.ok()).toBeTruthy();
   }});
 
   test('should validate request body', async ({{ request }}) => {{
-    const response = await request.post(`${baseURL}/users`, {{
+    const response = await request.post(`${{baseURL}}/users`, {{
       data: {{
         // Missing required fields
       }},

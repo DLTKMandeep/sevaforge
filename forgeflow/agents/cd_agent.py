@@ -628,12 +628,12 @@ permissions:
 
 # Never cancel in-flight deploys — a deploy must always finish or roll back
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{{{ github.ref }}}}
   cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{{{ github.repository }}}}
 
 jobs:
   # ===========================================================================
@@ -646,8 +646,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{ github.sha }}
-      image:     ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      image_tag: ${{{{ github.sha }}}}
+      image:     ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ github.sha }}}}
     steps:
       - uses: actions/checkout@v4
 
@@ -655,26 +655,26 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{{{ env.REGISTRY }}}}
+          username: ${{{{ github.actor }}}}
+          password: ${{{{ secrets.GITHUB_TOKEN }}}}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}
           tags: |
             type=sha,prefix=
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{{{ github.ref == 'refs/heads/main' }}}}
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{{{ steps.meta.outputs.tags }}}}
+          labels: ${{{{ steps.meta.outputs.labels }}}}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
           provenance: true
@@ -693,17 +693,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
           fetch-depth: 0
 
       - name: Update staging image tag
         run: |
           cd infrastructure/k8s/overlays/staging
-          kustomize edit set image app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
           git config user.name  "ForgeFlow Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore(deploy/staging): ${{ needs.build.outputs.image_tag }} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore(deploy/staging): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
           git push
 
       - name: Wait for ArgoCD sync
@@ -736,14 +736,14 @@ jobs:
 
       - name: Run E2E tests
         env:
-          BASE_URL: ${{ vars.STAGING_URL }}
+          BASE_URL: ${{{{ vars.STAGING_URL }}}}
         run: npx playwright test --reporter=html
 
       - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-report-${{ github.sha }}
+          name: e2e-report-${{{{ github.sha }}}}
           path: playwright-report/
           retention-days: 14
 
@@ -760,9 +760,9 @@ jobs:
       - name: OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.11.0
         with:
-          target:       ${{ vars.STAGING_URL }}
+          target:       ${{{{ vars.STAGING_URL }}}}
           fail_action:  true        # CRITICAL findings block the pipeline
-          issue_title:  "DAST Scan – ${{ github.sha }}"
+          issue_title:  "DAST Scan – ${{{{ github.sha }}}}"
 
   # ===========================================================================
   # 5 ── Production deployment  (requires manual approval via GitHub Environment)
@@ -777,18 +777,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
           fetch-depth: 0
           ref: main                  # Always deploy from latest main
 
       - name: Update production image tag
         run: |
           cd infrastructure/k8s/overlays/prod
-          kustomize edit set image app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}
+          kustomize edit set image app=${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}:${{{{ needs.build.outputs.image_tag }}}}
           git config user.name  "ForgeFlow Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore(deploy/prod): ${{ needs.build.outputs.image_tag }} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore(deploy/prod): ${{{{ needs.build.outputs.image_tag }}}} [skip ci]"
           git push
 
       - name: Wait for ArgoCD sync
@@ -805,14 +805,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-prod
     outputs:
-      healthy: ${{ steps.check.outputs.healthy }}
+      healthy: ${{{{ steps.check.outputs.healthy }}}}
     steps:
       - name: Poll health endpoint
         id: check
         run: |
           echo "healthy=false" >> $GITHUB_OUTPUT
           for i in $(seq 1 10); do
-            status=$(curl -s -o /dev/null -w "%{{http_code}}" "${{ vars.PROD_URL }}/health" || echo "000")
+            status=$(curl -s -o /dev/null -w "%{{http_code}}}}" "${{{{ vars.PROD_URL }}}}/health" || echo "000")
             echo "Attempt $i/10: HTTP $status"
             if [ "$status" = "200" ]; then
               echo "healthy=true" >> $GITHUB_OUTPUT
@@ -838,7 +838,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{{{ secrets.GITHUB_TOKEN }}}}
           fetch-depth: 5
 
       - name: Revert production image tag
@@ -856,15 +856,15 @@ jobs:
             github.rest.issues.create({{
               owner: context.repo.owner,
               repo:  context.repo.repo,
-              title: `🚨 Production rollback — ${{ github.sha }}`,
+              title: `🚨 Production rollback — ${{{{ github.sha }}}}`,
               body: [
-                `Production deployment of \`${{ github.sha }}\` failed health checks.`,
+                `Production deployment of \`${{{{ github.sha }}}}\` failed health checks.`,
                 `Auto-rollback completed.`,
                 ``,
-                `**Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+                `**Workflow run:** ${{{{ github.server_url }}}}/${{{{ github.repository }}}}/actions/runs/${{{{ github.run_id }}}}`,
               ].join("\\n"),
               labels: ["incident", "production", "auto-rollback"],
-            }})
+            }}}})
 '''
 
 
@@ -1135,9 +1135,9 @@ echo "     ✅ ArgoCD installed"
 # ---------------------------------------------------------------------------
 echo "3/7  Retrieving ArgoCD credentials..."
 ARGOCD_PASSWORD=$(kubectl -n "$ARGOCD_NAMESPACE" get secret argocd-initial-admin-secret \\
-  -o jsonpath="{.data.password}" | base64 --decode)
+  -o jsonpath="{{.data.password}}" | base64 --decode)
 ARGOCD_HOST=$(kubectl -n "$ARGOCD_NAMESPACE" get svc argocd-server \\
-  -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+  -o jsonpath="{{.status.loadBalancer.ingress[0].hostname}}")
 
 echo "     ArgoCD server: $ARGOCD_HOST"
 echo ""
@@ -1311,7 +1311,7 @@ jobs:
             --versioning-configuration Status=Enabled
           aws s3api put-bucket-encryption --bucket "$BUCKET" \\
             --server-side-encryption-configuration \\
-            \'{{"Rules":[{{"ApplyServerSideEncryptionByDefault":{{"SSEAlgorithm":"AES256"}}]}}\'
+            \'{{"Rules":[{{"ApplyServerSideEncryptionByDefault":{{"SSEAlgorithm":"AES256"}}}}]}}}}\'
           aws s3api put-public-access-block --bucket "$BUCKET" \\
             --public-access-block-configuration \\
             \'BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true\'
@@ -1351,7 +1351,7 @@ jobs:
               repo:  context.repo.repo,
               issue_number: context.issue.number,
               body: `## \U0001f3d7\ufe0f Terraform Plan\\n\\`\\`\\`\\n${truncated}\\n\\`\\`\\``
-            }});
+            }}}});
 
       # ── Apply only on push to main (not PRs) ──
       - name: Terraform Apply
@@ -1414,8 +1414,8 @@ jobs:
               ref: \'main\',
               inputs: {{
                 eks_cluster_name: \'${{ needs.terraform.outputs.eks_cluster_name }}\'
-              }}
-            }});
+              }}}}
+            }}}});
             console.log(\'✅ Bootstrap workflow triggered\');
 '''
 
@@ -1521,7 +1521,7 @@ jobs:
           echo "Waiting for ArgoCD LoadBalancer hostname..."
           for i in $(seq 1 30); do
             HOST=$(kubectl -n argocd get svc argocd-server \\
-              -o jsonpath=\'{{.status.loadBalancer.ingress[0].hostname}}\' 2>/dev/null || true)
+              -o jsonpath=\'{.status.loadBalancer.ingress[0].hostname}\' 2>/dev/null || true)
             if [ -n "$HOST" ]; then
               echo "host=$HOST" >> $GITHUB_OUTPUT
               echo "✅ ArgoCD host: $HOST"
@@ -1541,7 +1541,7 @@ jobs:
         run: |
           # Get initial admin password
           PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret \\
-            -o jsonpath=\'{{.data.password}}\' | base64 --decode)
+            -o jsonpath=\'{.data.password}\' | base64 --decode)
 
           # Download argocd CLI
           curl -sSL -o /usr/local/bin/argocd \\
@@ -1627,11 +1627,11 @@ jobs:
 
           # Try to get staging ingress / LoadBalancer hostname
           STAGING_HOST=$(kubectl get svc -n "${APP_NAME}-staging" \\
-            -o jsonpath=\'{{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}}\' \\
+            -o jsonpath=\'{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}\' \\
             2>/dev/null || true)
 
           PROD_HOST=$(kubectl get svc -n "${APP_NAME}-prod" \\
-            -o jsonpath=\'{{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}}\' \\
+            -o jsonpath=\'{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}\' \\
             2>/dev/null || true)
 
           if [ -n "$STAGING_HOST" ]; then
