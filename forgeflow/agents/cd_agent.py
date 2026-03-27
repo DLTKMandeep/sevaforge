@@ -1135,9 +1135,9 @@ echo "     ✅ ArgoCD installed"
 # ---------------------------------------------------------------------------
 echo "3/7  Retrieving ArgoCD credentials..."
 ARGOCD_PASSWORD=$(kubectl -n "$ARGOCD_NAMESPACE" get secret argocd-initial-admin-secret \\
-  -o jsonpath="{{.data.password}}" | base64 --decode)
+  -o jsonpath="{.data.password}" | base64 --decode)
 ARGOCD_HOST=$(kubectl -n "$ARGOCD_NAMESPACE" get svc argocd-server \\
-  -o jsonpath="{{.status.loadBalancer.ingress[0].hostname}}")
+  -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
 
 echo "     ArgoCD server: $ARGOCD_HOST"
 echo ""
@@ -1350,7 +1350,7 @@ jobs:
               owner: context.repo.owner,
               repo:  context.repo.repo,
               issue_number: context.issue.number,
-              body: `## \U0001f3d7\ufe0f Terraform Plan\\n\\`\\`\\`\\n${{truncated}}\\n\\`\\`\\``
+              body: `## \U0001f3d7\ufe0f Terraform Plan\\n\\`\\`\\`\\n${truncated}\\n\\`\\`\\``
             }});
 
       # ── Apply only on push to main (not PRs) ──

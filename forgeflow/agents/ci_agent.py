@@ -31,12 +31,12 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: ci-${{{{ github.ref }}}}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{{{ github.repository }}}}
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ===========================================================================
@@ -108,8 +108,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{{{ steps.meta.outputs.tags }}}}
-      image_digest: ${{{{ steps.build.outputs.digest }}}}
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -121,15 +121,15 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          registry: ${{{{ env.REGISTRY }}}}
-          username: ${{{{ github.actor }}}}
-          password: ${{{{ secrets.GITHUB_TOKEN }}}}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{{{ env.REGISTRY }}}}/${{{{ env.IMAGE_NAME }}}}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -142,9 +142,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{{{ github.event_name != 'pull_request' }}}}
-          tags: ${{{{ steps.meta.outputs.tags }}}}
-          labels: ${{{{ steps.meta.outputs.labels }}}}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -198,7 +198,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-e2e-report-${{{{ github.sha }}}}
+          name: smoke-e2e-report-${{ github.sha }}
           path: playwright-report/
           retention-days: 7
 '''
@@ -243,14 +243,14 @@ jobs:
       - name: Gitleaks scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: true
 
       - name: TruffleHog scan
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{{{ github.event.repository.default_branch }}}}
+          base: ${{ github.event.repository.default_branch }}
           head: HEAD
           extra_args: --only-verified
 
@@ -307,12 +307,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build image for scanning
-        run: docker build -t ${{{{ github.repository }}}}:scan .
+        run: docker build -t ${{ github.repository }}:scan .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{{{ github.repository }}}}:scan'
+          image-ref: '${{ github.repository }}:scan'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -356,18 +356,18 @@ jobs:
         id: changelog
         uses: TriPSs/conventional-changelog-action@v5
         with:
-          github-token: ${{{{ secrets.GITHUB_TOKEN }}}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           skip-commit: true
           output-file: false
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          body: ${{{{ steps.changelog.outputs.clean_changelog }}}}
+          body: ${{ steps.changelog.outputs.clean_changelog }}
           draft: false
-          prerelease: ${{{{ contains(github.ref, '-rc') || contains(github.ref, '-beta') }}}}
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') }}
         env:
-          GITHUB_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 '''
 
 
@@ -458,7 +458,7 @@ variables:
 default:
   image: {default_image}
   cache:
-    key: ${{CI_COMMIT_REF_SLUG}}
+    key: ${CI_COMMIT_REF_SLUG}
     paths:
 {cache_paths}
 
@@ -481,7 +481,7 @@ security:sast:
   services:
     - docker:dind
   script:
-    - docker run --rm -v "${{CI_PROJECT_DIR}}:/src" returntocorp/semgrep semgrep --config=auto /src
+    - docker run --rm -v "${CI_PROJECT_DIR}:/src" returntocorp/semgrep semgrep --config=auto /src
   allow_failure: true
 
 security:dependency:
@@ -528,10 +528,10 @@ deploy:dev:
   image: bitnami/kubectl:latest
   environment:
     name: development
-    url: https://dev.${{CI_PROJECT_NAME}}.example.com
+    url: https://dev.${CI_PROJECT_NAME}.example.com
   script:
-    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-dev
-    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-dev
+    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-dev
+    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-dev
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: on_success
@@ -541,10 +541,10 @@ deploy:staging:
   image: bitnami/kubectl:latest
   environment:
     name: staging
-    url: https://staging.${{CI_PROJECT_NAME}}.example.com
+    url: https://staging.${CI_PROJECT_NAME}.example.com
   script:
-    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-staging
-    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-staging
+    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-staging
+    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-staging
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
@@ -554,10 +554,10 @@ deploy:prod:
   image: bitnami/kubectl:latest
   environment:
     name: production
-    url: https://${{CI_PROJECT_NAME}}.example.com
+    url: https://${CI_PROJECT_NAME}.example.com
   script:
-    - kubectl set image deployment/${{CI_PROJECT_NAME}} ${{CI_PROJECT_NAME}}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${{CI_PROJECT_NAME}}-prod
-    - kubectl rollout status deployment/${{CI_PROJECT_NAME}} -n ${{CI_PROJECT_NAME}}-prod
+    - kubectl set image deployment/${CI_PROJECT_NAME} ${CI_PROJECT_NAME}=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -n ${CI_PROJECT_NAME}-prod
+    - kubectl rollout status deployment/${CI_PROJECT_NAME} -n ${CI_PROJECT_NAME}-prod
   rules:
     - if: $CI_COMMIT_TAG =~ /^v.*/
       when: manual
