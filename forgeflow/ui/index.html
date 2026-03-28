@@ -395,16 +395,16 @@ function DashboardView({ history, connected, onNavigate }) {
       {/* Pipeline stages overview */}
       <div className="card bg-base-200/80 shadow">
         <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">📋 Pipeline Stages — What Each One Does</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {STAGE_INFO_FULL.slice(0,10).map((s,i) => (
-              <div key={s.id} className="flex items-start gap-3 rounded-lg px-3 py-2"
-                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.05)'}}>
-                <span className="text-xl flex-shrink-0 mt-0.5">{s.emoji}</span>
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">📋 What Each Stage Does for You</h3>
+          <div className="space-y-2">
+            {STAGE_INFO_FULL.slice(0,11).map((s) => (
+              <div key={s.id} className="flex items-start gap-3 rounded-xl px-4 py-3"
+                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)'}}>
+                <span className="text-2xl flex-shrink-0 mt-0.5">{s.emoji}</span>
                 <div className="min-w-0">
-                  <div className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</div>
-                  <div className="text-xs opacity-50 leading-relaxed">{s.purpose}</div>
-                  <div className="text-xs mt-1 opacity-35 truncate">→ {s.outputs}</div>
+                  <div className="font-semibold text-sm mb-1" style={{color:'#c4b5fd'}}>{s.label}</div>
+                  <div className="text-sm opacity-70 leading-relaxed">{s.consumer || s.purpose}</div>
+                  <div className="text-xs mt-1.5 font-mono opacity-30">→ {s.outputs}</div>
                 </div>
               </div>
             ))}
@@ -501,53 +501,35 @@ function PipelineView() {
         </div>
       </div>
 
-      {/* Core stages detail */}
+      {/* Core stages detail — always visible */}
       <div className="card bg-base-200/80 shadow">
         <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">All 11 Stages — click any to learn more</h3>
-          <div className="space-y-1">
-            {CORE.map((s,i) => (
-              <div key={s.id}>
-                {/* Collapsed row */}
-                <div className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors"
-                     style={{background: expanded===s.id?'rgba(124,58,237,.1)':'rgba(255,255,255,.03)',
-                             border:`1px solid ${expanded===s.id?'rgba(124,58,237,.3)':'rgba(255,255,255,.06)'}`}}
-                     onClick={() => setExpanded(expanded===s.id ? null : s.id)}>
-                  <span className="text-xl flex-shrink-0 w-8 text-center">{s.emoji}</span>
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">What Each Stage Does for You</h3>
+          <div className="space-y-3">
+            {CORE.map((s, i) => (
+              <div key={s.id} className="rounded-xl overflow-hidden"
+                   style={{border:'1px solid rgba(124,58,237,.18)'}}>
+                {/* Header row */}
+                <div className="flex items-center gap-3 px-4 py-3"
+                     style={{background:'rgba(124,58,237,.08)'}}>
+                  <span className="text-2xl flex-shrink-0">{s.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</div>
-                    <div className="text-xs opacity-45 truncate mt-0.5">
-                      {s.consumer ? s.consumer.split('.')[0] + '.' : s.purpose}
-                    </div>
+                    <span className="font-bold text-sm" style={{color:'#c4b5fd'}}>{s.label}</span>
+                    <span className="ml-2 text-xs font-mono opacity-30">{s.id}</span>
                   </div>
-                  <span className="text-xs opacity-25 flex-shrink-0">{expanded===s.id?'▲':'▼'}</span>
+                  <span className="text-xs opacity-25 font-mono">stage {i+1}</span>
                 </div>
-
-                {/* Expanded panel */}
-                {expanded===s.id && (
-                  <div className="mx-2 mb-2 rounded-b-xl px-5 py-4 space-y-3"
-                       style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.2)', borderTop:'none'}}>
-                    {/* Consumer description — hero text */}
-                    {s.consumer && (
-                      <div>
-                        <div className="text-xs font-bold uppercase tracking-widest mb-1.5"
-                             style={{color:'#c084fc', opacity:0.65}}>What this does for you</div>
-                        <div className="text-sm leading-relaxed text-base-content/80">{s.consumer}</div>
-                      </div>
-                    )}
-                    {/* Technical outputs */}
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Files it produces</div>
-                      <div className="text-sm opacity-60 font-mono">{s.outputs}</div>
-                    </div>
-                    {/* CLI command */}
-                    <div className="pt-1">
-                      <code className="text-xs font-mono text-warning bg-black/20 px-2 py-1 rounded">
-                        forgeflow {s.id} --path ~/your-repo
-                      </code>
-                    </div>
+                {/* Consumer description */}
+                <div className="px-4 py-3" style={{background:'rgba(255,255,255,.02)'}}>
+                  <div className="text-sm leading-relaxed text-base-content/75 mb-2">
+                    {s.consumer || s.purpose}
                   </div>
-                )}
+                  <div className="flex items-center justify-between gap-4 mt-2 pt-2"
+                       style={{borderTop:'1px solid rgba(255,255,255,.05)'}}>
+                    <div className="text-xs font-mono opacity-35 truncate">📦 {s.outputs}</div>
+                    <code className="text-xs font-mono text-warning/70 flex-shrink-0">forgeflow {s.id}</code>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
