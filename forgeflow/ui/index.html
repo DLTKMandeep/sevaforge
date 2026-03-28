@@ -247,19 +247,70 @@ function ToastStack({ toasts }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const STAGE_INFO_FULL = [
-  { id:'discover',  emoji:'🔍', label:'Discover',  purpose:'Map codebase — detect language, frameworks, entry points, port, deps', outputs:'Tech stack · Entry points · Port · Dependency list' },
-  { id:'normalize', emoji:'🔧', label:'Normalize', purpose:'Standardize repo structure — add .gitignore, README, linting configs', outputs:'.gitignore · README.md · pyproject.toml · .editorconfig' },
-  { id:'docs',      emoji:'📚', label:'Docs',      purpose:'Generate architecture diagrams, threat models, ERDs, API docs', outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram' },
-  { id:'iac',       emoji:'🏗️',  label:'IAC',       purpose:'Generate Terraform + Docker for your detected cloud stack', outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml' },
-  { id:'cd',        emoji:'🚀', label:'CD',        purpose:'Generate ArgoCD, Kustomize, and Kubernetes deployment manifests', outputs:'deploy.yml · argocd app · k8s manifests · kustomize overlays' },
-  { id:'ci',        emoji:'⚙️',  label:'CI',        purpose:'Generate chained GitHub Actions pipeline — Security → Tests → Build', outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml' },
-  { id:'e2e',       emoji:'🧪', label:'E2E',       purpose:'Scaffold Playwright E2E tests and CI workflow for API endpoints', outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml' },
-  { id:'review',    emoji:'👁️',  label:'Review',    purpose:'AI code review — quality, patterns, complexity, dead code', outputs:'Code quality report · Improvement suggestions · Findings list' },
-  { id:'test',      emoji:'✅', label:'Test',      purpose:'Run unit tests, measure coverage, report failures', outputs:'Test results · Coverage % · Failing test details' },
-  { id:'scan',      emoji:'🔒', label:'Scan',      purpose:'Security vulnerability scan — SAST, deps, secrets detection', outputs:'SARIF report · CVE list · Severity-classified findings' },
-  { id:'bridge',    emoji:'🌉', label:'Bridge',    purpose:'Push all generated files to GitHub, create PR if needed', outputs:'GitHub repo · All generated files committed · PR link' },
-  { id:'deploy',    emoji:'☁️',  label:'Deploy',    purpose:'Deploy to cloud (AWS EKS / GCP Cloud Run / Azure AKS)', outputs:'Live deployment URL · Health check · Rollback plan' },
-  { id:'monitor',   emoji:'📊', label:'Monitor',   purpose:'Set up Prometheus, Grafana, alerts, SLOs, dashboards', outputs:'prometheus.yml · grafana dashboards · alert rules · SLO config' },
+  { id:'discover',  emoji:'🔍', label:'Discover',
+    purpose:'Map codebase — detect language, frameworks, entry points, port, deps',
+    outputs:'Tech stack · Entry points · Port · Dependency list',
+    steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies (requirements / package.json / go.mod)…','Detecting exposed port and environment variables…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
+
+  { id:'normalize', emoji:'🔧', label:'Normalize',
+    purpose:'Standardize repo structure — add .gitignore, README, linting configs',
+    outputs:'.gitignore · README.md · pyproject.toml · .editorconfig',
+    steps:['Reading detected tech stack from previous stage…','Checking for missing .gitignore patterns…','Generating language-specific .gitignore…','Creating or updating README.md scaffold…','Writing pyproject.toml / package.json lint settings…','Adding .editorconfig for consistent formatting…','Verifying repo structure is CI-ready…'] },
+
+  { id:'docs', emoji:'📚', label:'Docs',
+    purpose:'Generate architecture diagrams, threat models, ERDs, API docs',
+    outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram',
+    steps:['Parsing source files for modules and services…','Building C4 component model…','Generating ARCHITECTURE.md with Mermaid diagram…','Running STRIDE threat-modelling pass…','Writing THREAT_MODEL.md with risk table…','Extracting DB schema for Entity Relationship Diagram…','Generating API reference from route handlers…'] },
+
+  { id:'iac', emoji:'🏗️', label:'IAC',
+    purpose:'Generate Terraform + Docker for your detected cloud stack',
+    outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml',
+    steps:['Reading cloud target from config (AWS / GCP / Azure)…','Scaffolding Terraform provider block…','Generating network module (VPC, subnets, SGs)…','Generating cluster module (EKS / GKE / AKS)…','Writing variables.tf and outputs.tf…','Building multi-stage Dockerfile…','Writing docker-compose.yml for local dev…'] },
+
+  { id:'cd', emoji:'🚀', label:'CD',
+    purpose:'Generate ArgoCD, Kustomize, and Kubernetes deployment manifests',
+    outputs:'deploy.yml · argocd app · k8s manifests · kustomize overlays',
+    steps:['Scaffolding ArgoCD Application manifest…','Generating AppProject and RBAC rules…','Writing Kustomize base (deployment, service, configmap)…','Creating dev / staging / prod overlays…','Generating GitHub Actions infra.yml workflow…','Writing bootstrap.yml for ArgoCD install…','Generating deploy.yml pilot-to-prod pipeline…'] },
+
+  { id:'ci', emoji:'⚙️', label:'CI',
+    purpose:'Generate chained GitHub Actions pipeline — Security → Tests → Build',
+    outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml',
+    steps:['Detecting existing CI configs to avoid conflicts…','Writing ci.yml — lint + unit test job…','Adding security.yml — Trivy + Snyk scan job…','Writing release.yml — build + push container image…','Generating .gitlab-ci.yml equivalent…','Adding Dependabot auto-update config…','Linking jobs into dependency chain…'] },
+
+  { id:'e2e', emoji:'🧪', label:'E2E',
+    purpose:'Scaffold Playwright E2E tests and CI workflow for API endpoints',
+    outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml',
+    steps:['Detecting API routes from source…','Scaffolding playwright.config.ts…','Generating auth flow spec (login / logout)…','Writing navigation and routing spec…','Generating form submission spec…','Adding API health-check spec…','Writing e2e.yml GitHub Actions workflow…'] },
+
+  { id:'review', emoji:'👁️', label:'Review',
+    purpose:'AI code review — quality, patterns, complexity, dead code',
+    outputs:'Code quality report · Improvement suggestions · Findings list',
+    steps:['Reading all source files into context…','Analysing cyclomatic complexity…','Detecting code duplication and dead code…','Checking naming conventions and style…','Reviewing error handling patterns…','Identifying potential performance bottlenecks…','Writing code quality report…'] },
+
+  { id:'test', emoji:'✅', label:'Test',
+    purpose:'Run unit tests, measure coverage, report failures',
+    outputs:'Test results · Coverage % · Failing test details',
+    steps:['Discovering test files and test runner…','Installing test dependencies…','Running unit test suite…','Measuring line and branch coverage…','Collecting failing test names and stack traces…','Comparing coverage against threshold…','Writing test results report…'] },
+
+  { id:'scan', emoji:'🔒', label:'Scan',
+    purpose:'Security vulnerability scan — SAST, deps, secrets detection',
+    outputs:'SARIF report · CVE list · Severity-classified findings',
+    steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity (Critical / High / Med / Low)…','Generating SARIF report…','Listing actionable remediation steps…'] },
+
+  { id:'bridge', emoji:'🌉', label:'Bridge',
+    purpose:'Push all generated files to GitHub, create PR if needed',
+    outputs:'GitHub repo · All generated files committed · PR link',
+    steps:['Authenticating with GitHub…','Checking if remote repository exists…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…','Recording PR URL in pipeline report…'] },
+
+  { id:'deploy', emoji:'☁️', label:'Deploy',
+    purpose:'Deploy to cloud (AWS EKS / GCP Cloud Run / Azure AKS)',
+    outputs:'Live deployment URL · Health check · Rollback plan',
+    steps:['Reading kubeconfig / cloud credentials…','Running terraform plan…','Applying infrastructure changes…','Pushing container image to registry…','Applying Kubernetes manifests…','Waiting for pods to reach Running state…','Verifying health check endpoint…'] },
+
+  { id:'monitor', emoji:'📊', label:'Monitor',
+    purpose:'Set up Prometheus, Grafana, alerts, SLOs, dashboards',
+    outputs:'prometheus.yml · grafana dashboards · alert rules · SLO config',
+    steps:['Installing Prometheus stack via Helm…','Writing scrape config for app metrics…','Importing Grafana dashboard templates…','Configuring alert rules (error rate, latency, saturation)…','Defining SLO objectives and burn-rate alerts…','Writing runbook links into alerts…','Verifying metrics are flowing…'] },
 ];
 
 function DashboardView({ history, connected, onNavigate }) {
@@ -963,6 +1014,53 @@ function HourGlass({ status = 'running', size = 160 }) {
 
 // ── Live View (SSE real-time pipeline progress) ────────────────────────────────
 
+// Activity ticker — cycles through stage steps while the stage runs
+function ActivityTicker({ stageId, running }) {
+  const staticInfo = STAGE_INFO_FULL.find(s => s.id === stageId) || {};
+  const steps = staticInfo.steps || ['Working…'];
+  const [stepIdx, setStepIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!running) return;
+    setStepIdx(0); setVisible(true);
+    // Advance one step every ~4 seconds with a brief fade between
+    const iv = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setStepIdx(i => (i + 1) % steps.length);
+        setVisible(true);
+      }, 350);
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [stageId, running]);
+
+  return (
+    <div className="mt-3 rounded-lg px-3 py-2.5"
+         style={{background:'rgba(245,158,11,.06)', border:'1px solid rgba(245,158,11,.15)'}}>
+      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1.5">⚡ Activity</div>
+      <div style={{
+             opacity: visible ? 1 : 0,
+             transition: 'opacity 0.35s ease',
+             minHeight: '1.4rem',
+           }}
+           className="text-sm font-mono text-warning/80 leading-snug">
+        {steps[stepIdx]}
+      </div>
+      {/* Step progress dots */}
+      <div className="flex gap-1 mt-2">
+        {steps.map((_, i) => (
+          <span key={i} style={{
+            width: 5, height: 5, borderRadius: '50%', display:'inline-block',
+            background: i === stepIdx ? '#f59e0b' : 'rgba(245,158,11,.2)',
+            transition: 'background 0.3s',
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LiveView({ liveState }) {
   const { connected, pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed } = liveState;
@@ -985,7 +1083,7 @@ function LiveView({ liveState }) {
     return <span className="opacity-30 text-lg">○</span>;
   };
 
-  const stageEmoji = (id) => STAGES.find(s=>s.id===id)?.emoji || '▸';
+  const stageEmoji = (id) => STAGE_INFO_FULL.find(s=>s.id===id)?.emoji || '▸';
 
   if (!connected) {
     return (
@@ -1018,7 +1116,15 @@ function LiveView({ liveState }) {
     );
   }
 
-  const activeInfo  = stageInfo[currentStage] || {};
+  // Merge SSE-delivered info with static fallback so spotlight is always populated
+  const staticMeta = STAGE_INFO_FULL.find(s => s.id === currentStage) || {};
+  const sseInfo    = stageInfo[currentStage] || {};
+  const activeInfo = {
+    purpose:    sseInfo.purpose    || staticMeta.purpose    || '',
+    outputs:    sseInfo.outputs    || staticMeta.outputs    || '',
+    agent:      sseInfo.agent      || '',
+    mcp_server: sseInfo.mcp_server || '',
+  };
   const allFinished = done && !currentStage;
 
   const hasFailed = Object.values(stageState).some(s=>s==='error');
@@ -1059,7 +1165,7 @@ function LiveView({ liveState }) {
         </div>
       )}
 
-      {/* ── Current stage spotlight with SAND PENDULUM ── */}
+      {/* ── Current stage spotlight ── */}
       {currentStage && (
         <div className="card border-2 border-warning/60 shadow-xl"
              style={{background:'linear-gradient(135deg,rgba(245,158,11,.06),rgba(124,58,237,.06))'}}>
@@ -1074,31 +1180,37 @@ function LiveView({ liveState }) {
 
               {/* Stage info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-4">
+
+                {/* Stage name header */}
+                <div className="flex items-center gap-3 mb-3">
                   <span className="text-4xl">{stageEmoji(currentStage)}</span>
                   <div>
                     <div className="font-bold text-warning uppercase tracking-widest text-lg flex items-center gap-2">
                       <span className="spin inline-block text-base">⟳</span>
                       {currentStage}
                     </div>
-                    <div className="text-xs opacity-50 font-mono mt-0.5">
-                      {activeInfo.agent || ''}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
-                    </div>
+                    {(activeInfo.agent || activeInfo.mcp_server) && (
+                      <div className="text-xs opacity-50 font-mono mt-0.5">
+                        {activeInfo.agent}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {activeInfo.purpose && (
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">🎯 Purpose</div>
-                      <div className="text-sm leading-relaxed">{activeInfo.purpose}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Outputs</div>
-                      <div className="text-sm opacity-70 leading-relaxed">{activeInfo.outputs}</div>
-                    </div>
+                {/* Purpose — always shown (falls back to static data) */}
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">🎯 What this stage does</div>
+                    <div className="text-sm leading-relaxed">{activeInfo.purpose || 'Processing…'}</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Files it produces</div>
+                    <div className="text-sm opacity-70 leading-relaxed">{activeInfo.outputs || '—'}</div>
+                  </div>
+                </div>
+
+                {/* Live activity ticker */}
+                <ActivityTicker stageId={currentStage} running={true} />
               </div>
             </div>
           </div>
