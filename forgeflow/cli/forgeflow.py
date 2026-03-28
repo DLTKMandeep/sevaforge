@@ -285,6 +285,8 @@ Examples:
                                help="Include post-merge stages (deploy, monitor)")
     runall_parser.add_argument("--greenfield", action="store_true",
                                help="Greenfield mode: overwrite existing files (default: brownfield — skip existing)")
+    runall_parser.add_argument("--gui", action="store_true",
+                               help="Open a live browser dashboard showing real-time pipeline progress")
 
     return parser
 
@@ -1010,6 +1012,19 @@ def main():
                 # Post-merge (optional): deploy → monitor
                 include_post_merge = getattr(args, 'include_post_merge', False)
                 greenfield = getattr(args, 'greenfield', False)
+                use_gui = getattr(args, 'gui', False)
+
+                # Start the real-time dashboard if --gui requested
+                if use_gui:
+                    try:
+                        cli_dir = Path(__file__).parent
+                        forgeflow_root = cli_dir.parent
+                        sys.path.insert(0, str(forgeflow_root))
+                        from gui.dashboard_server import DashboardServer
+                        DashboardServer().start()
+                    except Exception as e:
+                        console.print(f"[yellow]⚠  Could not start GUI dashboard: {e}[/]")
+
                 result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
                 if result.get("status") == "success":
                     sys.exit(0)

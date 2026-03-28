@@ -42,8 +42,17 @@ from .display import (
     prompt_post_merge,
     get_stage_color,
     get_stage_info,
-    print_mode_indicator
+    print_mode_indicator,
+    STAGE_MAPPING,
 )
+try:
+    from ..gui.dashboard_server import get_dashboard
+except ImportError:
+    try:
+        from gui.dashboard_server import get_dashboard  # flat CLI import path
+    except ImportError:
+        def get_dashboard():
+            return None
 
 
 # New pipeline sequence (v2.1 with specialized generation agents)
@@ -287,10 +296,26 @@ class MissionControl:
         console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
         console.print()
 
+        dash = get_dashboard()
+
+        # Emit pipeline_start to all connected browsers
+        if dash:
+            dash.emit_pipeline_start(path, [s[0] for s in stages])
+
         results: List[tuple] = []
         for idx, (stage_name, stage_fn) in enumerate(stages, 1):
             # Display stage start with number context
             print_stage_start(stage_name, path, stage_num=idx, total=total)
+
+            # Emit stage_start to browser — include purpose/outputs info
+            if dash:
+                info = STAGE_MAPPING.get(stage_name, {})
+                dash.emit_stage_start(stage_name, num=idx, total=total, info={
+                    "purpose":    info.get("purpose", ""),
+                    "outputs":    info.get("outputs", ""),
+                    "agent":      info.get("agent", ""),
+                    "mcp_server": info.get("mcp_server", ""),
+                })
 
             # Execute stage
             result = stage_fn()
@@ -298,11 +323,21 @@ class MissionControl:
 
             # Display stage result
             print_stage_result(stage_name, result)
-            
+
+            # Emit stage_result to browser
+            if dash:
+                dash.emit_stage_result(stage_name, {
+                    "status":   result.get("status", "error"),
+                    "summary":  result.get("summary", ""),
+                    "findings": result.get("findings", []),
+                })
+
             if result.get("status") not in ["success", "warning"]:
                 # Pipeline failed
                 print_pipeline_summary(results, success=False)
                 print_error_banner("Pipeline failed", stage_name)
+                if dash:
+                    dash.emit_pipeline_done(success=False, summary=f"Pipeline failed at {stage_name}")
                 return {
                     "status": "error",
                     "mission": "run-all",
@@ -312,7 +347,7 @@ class MissionControl:
                     "stage_result": result,
                     "completed_stages": [r[0] for r in results[:-1]]
                 }
-        
+
         # All stages passed - show summary and prompt for approval
         print_pipeline_summary(results, success=True)
         
@@ -328,9 +363,11 @@ class MissionControl:
                 # Bridge successful - check if post-merge stages requested
                 if include_post_merge and prompt_post_merge():
                     return self._run_post_merge_stages(path, results)
-                
+
                 print_pipeline_summary(results, success=True)
                 print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
+                if dash:
+                    dash.emit_pipeline_done(success=True, summary="Full pipeline completed + pushed to GitHub")
                 return {
                     "status": "success",
                     "mission": "run-all",
@@ -341,6 +378,8 @@ class MissionControl:
                 }
             else:
                 print_pipeline_summary(results, success=False)
+                if dash:
+                    dash.emit_pipeline_done(success=False, summary="Pipeline completed but bridge had issues")
                 return {
                     "status": "warning",
                     "mission": "run-all",
@@ -352,6 +391,8 @@ class MissionControl:
         else:
             # User declined bridge
             print_skipped_banner("Bridge skipped by user. All other stages completed successfully.")
+            if dash:
+                dash.emit_pipeline_done(success=True, summary="Pipeline complete — bridge skipped by user")
             return {
                 "status": "success",
                 "mission": "run-all",

@@ -66,6 +66,7 @@ const STAGES = [
 ];
 
 const VIEWS = [
+  { id:'live',      label:'Live Run',   icon:'⚡' },
   { id:'dashboard', label:'Dashboard',  icon:'◈' },
   { id:'pipeline',  label:'Pipeline',   icon:'▶' },
   { id:'health',    label:'Health',     icon:'♥' },
@@ -681,6 +682,175 @@ function SettingsView({ settings, onSave, toast }) {
   );
 }
 
+// ── Live View (SSE real-time pipeline progress) ────────────────────────────────
+
+function LiveView({ liveState }) {
+  const { connected, pipelinePath, stages, stageState, stageInfo, stageResults,
+          currentStage, currentNum, totalStages, done, elapsed } = liveState;
+
+  const pct = totalStages ? Math.round((Object.values(stageState).filter(s=>s==='success'||s==='error').length) / totalStages * 100) : 0;
+
+  const stageColor = (id) => {
+    const s = stageState[id];
+    if (s === 'running') return 'border-warning bg-warning/10 animate-pulse';
+    if (s === 'success') return 'border-success bg-success/10';
+    if (s === 'error')   return 'border-error bg-error/10';
+    return 'border-base-300 opacity-40';
+  };
+
+  const stageIcon = (id) => {
+    const s = stageState[id];
+    if (s === 'running') return <span className="spin text-warning text-lg">⟳</span>;
+    if (s === 'success') return <span className="text-success text-lg">✓</span>;
+    if (s === 'error')   return <span className="text-error text-lg">✗</span>;
+    return <span className="opacity-30 text-lg">○</span>;
+  };
+
+  const stageEmoji = (id) => STAGES.find(s=>s.id===id)?.emoji || '▸';
+
+  if (!connected) {
+    return (
+      <div className="slide-in flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-5xl opacity-20">⚡</div>
+        <div className="text-base-content/50 text-center">
+          <p className="font-semibold mb-1">Waiting for a pipeline run…</p>
+          <p className="text-sm opacity-60">Run <code className="font-mono bg-base-300 px-2 py-0.5 rounded">forgeflow run-all --gui .</code> in your terminal</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeInfo  = stageInfo[currentStage] || {};
+  const allFinished = done && !currentStage;
+
+  return (
+    <div className="slide-in space-y-5">
+
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl">⚡</div>
+        <div className="flex-1">
+          <div className="font-bold text-lg">
+            {allFinished
+              ? (stageState && Object.values(stageState).some(s=>s==='error')
+                  ? '❌ Pipeline failed'
+                  : '✅ Pipeline complete')
+              : currentStage
+                ? <span>Running <span className="text-warning font-mono">{currentStage.toUpperCase()}</span>…</span>
+                : 'Pipeline starting…'}
+          </div>
+          <div className="text-xs font-mono opacity-50 truncate max-w-md">{pipelinePath || '—'}</div>
+        </div>
+        {elapsed > 0 && <div className="badge badge-outline font-mono">{elapsed}s</div>}
+        {totalStages > 0 && <div className="badge badge-primary">{Math.min(currentNum,totalStages)}/{totalStages}</div>}
+      </div>
+
+      {/* Progress bar */}
+      {totalStages > 0 && (
+        <div>
+          <div className="flex justify-between text-xs opacity-50 mb-1">
+            <span>Progress</span><span>{pct}%</span>
+          </div>
+          <progress className="progress progress-primary w-full h-2" value={pct} max="100" />
+        </div>
+      )}
+
+      {/* Current stage spotlight */}
+      {currentStage && activeInfo.purpose && (
+        <div className="card bg-base-200 border-2 border-warning shadow-lg">
+          <div className="card-body py-4">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-3xl">{stageEmoji(currentStage)}</span>
+              <div>
+                <div className="font-bold text-warning uppercase tracking-wide flex items-center gap-2">
+                  <span className="spin inline-block">⟳</span> {currentStage}
+                </div>
+                <div className="text-xs opacity-50">{activeInfo.agent || ''} · {activeInfo.mcp_server || ''}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider opacity-40 mb-1">🎯 Purpose</div>
+                <div className="text-sm">{activeInfo.purpose || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider opacity-40 mb-1">📦 Outputs</div>
+                <div className="text-sm opacity-70">{activeInfo.outputs || '—'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage pipeline flow */}
+      {stages.length > 0 && (
+        <div className="card bg-base-200 shadow">
+          <div className="card-body py-4">
+            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Pipeline Stages</h3>
+            <div className="flex flex-wrap gap-2">
+              {stages.map((id, i) => (
+                <div key={id} className={`stage-card card border-2 p-2 flex flex-col items-center gap-1 min-w-[72px] ${stageColor(id)}`}>
+                  <span className="text-sm">{stageEmoji(id)}</span>
+                  <span className="text-xs font-mono">{id}</span>
+                  {stageIcon(id)}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completed stage results */}
+      {Object.entries(stageResults).length > 0 && (
+        <div className="card bg-base-200 shadow">
+          <div className="card-body py-4">
+            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Stage Results</h3>
+            <div className="space-y-2">
+              {Object.entries(stageResults).map(([id, result]) => {
+                const ok = result.status === 'success';
+                return (
+                  <div key={id} className={`rounded-lg border px-3 py-2 ${ok ? 'border-success/40 bg-success/5' : 'border-error/40 bg-error/5'}`}>
+                    <div className="flex items-center gap-2">
+                      <span>{ok ? '✅' : '❌'}</span>
+                      <span className="font-mono font-semibold text-sm">{id.toUpperCase()}</span>
+                      <span className="text-xs opacity-60 flex-1 truncate">{result.summary || ''}</span>
+                      {(result.findings||[]).length > 0 &&
+                        <span className="badge badge-xs badge-ghost">{result.findings.length} findings</span>}
+                    </div>
+                    {(result.findings||[]).length > 0 && (
+                      <div className="mt-2 space-y-0.5 pl-6">
+                        {result.findings.slice(0,4).map((f,i) => (
+                          <div key={i} className="text-xs opacity-60 finding-row py-0.5">
+                            {typeof f === 'string' ? f : `[${f.severity||f.type||'info'}] ${f.message||f.description||JSON.stringify(f)}`}
+                          </div>
+                        ))}
+                        {result.findings.length > 4 && <div className="text-xs opacity-40">…and {result.findings.length-4} more</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Done banner */}
+      {allFinished && (
+        <div className={`alert ${Object.values(stageState).some(s=>s==='error') ? 'alert-error' : 'alert-success'} shadow`}>
+          <span className="text-lg">{Object.values(stageState).some(s=>s==='error') ? '❌' : '🎉'}</span>
+          <span className="font-semibold">
+            {Object.values(stageState).some(s=>s==='error')
+              ? 'Pipeline failed — check red stages above'
+              : `All ${totalStages} stages complete in ${elapsed}s`}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── App Shell ─────────────────────────────────────────────────────────────────
 
 function App() {
@@ -690,6 +860,21 @@ function App() {
   const [connected,    setConnected]    = useState(null);
   const [history,      setHistory]      = useState([]);
   const [toasts,       setToasts]       = useState([]);
+
+  // Live pipeline state (fed by SSE events from /events)
+  const [liveState, setLiveState] = useState({
+    connected:    false,
+    pipelinePath: '',
+    stages:       [],
+    stageState:   {},   // { [stageId]: 'pending'|'running'|'success'|'error' }
+    stageInfo:    {},   // { [stageId]: { purpose, outputs, agent, mcp_server } }
+    stageResults: {},   // { [stageId]: resultObject }
+    currentStage: null,
+    currentNum:   0,
+    totalStages:  0,
+    done:         false,
+    elapsed:      0,
+  });
 
   const call = useApi(config);
 
@@ -713,6 +898,74 @@ function App() {
     const t = setInterval(check, 20000);
     return () => clearInterval(t);
   }, [call]);
+
+  // ── SSE connection — live pipeline events from dashboard_server.py ──────────
+  useEffect(() => {
+    const es = new EventSource('/events');
+
+    es.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      const { type } = msg;
+
+      if (type === 'connected') {
+        setLiveState(s => ({ ...s, connected: true }));
+
+      } else if (type === 'pipeline_start') {
+        const initState = {};
+        (msg.stages || []).forEach(id => { initState[id] = 'pending'; });
+        setLiveState({
+          connected:    true,
+          pipelinePath: msg.path || '',
+          stages:       msg.stages || [],
+          stageState:   initState,
+          stageInfo:    {},
+          stageResults: {},
+          currentStage: null,
+          currentNum:   0,
+          totalStages:  msg.total || 0,
+          done:         false,
+          elapsed:      0,
+        });
+        setView('live'); // auto-switch the moment a pipeline starts
+
+      } else if (type === 'stage_start') {
+        setLiveState(s => ({
+          ...s,
+          currentStage: msg.stage,
+          currentNum:   msg.num || s.currentNum,
+          stageState:   { ...s.stageState, [msg.stage]: 'running' },
+          stageInfo:    { ...s.stageInfo,  [msg.stage]: msg.info  || {} },
+        }));
+
+      } else if (type === 'stage_result') {
+        const ok = (msg.result || {}).status === 'success';
+        setLiveState(s => ({
+          ...s,
+          currentStage: s.currentStage === msg.stage ? null : s.currentStage,
+          stageState:   { ...s.stageState,   [msg.stage]: ok ? 'success' : 'error' },
+          stageResults: { ...s.stageResults, [msg.stage]: msg.result || {} },
+        }));
+
+      } else if (type === 'pipeline_done') {
+        setLiveState(s => ({
+          ...s,
+          done:         true,
+          currentStage: null,
+          elapsed:      msg.elapsed_s || 0,
+        }));
+        addToast(
+          msg.success
+            ? `Pipeline complete in ${msg.elapsed_s}s 🎉`
+            : 'Pipeline failed ❌',
+          msg.success ? 'success' : 'error'
+        );
+      }
+    };
+
+    es.onerror = () => setLiveState(s => ({ ...s, connected: false }));
+    return () => es.close();
+  }, []); // single mount — SSE connection lives for the page lifetime
 
   const handleRunComplete = (run) => {
     setHistory(p => [run, ...p.slice(0, 99)]);
@@ -778,6 +1031,7 @@ function App() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
+          {view === 'live'      && <LiveView      liveState={liveState} />}
           {view === 'dashboard' && <DashboardView history={history} serverStatus={serverStatus} connected={connected} onNavigate={setView} />}
           {view === 'pipeline'  && <PipelineView  call={call} onRunComplete={handleRunComplete} />}
           {view === 'health'    && <HealthView    call={call} />}
