@@ -1017,13 +1017,21 @@ def main():
                 # Start the real-time dashboard if --gui requested
                 if use_gui:
                     try:
+                        import time as _time
+                        import traceback as _tb
                         cli_dir = Path(__file__).parent
                         forgeflow_root = cli_dir.parent
-                        sys.path.insert(0, str(forgeflow_root))
+                        if str(forgeflow_root) not in sys.path:
+                            sys.path.insert(0, str(forgeflow_root))
                         from gui.dashboard_server import DashboardServer
-                        DashboardServer().start()
+                        ds = DashboardServer()
+                        ds.start()
+                        _time.sleep(1)  # let server bind before pipeline emits events
+                        console.print(f"\n  [bold cyan]🌐  Dashboard is live → http://localhost:{ds.port}[/]")
+                        console.print("  [dim]If your browser didn't open, paste that URL manually.[/]\n")
                     except Exception as e:
-                        console.print(f"[yellow]⚠  Could not start GUI dashboard: {e}[/]")
+                        console.print(f"[yellow]⚠  Could not start GUI dashboard:[/]")
+                        console.print(f"[dim]{_tb.format_exc()}[/]")
 
                 result = mc.run_all(path, include_post_merge=include_post_merge, greenfield=greenfield)
                 if result.get("status") == "success":
