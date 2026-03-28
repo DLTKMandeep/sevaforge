@@ -38,7 +38,7 @@ def run(params: dict) -> dict:
     Returns:
         MCPResponse dictionary with wrapped agent result
     """
-    operation = params.get('operation', 'push')
+    operation = params.get('operation', 'create')
     logger.info(f"Operation: {operation} → Delegating to {AGENT_NAME}...")
     agent_result = _agent.execute(params)
     return wrap_agent_result(agent_result, SERVER_NAME, AGENT_NAME)

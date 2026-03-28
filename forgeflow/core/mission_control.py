@@ -290,7 +290,7 @@ class MissionControl:
             ("review",    lambda: self._execute_stage("review",    path, greenfield)),
             ("test",      lambda: self._execute_stage("test",      path, greenfield)),
             ("scan",      lambda: self._execute_stage("scan",      path, greenfield)),
-            ("bridge",    lambda: self._execute_stage("bridge",    path)),           # Push to GitHub
+            ("bridge",    lambda: self._execute_bridge(path)),                        # Push to GitHub
         ]
 
         total = len(stages)
@@ -432,8 +432,62 @@ class MissionControl:
     
     def _execute_stage(self, stage: str, path: str, greenfield: bool = False) -> Dict[str, Any]:
         """Execute a single stage without display (used by run_all)."""
-        params = {"path": path, "greenfield": greenfield}
-        return self.orchestrator.run_mission(stage, params)
+        try:
+            params = {"path": path, "greenfield": greenfield}
+            return self.orchestrator.run_mission(stage, params)
+        except Exception as e:
+            return {
+                "status": "error",
+                "mission": stage,
+                "summary": f"{stage} stage error: {e}",
+                "findings": [str(e)],
+            }
+
+    def _execute_bridge(self, path: str) -> Dict[str, Any]:
+        """
+        Execute bridge (GitHub push) with the correct params.
+
+        Uses operation='create' which will:
+          1. Init git if the repo has no .git
+          2. Stage + commit all generated files
+          3. gh repo create --source=. --push  (creates repo if missing)
+          4. Falls back to push if the repo already exists on GitHub
+
+        If gh CLI is not installed / authenticated the stage is downgraded
+        to a warning so the rest of the pipeline result still shows success.
+        """
+        try:
+            result = self.orchestrator.run_mission("bridge", {
+                "path":      path,
+                "operation": "create",
+                "message":   "feat: ForgeFlow generated files — all pipeline stages complete",
+                "visibility": "public",
+            })
+            # Downgrade gh-not-available errors to warning so pipeline doesn't abort
+            summary = result.get("summary", "")
+            if result.get("status") == "error" and (
+                "gh" in summary.lower() or "not found" in summary.lower()
+                or "not authenticated" in summary.lower()
+            ):
+                result["status"] = "warning"
+                result["summary"] = (
+                    summary + " — run 'gh auth login' to enable GitHub push. "
+                    "All generated files are saved locally."
+                )
+            return result
+        except Exception as e:
+            # Bridge is best-effort — don't kill the pipeline
+            return {
+                "status": "warning",
+                "mission": "bridge",
+                "summary": f"GitHub push skipped: {e}",
+                "findings": [
+                    str(e),
+                    "Install gh CLI: https://cli.github.com/",
+                    "Authenticate: gh auth login",
+                    "All generated files are saved locally in staging/",
+                ],
+            }
     
     def status(self, path: str = ".") -> Dict[str, Any]:
         """Check pipeline status (standalone agent)."""
