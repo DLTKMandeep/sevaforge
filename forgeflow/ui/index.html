@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ForgeFlow</title>
+  <title>Sevaforge — No Charge as a Service Hub</title>
 
   <!-- Tailwind + DaisyUI -->
   <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
@@ -15,29 +15,136 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
   <style>
-    /* Fine-tune night theme */
-    :root { --sidebar-w: 240px; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
+    /* ── Sevaforge Design System ───────────────────────────────────────────── */
+    :root {
+      --sidebar-w: 260px;
+      --forge-amber: #f59e0b;
+      --forge-purple: #7c3aed;
+      --forge-glow: rgba(245,158,11,0.35);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      /* Forge-branded deep background with subtle grid */
+      background-color: #0d0d14;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 15% 10%, rgba(124,58,237,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 85%, rgba(245,158,11,0.07) 0%, transparent 55%),
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      background-attachment: fixed;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
     .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); }
     .main-content { width: calc(100vw - var(--sidebar-w)); }
     .stage-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
     .stage-card { transition: all .18s ease; }
     .stage-card:hover { transform: translateY(-2px); }
+
+    /* ── Brand logo ─────────────────────────────────────────────────────── */
+    .seva-logo-hex polygon { stroke: url(#logoGrad); }
+    .seva-logo-hex path    { fill:   url(#logoGrad); }
+    .brand-gradient {
+      background: linear-gradient(135deg, var(--forge-amber) 0%, var(--forge-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .seva-wordmark {
+      font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(100deg, #f59e0b 0%, #c084fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── NoCaaS badge ───────────────────────────────────────────────────── */
+    .nocaas-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 999px;
+      background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(124,58,237,.12));
+      border: 1px solid rgba(245,158,11,.25);
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em;
+      color: #fbbf24;
+      backdrop-filter: blur(4px);
+    }
+    .nocaas-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #f59e0b;
+      box-shadow: 0 0 6px #f59e0b;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    /* ── Animations ─────────────────────────────────────────────────────── */
     .spin { animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .slide-in { animation: slideIn .2s ease; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .slide-in { animation: slideIn .25s ease; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
     .finding-row:not(:last-child) { border-bottom: 1px solid oklch(var(--b3)); }
-    /* Gradient header */
-    .brand-gradient { background: linear-gradient(135deg, oklch(var(--p)) 0%, oklch(var(--s)) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    /* Glow on primary stats */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    .step-running > .step-content { animation: pulse 1.2s ease-in-out infinite; }
+
+    /* Forge fire flicker on the logo while pipeline runs */
+    @keyframes forgeFlicker {
+      0%,100% { filter: drop-shadow(0 0 5px rgba(245,158,11,.7)); }
+      33%     { filter: drop-shadow(0 0 12px rgba(245,158,11,.9)) drop-shadow(0 0 24px rgba(245,158,11,.3)); }
+      66%     { filter: drop-shadow(0 0 8px rgba(245,158,11,.5)); }
+    }
+    .forge-fire { animation: forgeFlicker 1.8s ease-in-out infinite; }
+
+    /* Sand settle — fills stage card from bottom when stage completes */
+    .sand-fill-success { position:relative; overflow:hidden; }
+    .sand-fill-success::after {
+      content:''; position:absolute; inset:0;
+      background: linear-gradient(to top, rgba(34,197,94,.18) 0%, rgba(34,197,94,.04) 100%);
+      animation: sandRise .8s cubic-bezier(.22,1,.36,1) forwards;
+    }
+    .sand-fill-error::after {
+      content:''; position:absolute; inset:0;
+      background: linear-gradient(to top, rgba(239,68,68,.2) 0%, rgba(239,68,68,.05) 100%);
+      animation: sandRise .8s cubic-bezier(.22,1,.36,1) forwards;
+    }
+    @keyframes sandRise {
+      from { clip-path: inset(100% 0 0 0); }
+      to   { clip-path: inset(0% 0 0 0); }
+    }
+
+    /* Stage card ring-burst on completion */
+    @keyframes burstFlash {
+      0%  { box-shadow: 0 0 0 0 rgba(34,197,94,.8); }
+      70% { box-shadow: 0 0 0 16px rgba(34,197,94,0); }
+      100%{ box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    .burst-success { animation: burstFlash .55s ease-out; }
+    @keyframes burstFlashErr {
+      0%  { box-shadow: 0 0 0 0 rgba(239,68,68,.8); }
+      70% { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
+      100%{ box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .burst-error { animation: burstFlashErr .55s ease-out; }
+
+    /* Pendulum canvas container glow */
+    .pendulum-wrap { border-radius: 12px; overflow: hidden; position: relative; }
+    .pendulum-wrap::before {
+      content:''; position:absolute; inset:-1px; border-radius:13px;
+      background: linear-gradient(135deg, rgba(245,158,11,.4), rgba(124,58,237,.4));
+      z-index:0;
+    }
+    .pendulum-wrap canvas { position:relative; z-index:1; border-radius:11px; display:block; }
+
+    /* Stat colors */
     .stat-primary .stat-value { color: oklch(var(--p)); }
     .stat-success .stat-value { color: oklch(var(--su)); }
     .stat-warning .stat-value { color: oklch(var(--wa)); }
-    .stat-error .stat-value { color: oklch(var(--er)); }
-    /* Step progress */
-    .step-running > .step-content { animation: pulse 1.2s ease-in-out infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .stat-error   .stat-value { color: oklch(var(--er)); }
+
+    /* Live view hero */
+    .live-hero {
+      background: linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(245,158,11,.08) 100%);
+      border: 1px solid rgba(245,158,11,.15);
+      border-radius: 16px;
+      backdrop-filter: blur(8px);
+    }
   </style>
 </head>
 <body class="bg-base-300 min-h-screen">
@@ -682,6 +789,166 @@ function SettingsView({ settings, onSave, toast }) {
   );
 }
 
+// ── Sevaforge SVG Logo ────────────────────────────────────────────────────────
+
+function SevaForgeLogo({ size = 44, animate = false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"
+         className={animate ? 'forge-fire' : ''}>
+      <defs>
+        <linearGradient id="logoGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+        <linearGradient id="logoGrad2" x1="56" y1="0" x2="0" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#c084fc" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </linearGradient>
+      </defs>
+      {/* Outer hexagon */}
+      <polygon
+        points="28,2 51,15 51,41 28,54 5,41 5,15"
+        stroke="url(#logoGrad)" strokeWidth="2" fill="none" strokeLinejoin="round"
+      />
+      {/* Inner lighter hex ring */}
+      <polygon
+        points="28,9 45,19 45,37 28,47 11,37 11,19"
+        stroke="url(#logoGrad2)" strokeWidth="0.8" fill="none" strokeLinejoin="round" opacity="0.35"
+      />
+      {/* Forge flame */}
+      <path
+        d="M24 43 C24 43 16 34 20 26 C21.5 23 23.5 26 25 24 C25 24 22 16 28 11 C28 11 30 20 34.5 18 C37.5 23 40 31 34 43 Z"
+        fill="url(#logoGrad)"
+      />
+      {/* Anvil base */}
+      <rect x="20" y="43" width="16" height="2.5" rx="1.25" fill="url(#logoGrad)" opacity="0.7" />
+      <rect x="22" y="45.5" width="12" height="1.5" rx="0.75" fill="url(#logoGrad)" opacity="0.45" />
+    </svg>
+  );
+}
+
+// ── NoCaaS Badge ──────────────────────────────────────────────────────────────
+
+function NoCaaSBadge() {
+  return (
+    <div className="nocaas-badge">
+      <span className="dot" />
+      <span>NoCaaS</span>
+      <span style={{opacity:0.7, fontWeight:400}}>· No Charge as a Service Hub</span>
+    </div>
+  );
+}
+
+// ── Sand Pendulum (Harmonograph) ──────────────────────────────────────────────
+// Draws a unique Lissajous/sand pendulum figure for each pipeline stage.
+// The canvas renders sand-grain particles along the harmonograph trajectory,
+// creating the organic look of a real sand pendulum art piece.
+
+const PENDULUM_PARAMS = [
+  { f1:2, f2:3, p:Math.PI/2,  d:0.0012 }, // discover  — figure-8 family
+  { f1:3, f2:4, p:Math.PI/4,  d:0.0014 }, // normalize — complex loops
+  { f1:5, f2:4, p:Math.PI/3,  d:0.0010 }, // docs      — star-like
+  { f1:2, f2:5, p:Math.PI/6,  d:0.0013 }, // iac       — wide spread
+  { f1:3, f2:5, p:Math.PI/2,  d:0.0011 }, // cd        — trefoil
+  { f1:4, f2:3, p:Math.PI/5,  d:0.0015 }, // ci        — grid-like
+  { f1:5, f2:3, p:Math.PI/4,  d:0.0012 }, // e2e       — star
+  { f1:1, f2:2, p:Math.PI/2,  d:0.0009 }, // review    — parabola
+  { f1:3, f2:2, p:Math.PI/6,  d:0.0013 }, // test      — trefoil
+  { f1:5, f2:4, p:Math.PI/3,  d:0.0011 }, // scan      — complex
+];
+
+function SandPendulum({ stageNum = 1, status = 'running', size = 180 }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const R = (W / 2) - 6;
+
+    // Clear to deep dark
+    ctx.fillStyle = '#0d0d1a';
+    ctx.fillRect(0, 0, W, H);
+
+    const idx    = (stageNum - 1) % PENDULUM_PARAMS.length;
+    const { f1, f2, p, d } = PENDULUM_PARAMS[idx];
+
+    // Color based on status
+    const colors = {
+      running: [[245,158,11], [251,191,36]],   // amber
+      success: [[34,197,94],  [110,231,183]],  // green
+      error:   [[239,68,68],  [252,165,165]],  // red
+      pending: [[99,102,241], [165,180,252]],  // indigo
+    };
+    const [clr1, clr2] = colors[status] || colors.pending;
+
+    let t = 0;
+    let rafId;
+    let alive = true;
+    const STEP  = 0.045;
+    const GRAINS = 6; // sand grains per frame
+
+    const draw = () => {
+      if (!alive) return;
+
+      // Subtle fade trail — slow decay = long silky trails
+      ctx.fillStyle = 'rgba(13,13,26,0.018)';
+      ctx.fillRect(0, 0, W, H);
+
+      for (let i = 0; i < GRAINS; i++) {
+        const decay = Math.exp(-d * t);
+        if (decay < 0.025) break; // fully decayed
+
+        const x = cx + R * decay * Math.sin(f1 * t + p);
+        const y = cy + R * decay * Math.sin(f2 * t);
+
+        // Interpolate color along the spiral
+        const frac = Math.min(t / 600, 1);
+        const r = Math.round(clr1[0] + (clr2[0]-clr1[0]) * frac);
+        const g = Math.round(clr1[1] + (clr2[1]-clr1[1]) * frac);
+        const b = Math.round(clr1[2] + (clr2[2]-clr1[2]) * frac);
+
+        const jitter = 1.4 * decay;
+        const px = x + (Math.random() - 0.5) * jitter;
+        const py = y + (Math.random() - 0.5) * jitter;
+        const sz = (0.5 + Math.random() * 1.3) * decay;
+        const alpha = (0.4 + Math.random() * 0.5) * decay;
+
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(sz, 0.3), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fill();
+
+        t += STEP;
+      }
+
+      if (decay_check(t, d) > 0.025) {
+        rafId = requestAnimationFrame(draw);
+      }
+    };
+
+    // Helper — avoids recalculating inside closure
+    function decay_check(t, d) { return Math.exp(-d * t); }
+
+    draw();
+    return () => { alive = false; cancelAnimationFrame(rafId); };
+  }, [stageNum, status]);
+
+  const glowColor = status === 'success' ? 'rgba(34,197,94,.5)'
+                  : status === 'error'   ? 'rgba(239,68,68,.5)'
+                  : 'rgba(245,158,11,.45)';
+
+  return (
+    <div className="pendulum-wrap" style={{ width: size, height: size,
+         boxShadow: `0 0 24px ${glowColor}, 0 0 48px ${glowColor.replace('.4','0.15')}` }}>
+      <canvas ref={canvasRef} width={size} height={size} />
+    </div>
+  );
+}
+
+
 // ── Live View (SSE real-time pipeline progress) ────────────────────────────────
 
 function LiveView({ liveState }) {
@@ -710,11 +977,30 @@ function LiveView({ liveState }) {
 
   if (!connected) {
     return (
-      <div className="slide-in flex flex-col items-center justify-center h-64 gap-4">
-        <div className="text-5xl opacity-20">⚡</div>
-        <div className="text-base-content/50 text-center">
-          <p className="font-semibold mb-1">Waiting for a pipeline run…</p>
-          <p className="text-sm opacity-60">Run <code className="font-mono bg-base-300 px-2 py-0.5 rounded">forgeflow run-all --gui .</code> in your terminal</p>
+      <div className="slide-in flex flex-col items-center justify-center gap-8 py-16">
+        {/* Sevaforge hero splash */}
+        <div className="live-hero flex flex-col items-center gap-5 px-12 py-10 text-center max-w-lg w-full">
+          <SevaForgeLogo size={72} animate={false} />
+          <div>
+            <div className="seva-wordmark text-3xl mb-1">Sevaforge</div>
+            <NoCaaSBadge />
+          </div>
+          <div className="text-base-content/40 text-sm leading-relaxed">
+            AI Platform Engineering · 14-stage pipeline automation<br/>
+            <span className="font-mono opacity-60">ForgeFlow v2.1</span>
+          </div>
+          <div className="divider my-0 opacity-20" />
+          <div className="text-base-content/50 text-center">
+            <p className="font-semibold mb-2 text-base">Waiting for a pipeline run…</p>
+            <code className="font-mono bg-base-300 px-3 py-1.5 rounded-lg text-sm text-warning">
+              forgeflow run-all --gui ~/your-repo
+            </code>
+          </div>
+        </div>
+
+        {/* Idle pendulum — soft ambient drawing */}
+        <div className="opacity-30">
+          <SandPendulum stageNum={1} status="pending" size={160} />
         </div>
       </div>
     );
@@ -723,88 +1009,136 @@ function LiveView({ liveState }) {
   const activeInfo  = stageInfo[currentStage] || {};
   const allFinished = done && !currentStage;
 
+  const hasFailed = Object.values(stageState).some(s=>s==='error');
+
   return (
     <div className="slide-in space-y-5">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl">⚡</div>
-        <div className="flex-1">
-          <div className="font-bold text-lg">
+      {/* ── Sevaforge branded header ── */}
+      <div className="live-hero flex items-center gap-4 px-5 py-4">
+        <SevaForgeLogo size={48} animate={!allFinished && !!currentStage} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="seva-wordmark text-xl">Sevaforge</span>
+            <NoCaaSBadge />
+          </div>
+          <div className="font-semibold text-base mt-0.5">
             {allFinished
-              ? (stageState && Object.values(stageState).some(s=>s==='error')
-                  ? '❌ Pipeline failed'
-                  : '✅ Pipeline complete')
+              ? (hasFailed ? '❌ Pipeline failed' : '✅ Pipeline complete')
               : currentStage
                 ? <span>Running <span className="text-warning font-mono">{currentStage.toUpperCase()}</span>…</span>
                 : 'Pipeline starting…'}
           </div>
-          <div className="text-xs font-mono opacity-50 truncate max-w-md">{pipelinePath || '—'}</div>
+          <div className="text-xs font-mono opacity-40 truncate">{pipelinePath || '—'}</div>
         </div>
-        {elapsed > 0 && <div className="badge badge-outline font-mono">{elapsed}s</div>}
-        {totalStages > 0 && <div className="badge badge-primary">{Math.min(currentNum,totalStages)}/{totalStages}</div>}
+        <div className="flex flex-col items-end gap-1">
+          {elapsed > 0 && <div className="badge badge-outline font-mono text-xs">{elapsed}s</div>}
+          {totalStages > 0 && <div className="badge badge-primary text-xs">{Math.min(currentNum,totalStages)}/{totalStages}</div>}
+        </div>
       </div>
 
       {/* Progress bar */}
       {totalStages > 0 && (
         <div>
           <div className="flex justify-between text-xs opacity-50 mb-1">
-            <span>Progress</span><span>{pct}%</span>
+            <span>Pipeline Progress</span><span>{pct}%</span>
           </div>
-          <progress className="progress progress-primary w-full h-2" value={pct} max="100" />
+          <progress className="progress progress-primary w-full h-2.5" value={pct} max="100" />
         </div>
       )}
 
-      {/* Current stage spotlight */}
-      {currentStage && activeInfo.purpose && (
-        <div className="card bg-base-200 border-2 border-warning shadow-lg">
-          <div className="card-body py-4">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">{stageEmoji(currentStage)}</span>
-              <div>
-                <div className="font-bold text-warning uppercase tracking-wide flex items-center gap-2">
-                  <span className="spin inline-block">⟳</span> {currentStage}
+      {/* ── Current stage spotlight with SAND PENDULUM ── */}
+      {currentStage && (
+        <div className="card border-2 border-warning/60 shadow-xl"
+             style={{background:'linear-gradient(135deg,rgba(245,158,11,.06),rgba(124,58,237,.06))'}}>
+          <div className="card-body py-5">
+            <div className="flex gap-5 items-start">
+
+              {/* Sand pendulum — unique per stage */}
+              <div className="flex-shrink-0">
+                <SandPendulum stageNum={currentNum} status="running" size={160} />
+                <div className="text-center mt-2 text-xs font-mono opacity-40">stage {currentNum}/{totalStages}</div>
+              </div>
+
+              {/* Stage info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-4xl">{stageEmoji(currentStage)}</span>
+                  <div>
+                    <div className="font-bold text-warning uppercase tracking-widest text-lg flex items-center gap-2">
+                      <span className="spin inline-block text-base">⟳</span>
+                      {currentStage}
+                    </div>
+                    <div className="text-xs opacity-50 font-mono mt-0.5">
+                      {activeInfo.agent || ''}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs opacity-50">{activeInfo.agent || ''} · {activeInfo.mcp_server || ''}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider opacity-40 mb-1">🎯 Purpose</div>
-                <div className="text-sm">{activeInfo.purpose || '—'}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider opacity-40 mb-1">📦 Outputs</div>
-                <div className="text-sm opacity-70">{activeInfo.outputs || '—'}</div>
+
+                {activeInfo.purpose && (
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">🎯 Purpose</div>
+                      <div className="text-sm leading-relaxed">{activeInfo.purpose}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Outputs</div>
+                      <div className="text-sm opacity-70 leading-relaxed">{activeInfo.outputs}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stage pipeline flow */}
+      {/* Stage pipeline flow — with sand-fill + burst animations */}
       {stages.length > 0 && (
-        <div className="card bg-base-200 shadow">
+        <div className="card bg-base-200/60 shadow backdrop-blur-sm">
           <div className="card-body py-4">
-            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Pipeline Stages</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Pipeline Flow</h3>
             <div className="flex flex-wrap gap-2">
-              {stages.map((id, i) => (
-                <div key={id} className={`stage-card card border-2 p-2 flex flex-col items-center gap-1 min-w-[72px] ${stageColor(id)}`}>
-                  <span className="text-sm">{stageEmoji(id)}</span>
-                  <span className="text-xs font-mono">{id}</span>
-                  {stageIcon(id)}
-                </div>
-              ))}
+              {stages.map((id, i) => {
+                const s = stageState[id];
+                const extraCls = s === 'success' ? 'sand-fill-success burst-success'
+                               : s === 'error'   ? 'sand-fill-error burst-error' : '';
+                return (
+                  <div key={id}
+                       className={`stage-card card border-2 p-2 flex flex-col items-center gap-1 min-w-[76px] ${stageColor(id)} ${extraCls}`}>
+                    <span className="text-base">{stageEmoji(id)}</span>
+                    <span className="text-xs font-mono font-semibold">{id}</span>
+                    {stageIcon(id)}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Completed stage results */}
+      {/* ── Completed stage results with mini pendulum gallery ── */}
       {Object.entries(stageResults).length > 0 && (
-        <div className="card bg-base-200 shadow">
+        <div className="card bg-base-200/60 shadow backdrop-blur-sm">
           <div className="card-body py-4">
             <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Stage Results</h3>
+
+            {/* Mini pendulum gallery — a row of completed sand drawings */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+              {Object.entries(stageResults).map(([id, result], i) => {
+                const ok = result.status === 'success';
+                return (
+                  <div key={id} className="flex flex-col items-center gap-1 flex-shrink-0">
+                    <div style={{opacity: ok ? 0.85 : 0.5}}>
+                      <SandPendulum stageNum={i+1} status={ok ? 'success' : 'error'} size={72} />
+                    </div>
+                    <span className="text-xs font-mono opacity-50">{id}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Result rows */}
             <div className="space-y-2">
               {Object.entries(stageResults).map(([id, result]) => {
                 const ok = result.status === 'success';
@@ -835,15 +1169,27 @@ function LiveView({ liveState }) {
         </div>
       )}
 
-      {/* Done banner */}
+      {/* ── Done banner with full Sevaforge branding ── */}
       {allFinished && (
-        <div className={`alert ${Object.values(stageState).some(s=>s==='error') ? 'alert-error' : 'alert-success'} shadow`}>
-          <span className="text-lg">{Object.values(stageState).some(s=>s==='error') ? '❌' : '🎉'}</span>
-          <span className="font-semibold">
-            {Object.values(stageState).some(s=>s==='error')
-              ? 'Pipeline failed — check red stages above'
-              : `All ${totalStages} stages complete in ${elapsed}s`}
-          </span>
+        <div className={`live-hero flex items-center gap-5 px-6 py-5 ${hasFailed ? 'border-error/40' : 'border-success/30'}`}
+             style={{border: `1px solid ${hasFailed ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.25)'}`}}>
+          <SevaForgeLogo size={52} animate={false} />
+          <div className="flex-1">
+            <div className={`font-bold text-xl mb-1 ${hasFailed ? 'text-error' : 'text-success'}`}>
+              {hasFailed ? '❌ Pipeline Failed' : '🎉 Pipeline Complete'}
+            </div>
+            <div className="text-sm opacity-60">
+              {hasFailed
+                ? 'One or more stages encountered errors — check the results above'
+                : `All ${totalStages} stages passed · ${elapsed}s total · Sevaforge did the work`}
+            </div>
+            <div className="mt-2"><NoCaaSBadge /></div>
+          </div>
+          {!hasFailed && (
+            <div style={{opacity:0.7}}>
+              <SandPendulum stageNum={totalStages} status="success" size={100} />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -977,15 +1323,17 @@ function App() {
 
       {/* ── Sidebar ── */}
       <aside className="sidebar bg-base-200 border-r border-base-300 flex flex-col">
-        {/* Logo */}
-        <div className="px-4 py-5 border-b border-base-300">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-xl">⚡</div>
+        {/* ── Sevaforge brand block ── */}
+        <div className="px-4 py-4 border-b border-base-300"
+             style={{background:'linear-gradient(160deg,rgba(124,58,237,.08),rgba(245,158,11,.05))'}}>
+          <div className="flex items-center gap-3 mb-3">
+            <SevaForgeLogo size={40} animate={false} />
             <div>
-              <div className="font-bold text-base leading-tight brand-gradient">ForgeFlow</div>
-              <div className="text-xs opacity-40 font-mono">v2.1</div>
+              <div className="seva-wordmark leading-tight">Sevaforge</div>
+              <div className="text-xs font-mono opacity-35 mt-0.5">ForgeFlow v2.1</div>
             </div>
           </div>
+          <NoCaaSBadge />
         </div>
 
         {/* Nav */}
