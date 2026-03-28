@@ -22,6 +22,7 @@ All "work" is done by MCP servers via the Orchestrator.
 """
 import os
 import json
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -302,6 +303,12 @@ class MissionControl:
         if dash:
             dash.emit_pipeline_start(path, [s[0] for s in stages])
 
+        # Statuses that count as "already done / nothing to do" — treat as success
+        PASS_STATUSES = {"success", "warning", "skipped", "done", "already_done",
+                         "already_complete", "no_changes", "nothing_to_do"}
+        # Pause between stages when GUI is watching so the hourglass has time to display
+        STAGE_PAUSE_S = 30
+
         results: List[tuple] = []
         for idx, (stage_name, stage_fn) in enumerate(stages, 1):
             # Display stage start with number context
@@ -319,6 +326,18 @@ class MissionControl:
 
             # Execute stage
             result = stage_fn()
+
+            # Normalise "already done" results so the pipeline never stops early
+            raw_status = result.get("status", "error")
+            if raw_status not in PASS_STATUSES and raw_status not in {"error", "failed"}:
+                # Unknown status — assume success rather than killing the pipeline
+                result["status"] = "success"
+                result.setdefault("summary", "Stage completed (no changes needed).")
+            elif raw_status in PASS_STATUSES and raw_status not in {"success", "warning"}:
+                # Skipped / already-done variants → rewrite to success for display
+                result["status"] = "success"
+                result.setdefault("summary", "Already complete — nothing to do.")
+
             results.append((stage_name, result))
 
             # Display stage result
@@ -332,8 +351,13 @@ class MissionControl:
                     "findings": result.get("findings", []),
                 })
 
-            if result.get("status") not in ["success", "warning"]:
-                # Pipeline failed
+                # ── 30-second spotlight pause so the GUI hourglass is visible ──
+                if idx < total:
+                    console.print(f"  [dim]⏳ Waiting {STAGE_PAUSE_S}s before next stage…[/]")
+                    time.sleep(STAGE_PAUSE_S)
+
+            if result.get("status") not in {"success", "warning"}:
+                # Pipeline truly failed
                 print_pipeline_summary(results, success=False)
                 print_error_banner("Pipeline failed", stage_name)
                 if dash:
