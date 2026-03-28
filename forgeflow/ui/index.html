@@ -844,105 +844,157 @@ function NoCaaSBadge() {
 // The canvas renders sand-grain particles along the harmonograph trajectory,
 // creating the organic look of a real sand pendulum art piece.
 
-const PENDULUM_PARAMS = [
-  { f1:2, f2:3, p:Math.PI/2,  d:0.0012 }, // discover  — figure-8 family
-  { f1:3, f2:4, p:Math.PI/4,  d:0.0014 }, // normalize — complex loops
-  { f1:5, f2:4, p:Math.PI/3,  d:0.0010 }, // docs      — star-like
-  { f1:2, f2:5, p:Math.PI/6,  d:0.0013 }, // iac       — wide spread
-  { f1:3, f2:5, p:Math.PI/2,  d:0.0011 }, // cd        — trefoil
-  { f1:4, f2:3, p:Math.PI/5,  d:0.0015 }, // ci        — grid-like
-  { f1:5, f2:3, p:Math.PI/4,  d:0.0012 }, // e2e       — star
-  { f1:1, f2:2, p:Math.PI/2,  d:0.0009 }, // review    — parabola
-  { f1:3, f2:2, p:Math.PI/6,  d:0.0013 }, // test      — trefoil
-  { f1:5, f2:4, p:Math.PI/3,  d:0.0011 }, // scan      — complex
-];
+// ── Hourglass (canvas) — animates while a stage is running ───────────────────
 
-function SandPendulum({ stageNum = 1, status = 'running', size = 180 }) {
+function HourGlass({ status = 'running', size = 160 }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
     const cx = W / 2, cy = H / 2;
-    const R = (W / 2) - 6;
 
-    // Clear to deep dark
-    ctx.fillStyle = '#0d0d1a';
-    ctx.fillRect(0, 0, W, H);
+    // Geometry
+    const TW = W * 0.38;   // chamber half-width (top & bottom)
+    const TH = H * 0.39;   // chamber half-height
+    const NK = 2.8;         // neck half-width in px
 
-    const idx    = (stageNum - 1) % PENDULUM_PARAMS.length;
-    const { f1, f2, p, d } = PENDULUM_PARAMS[idx];
-
-    // Color based on status
-    const colors = {
-      running: [[245,158,11], [251,191,36]],   // amber
-      success: [[34,197,94],  [110,231,183]],  // green
-      error:   [[239,68,68],  [252,165,165]],  // red
-      pending: [[99,102,241], [165,180,252]],  // indigo
+    const outlinePath = () => {
+      ctx.beginPath();
+      ctx.moveTo(cx - TW, cy - TH);
+      ctx.lineTo(cx + TW, cy - TH);
+      ctx.lineTo(cx + NK,  cy);
+      ctx.lineTo(cx + TW, cy + TH);
+      ctx.lineTo(cx - TW, cy + TH);
+      ctx.lineTo(cx - NK,  cy);
+      ctx.closePath();
     };
-    const [clr1, clr2] = colors[status] || colors.pending;
+    const topClip = () => {
+      ctx.beginPath();
+      ctx.moveTo(cx - TW, cy - TH);
+      ctx.lineTo(cx + TW, cy - TH);
+      ctx.lineTo(cx + NK,  cy);
+      ctx.lineTo(cx - NK,  cy);
+      ctx.closePath();
+    };
+    const botClip = () => {
+      ctx.beginPath();
+      ctx.moveTo(cx - NK,  cy);
+      ctx.lineTo(cx + NK,  cy);
+      ctx.lineTo(cx + TW, cy + TH);
+      ctx.lineTo(cx - TW, cy + TH);
+      ctx.closePath();
+    };
 
-    let t = 0;
-    let rafId;
+    let level = 0;          // 0 = top full, 1 = top empty
+    let grains = [];        // falling particles
     let alive = true;
-    const STEP  = 0.045;
-    const GRAINS = 6; // sand grains per frame
+    let rafId;
+    let last = null;
+    const CYCLE = 5500;     // ms for one full drain
 
-    const draw = () => {
+    const frame = (ts) => {
       if (!alive) return;
+      if (last === null) last = ts;
+      const dt = Math.min(ts - last, 50);
+      last = ts;
 
-      // Subtle fade trail — slow decay = long silky trails
-      ctx.fillStyle = 'rgba(13,13,26,0.018)';
+      level += dt / CYCLE;
+      if (level > 1) level = 0;   // flip and restart
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0b0b16';
       ctx.fillRect(0, 0, W, H);
 
-      for (let i = 0; i < GRAINS; i++) {
-        const decay = Math.exp(-d * t);
-        if (decay < 0.025) break; // fully decayed
+      // ── Outline ──
+      const og = ctx.createLinearGradient(cx, cy - TH, cx, cy + TH);
+      og.addColorStop(0,   'rgba(245,158,11,.75)');
+      og.addColorStop(0.5, 'rgba(124, 58,237,.55)');
+      og.addColorStop(1,   'rgba(245,158,11,.75)');
+      ctx.save();
+      outlinePath();
+      ctx.strokeStyle = og;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      ctx.restore();
 
-        const x = cx + R * decay * Math.sin(f1 * t + p);
-        const y = cy + R * decay * Math.sin(f2 * t);
+      // ── Top sand (drains down) ──
+      const topSandH   = TH * (1 - level);
+      const topSandY   = cy - topSandH;
+      const topSandSpan = NK + (TW - NK) * topSandH / TH;
 
-        // Interpolate color along the spiral
-        const frac = Math.min(t / 600, 1);
-        const r = Math.round(clr1[0] + (clr2[0]-clr1[0]) * frac);
-        const g = Math.round(clr1[1] + (clr2[1]-clr1[1]) * frac);
-        const b = Math.round(clr1[2] + (clr2[2]-clr1[2]) * frac);
+      ctx.save();
+      topClip(); ctx.clip();
+      const tg = ctx.createLinearGradient(0, topSandY, 0, cy);
+      tg.addColorStop(0, 'rgba(245,158,11,.12)');
+      tg.addColorStop(1, 'rgba(245,158,11,.42)');
+      ctx.beginPath();
+      ctx.moveTo(cx - topSandSpan, topSandY);
+      ctx.lineTo(cx + topSandSpan, topSandY);
+      ctx.lineTo(cx + NK, cy); ctx.lineTo(cx - NK, cy);
+      ctx.closePath(); ctx.fillStyle = tg; ctx.fill();
+      // surface glint
+      ctx.beginPath();
+      ctx.moveTo(cx - topSandSpan, topSandY);
+      ctx.lineTo(cx + topSandSpan, topSandY);
+      ctx.strokeStyle = 'rgba(251,191,36,.7)'; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.restore();
 
-        const jitter = 1.4 * decay;
-        const px = x + (Math.random() - 0.5) * jitter;
-        const py = y + (Math.random() - 0.5) * jitter;
-        const sz = (0.5 + Math.random() * 1.3) * decay;
-        const alpha = (0.4 + Math.random() * 0.5) * decay;
+      // ── Bottom sand (fills up) ──
+      const botSandH    = TH * level;
+      const botSandY    = cy + TH - botSandH;
+      const botSandSpan = NK + (TW - NK) * botSandH / TH;
 
-        ctx.beginPath();
-        ctx.arc(px, py, Math.max(sz, 0.3), 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-        ctx.fill();
+      ctx.save();
+      botClip(); ctx.clip();
+      const bg2 = ctx.createLinearGradient(0, botSandY, 0, cy + TH);
+      bg2.addColorStop(0, 'rgba(245,158,11,.20)');
+      bg2.addColorStop(1, 'rgba(245,158,11,.52)');
+      ctx.beginPath();
+      ctx.moveTo(cx - botSandSpan, botSandY);
+      ctx.lineTo(cx + botSandSpan, botSandY);
+      ctx.lineTo(cx + TW, cy + TH); ctx.lineTo(cx - TW, cy + TH);
+      ctx.closePath(); ctx.fillStyle = bg2; ctx.fill();
+      // surface glint
+      ctx.beginPath();
+      ctx.moveTo(cx - botSandSpan, botSandY);
+      ctx.lineTo(cx + botSandSpan, botSandY);
+      ctx.strokeStyle = 'rgba(251,191,36,.55)'; ctx.lineWidth = 1.1; ctx.stroke();
+      ctx.restore();
 
-        t += STEP;
+      // ── Falling grains through neck ──
+      if (status === 'running') {
+        if (Math.random() < 0.35) {
+          grains.push({ x: cx + (Math.random()-.5)*3, y: cy + 1,
+                        vy: 1.2 + Math.random()*2,
+                        r: 0.7 + Math.random()*.9,
+                        a: 0.6 + Math.random()*.4 });
+        }
+        grains = grains.filter(g => {
+          g.y += g.vy; g.vy += 0.18;
+          if (g.y > botSandY) return false;
+          ctx.beginPath();
+          ctx.arc(g.x, g.y, g.r, 0, Math.PI*2);
+          ctx.fillStyle = `rgba(251,191,36,${g.a})`;
+          ctx.fill();
+          return true;
+        });
       }
 
-      if (decay_check(t, d) > 0.025) {
-        rafId = requestAnimationFrame(draw);
-      }
+      rafId = requestAnimationFrame(frame);
     };
 
-    // Helper — avoids recalculating inside closure
-    function decay_check(t, d) { return Math.exp(-d * t); }
-
-    draw();
+    rafId = requestAnimationFrame(frame);
     return () => { alive = false; cancelAnimationFrame(rafId); };
-  }, [stageNum, status]);
+  }, [status]);
 
-  const glowColor = status === 'success' ? 'rgba(34,197,94,.5)'
-                  : status === 'error'   ? 'rgba(239,68,68,.5)'
-                  : 'rgba(245,158,11,.45)';
+  const glow = status === 'error' ? 'rgba(239,68,68,.35)' : 'rgba(245,158,11,.35)';
 
   return (
     <div className="pendulum-wrap" style={{ width: size, height: size,
-         boxShadow: `0 0 24px ${glowColor}, 0 0 48px ${glowColor.replace('.4','0.15')}` }}>
+         boxShadow: `0 0 20px ${glow}, 0 0 40px ${glow.replace('.35','.12')}` }}>
       <canvas ref={canvasRef} width={size} height={size} />
     </div>
   );
@@ -960,9 +1012,9 @@ function LiveView({ liveState }) {
   const stageColor = (id) => {
     const s = stageState[id];
     if (s === 'running') return 'border-warning bg-warning/10 animate-pulse';
-    if (s === 'success') return 'border-success bg-success/10';
-    if (s === 'error')   return 'border-error bg-error/10';
-    return 'border-base-300 opacity-40';
+    if (s === 'success') return 'border-emerald-600/50 bg-emerald-950/25';
+    if (s === 'error')   return 'border-rose-600/50 bg-rose-950/25';
+    return 'border-base-300 opacity-35';
   };
 
   const stageIcon = (id) => {
@@ -998,9 +1050,9 @@ function LiveView({ liveState }) {
           </div>
         </div>
 
-        {/* Idle pendulum — soft ambient drawing */}
-        <div className="opacity-30">
-          <SandPendulum stageNum={1} status="pending" size={160} />
+        {/* Idle hourglass — ambient drift */}
+        <div className="opacity-25">
+          <HourGlass status="running" size={140} />
         </div>
       </div>
     );
@@ -1054,9 +1106,9 @@ function LiveView({ liveState }) {
           <div className="card-body py-5">
             <div className="flex gap-5 items-start">
 
-              {/* Sand pendulum — unique per stage */}
+              {/* Hourglass — animates while stage runs */}
               <div className="flex-shrink-0">
-                <SandPendulum stageNum={currentNum} status="running" size={160} />
+                <HourGlass status="running" size={156} />
                 <div className="text-center mt-2 text-xs font-mono opacity-40">stage {currentNum}/{totalStages}</div>
               </div>
 
@@ -1117,50 +1169,35 @@ function LiveView({ liveState }) {
         </div>
       )}
 
-      {/* ── Completed stage results with mini pendulum gallery ── */}
+      {/* ── Stage results — clean tick/cross list ── */}
       {Object.entries(stageResults).length > 0 && (
         <div className="card bg-base-200/60 shadow backdrop-blur-sm">
           <div className="card-body py-4">
             <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Stage Results</h3>
-
-            {/* Mini pendulum gallery — a row of completed sand drawings */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-              {Object.entries(stageResults).map(([id, result], i) => {
-                const ok = result.status === 'success';
-                return (
-                  <div key={id} className="flex flex-col items-center gap-1 flex-shrink-0">
-                    <div style={{opacity: ok ? 0.85 : 0.5}}>
-                      <SandPendulum stageNum={i+1} status={ok ? 'success' : 'error'} size={72} />
-                    </div>
-                    <span className="text-xs font-mono opacity-50">{id}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Result rows */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {Object.entries(stageResults).map(([id, result]) => {
                 const ok = result.status === 'success';
                 return (
-                  <div key={id} className={`rounded-lg border px-3 py-2 ${ok ? 'border-success/40 bg-success/5' : 'border-error/40 bg-error/5'}`}>
-                    <div className="flex items-center gap-2">
-                      <span>{ok ? '✅' : '❌'}</span>
-                      <span className="font-mono font-semibold text-sm">{id.toUpperCase()}</span>
-                      <span className="text-xs opacity-60 flex-1 truncate">{result.summary || ''}</span>
-                      {(result.findings||[]).length > 0 &&
-                        <span className="badge badge-xs badge-ghost">{result.findings.length} findings</span>}
-                    </div>
-                    {(result.findings||[]).length > 0 && (
-                      <div className="mt-2 space-y-0.5 pl-6">
-                        {result.findings.slice(0,4).map((f,i) => (
-                          <div key={i} className="text-xs opacity-60 finding-row py-0.5">
-                            {typeof f === 'string' ? f : `[${f.severity||f.type||'info'}] ${f.message||f.description||JSON.stringify(f)}`}
-                          </div>
-                        ))}
-                        {result.findings.length > 4 && <div className="text-xs opacity-40">…and {result.findings.length-4} more</div>}
-                      </div>
-                    )}
+                  <div key={id}
+                       className="flex items-center gap-3 rounded-lg px-3 py-2"
+                       style={{
+                         background: ok ? 'rgba(6,50,40,.35)'   : 'rgba(60,10,10,.35)',
+                         border:     ok ? '1px solid rgba(52,211,153,.2)' : '1px solid rgba(239,68,68,.2)',
+                       }}>
+                    {/* Tick / cross */}
+                    <span className="text-base flex-shrink-0"
+                          style={{color: ok ? '#34d399' : '#f87171'}}>
+                      {ok ? '✓' : '✗'}
+                    </span>
+                    <span className="font-mono font-bold text-sm tracking-wide"
+                          style={{color: ok ? '#6ee7b7' : '#fca5a5'}}>
+                      {id.toUpperCase()}
+                    </span>
+                    <span className="text-xs opacity-50 flex-1 truncate">{result.summary || ''}</span>
+                    {(result.findings||[]).length > 0 &&
+                      <span className="text-xs opacity-40 flex-shrink-0">
+                        {result.findings.length} findings
+                      </span>}
                   </div>
                 );
               })}
@@ -1169,27 +1206,23 @@ function LiveView({ liveState }) {
         </div>
       )}
 
-      {/* ── Done banner with full Sevaforge branding ── */}
+      {/* ── Done banner ── */}
       {allFinished && (
-        <div className={`live-hero flex items-center gap-5 px-6 py-5 ${hasFailed ? 'border-error/40' : 'border-success/30'}`}
-             style={{border: `1px solid ${hasFailed ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.25)'}`}}>
-          <SevaForgeLogo size={52} animate={false} />
+        <div className="live-hero flex items-center gap-4 px-6 py-5"
+             style={{border: `1px solid ${hasFailed ? 'rgba(239,68,68,.3)' : 'rgba(52,211,153,.2)'}`}}>
+          <SevaForgeLogo size={48} animate={false} />
           <div className="flex-1">
-            <div className={`font-bold text-xl mb-1 ${hasFailed ? 'text-error' : 'text-success'}`}>
-              {hasFailed ? '❌ Pipeline Failed' : '🎉 Pipeline Complete'}
+            <div className="font-bold text-xl mb-1"
+                 style={{color: hasFailed ? '#f87171' : '#6ee7b7'}}>
+              {hasFailed ? '✗  Pipeline Failed' : '✓  Pipeline Complete'}
             </div>
-            <div className="text-sm opacity-60">
+            <div className="text-sm opacity-55 mb-2">
               {hasFailed
                 ? 'One or more stages encountered errors — check the results above'
-                : `All ${totalStages} stages passed · ${elapsed}s total · Sevaforge did the work`}
+                : `All ${totalStages} stages passed · ${elapsed}s · Sevaforge did the work`}
             </div>
-            <div className="mt-2"><NoCaaSBadge /></div>
+            <NoCaaSBadge />
           </div>
-          {!hasFailed && (
-            <div style={{opacity:0.7}}>
-              <SandPendulum stageNum={totalStages} status="success" size={100} />
-            </div>
-          )}
         </div>
       )}
     </div>
