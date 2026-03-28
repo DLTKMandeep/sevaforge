@@ -282,19 +282,20 @@ class MissionControl:
             ("scan", lambda: self._execute_stage("scan", path, greenfield)),
         ]
         
+        total = len(stages)
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
         console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
         console.print()
-        
+
         results: List[tuple] = []
-        for stage_name, stage_fn in stages:
-            # Display stage start
-            print_stage_start(stage_name, path)
-            
+        for idx, (stage_name, stage_fn) in enumerate(stages, 1):
+            # Display stage start with number context
+            print_stage_start(stage_name, path, stage_num=idx, total=total)
+
             # Execute stage
             result = stage_fn()
             results.append((stage_name, result))
-            
+
             # Display stage result
             print_stage_result(stage_name, result)
             

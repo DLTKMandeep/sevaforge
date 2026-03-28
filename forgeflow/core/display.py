@@ -46,77 +46,92 @@ STAGE_COLORS = {
     "doctor": "bright_cyan",
 }
 
-# Stage → MCP Server → Agent mapping (updated with new stages)
+# Stage → MCP Server → Agent mapping
+# Each stage has: mcp_server, agent, purpose (what it does), outputs (what it produces)
 STAGE_MAPPING = {
     "discover": {
         "mcp_server": "discovery-mcp-server",
-        "agent": "DiscoveryAgent",
-        "description": "Scan repository structure and components"
+        "agent":      "DiscoveryAgent",
+        "purpose":    "Map the codebase — detect language, frameworks, entry points, port, dependencies",
+        "outputs":    "Tech stack · Entry points · Port · Dependency list · staging/discover_report.md",
     },
     "normalize": {
         "mcp_server": "normalize-mcp-server",
-        "agent": "NormalizationAgent",
-        "description": "Standardize repository structure"
-    },
-    "scan": {
-        "mcp_server": "security-mcp-server",
-        "agent": "SecurityAgent",
-        "description": "Run security vulnerability scan"
+        "agent":      "NormalizationAgent",
+        "purpose":    "Enforce a consistent project layout and standard config files",
+        "outputs":    "Dockerfile · .gitignore · .editorconfig · README scaffold · staging/normalize_report.md",
     },
     "docs": {
         "mcp_server": "diagram-generator-mcp-server",
-        "agent": "DocumentationAgent",
-        "description": "Generate documentation and diagrams"
-    },
-    "generate": {
-        "mcp_server": "deployment-mcp-server",
-        "agent": "GenerationAgent",
-        "description": "Generate deployment artifacts"
-    },
-    "review": {
-        "mcp_server": "git-mcp-server",
-        "agent": "CodeReviewAgent",
-        "description": "Analyze code quality, complexity, best practices"
-    },
-    "test": {
-        "mcp_server": "cicd-mcp-server",
-        "agent": "TestingAgent",
-        "description": "Discover and run tests, report coverage"
-    },
-    "deploy": {
-        "mcp_server": "cloud-mcp-server",
-        "agent": "DeploymentAgent",
-        "description": "Deploy using generated Terraform/configs"
-    },
-    "monitor": {
-        "mcp_server": "observability-mcp-server",
-        "agent": "MonitoringAgent",
-        "description": "Setup Prometheus/Grafana monitoring configs"
-    },
-    "bridge": {
-        "mcp_server": "github-mcp-server",
-        "agent": "BridgeAgent",
-        "description": "Push to GitHub repository"
+        "agent":      "DocumentationAgent",
+        "purpose":    "Generate human-readable docs: architecture diagrams, API reference, runbook",
+        "outputs":    "docs/architecture.md · docs/api.md · RUNBOOK.md · CONTRIBUTING.md",
     },
     "iac": {
         "mcp_server": "iac-mcp-server",
-        "agent": "IACAgent",
-        "description": "Generate Terraform, Docker, and cloud infrastructure configs"
+        "agent":      "IACAgent",
+        "purpose":    "Provision cloud infrastructure: EKS cluster, VPC, S3, ECR via Terraform",
+        "outputs":    "infrastructure/terraform/ · docker-compose.yml · staging/iac_report.md",
     },
     "cd": {
         "mcp_server": "cd-mcp-server",
-        "agent": "CDAgent",
-        "description": "Generate ArgoCD, Kustomize, and Kubernetes manifests"
+        "agent":      "CDAgent",
+        "purpose":    "Wire GitOps delivery: Kubernetes manifests, ArgoCD apps, staging/prod overlays",
+        "outputs":    "deploy.yml · infra.yml · bootstrap.yml · k8s/base/ · k8s/overlays/",
     },
     "ci": {
         "mcp_server": "ci-mcp-server",
-        "agent": "CIAgent",
-        "description": "Generate GitHub Actions, GitLab CI, and Dependabot configs"
+        "agent":      "CIAgent",
+        "purpose":    "Automate build, test, and security gates on every push and pull request",
+        "outputs":    "pipeline.yml (Security→Tests→Deploy) · release.yml · .gitlab-ci.yml · dependabot.yml",
     },
     "e2e": {
         "mcp_server": "e2e-mcp-server",
-        "agent": "E2ETestingAgent",
-        "description": "Generate Playwright/Cypress E2E test scaffolding"
+        "agent":      "E2ETestingAgent",
+        "purpose":    "Scaffold end-to-end tests and the CI workflow to run them on every push",
+        "outputs":    "tests/e2e/*.spec.ts · playwright.config.ts · e2e.yml",
+    },
+    "review": {
+        "mcp_server": "git-mcp-server",
+        "agent":      "CodeReviewAgent",
+        "purpose":    "Surface code smells, complexity hotspots, uncommitted changes, and git health",
+        "outputs":    "Complexity score · Smell list · Hotspot files · staging/review_report.md",
+    },
+    "test": {
+        "mcp_server": "cicd-mcp-server",
+        "agent":      "TestingAgent",
+        "purpose":    "Discover and execute the test suite, report pass/fail and coverage gaps",
+        "outputs":    "Test results · Coverage % · staging/test_report.md",
+    },
+    "scan": {
+        "mcp_server": "security-mcp-server",
+        "agent":      "SecurityAgent",
+        "purpose":    "Detect hardcoded secrets, vulnerable dependencies, and SAST issues",
+        "outputs":    "CVE list · Severity breakdown · staging/scan_report.md",
+    },
+    "deploy": {
+        "mcp_server": "cloud-mcp-server",
+        "agent":      "DeploymentAgent",
+        "purpose":    "Apply Terraform and trigger ArgoCD sync to release the app to cloud",
+        "outputs":    "Deployed endpoints · Health check URLs · ArgoCD sync status",
+    },
+    "monitor": {
+        "mcp_server": "observability-mcp-server",
+        "agent":      "MonitoringAgent",
+        "purpose":    "Wire up Prometheus metrics, Grafana dashboards, and alerting rules",
+        "outputs":    "Prometheus config · Grafana dashboards · Alert rules · staging/monitor_report.md",
+    },
+    "bridge": {
+        "mcp_server": "github-mcp-server",
+        "agent":      "BridgeAgent",
+        "purpose":    "Commit all ForgeFlow-generated artifacts to GitHub and open a pull request",
+        "outputs":    "Git commit · GitHub PR URL · Branch pushed",
+    },
+    "generate": {
+        "mcp_server": "deployment-mcp-server",
+        "agent":      "GenerationAgent",
+        "purpose":    "Generate deployment artifacts using the detected stack",
+        "outputs":    "Deployment configs · staging/generate_report.md",
     },
 }
 
@@ -171,81 +186,94 @@ def print_mode_indicator(mode: str, endpoint: str = None):
         ))
 
 
-def print_stage_start(stage: str, path: str = "."):
-    """Display info before running a stage."""
+def print_stage_start(stage: str, path: str = ".", stage_num: int = 0, total: int = 0):
+    """Display a clear phase announcement before running a stage."""
     color = get_stage_color(stage)
     info = get_stage_info(stage)
-    
-    # Create the stage info panel
-    stage_table = Table(show_header=False, box=None, padding=(0, 1))
-    stage_table.add_column("Label", style="dim")
-    stage_table.add_column("Value", style=f"bold {color}")
-    
-    stage_table.add_row("Stage:", stage.upper())
-    stage_table.add_row("MCP Server:", info["mcp_server"])
-    stage_table.add_row("Agent:", info["agent"])
-    stage_table.add_row("Path:", path)
-    
+
+    stage_label = stage.upper()
+    num_label = f"STAGE {stage_num}/{total}  " if stage_num and total else ""
+
+    # Top section: what this phase is and what it does
+    content = Table(show_header=False, box=None, padding=(0, 2), expand=True)
+    content.add_column("Icon", style=f"bold {color}", no_wrap=True, width=4)
+    content.add_column("Label", style="dim", no_wrap=True, width=12)
+    content.add_column("Value", style="white")
+
+    content.add_row(
+        "🎯", "PURPOSE",
+        f"[bold white]{info.get('purpose', info.get('description', 'Running stage'))}[/]"
+    )
+    content.add_row("", "", "")  # spacer
+    content.add_row(
+        "📦", "OUTPUTS",
+        f"[dim]{info.get('outputs', 'See staging/ for reports')}[/]"
+    )
+    content.add_row("", "", "")  # spacer
+    content.add_row("🤖", "Agent",  f"[{color}]{info.get('agent', 'Unknown')}[/]")
+    content.add_row("🔌", "MCP",    f"[dim]{info.get('mcp_server', 'unknown')}[/]")
+    content.add_row("📂", "Path",   f"[dim]{path}[/]")
+
+    console.print()
     console.print(Panel(
-        stage_table,
-        title=f"[bold {color}]▶ Running {stage.upper()}[/]",
+        content,
+        title=f"[bold {color}] {num_label}▶  {stage_label} [/]",
         border_style=color,
-        box=box.ROUNDED
+        box=box.HEAVY,
+        expand=False,
     ))
+    console.print()
 
 
 def print_stage_result(stage: str, result: Dict[str, Any]):
-    """Display results after a stage completes."""
+    """Display results after a stage completes — status + findings."""
     color = get_stage_color(stage)
     status = result.get("status", "unknown")
-    mode = result.get("deployment_mode", "local")
-    
-    # Status icon and color
+
+    # Status icon and style
     if status == "success":
-        status_icon = "✅"
-        status_style = "bold green"
+        status_icon, status_style, status_bar = "✅", "bold green", "[bold green]━━━ PASSED ━━━[/]"
     elif status == "warning":
-        status_icon = "⚠️"
-        status_style = "bold yellow"
+        status_icon, status_style, status_bar = "⚠️ ", "bold yellow", "[bold yellow]━━━ WARNING ━━━[/]"
     else:
-        status_icon = "❌"
-        status_style = "bold red"
-    
-    # Create results table
+        status_icon, status_style, status_bar = "❌", "bold red", "[bold red]━━━ FAILED ━━━[/]"
+
+    # Compact result summary
     table = Table(
         title=f"[bold {color}]{stage.upper()} Results[/]",
         box=box.ROUNDED,
         border_style=color,
-        show_header=True,
-        header_style=f"bold {color}"
+        show_header=False,
+        expand=False,
     )
-    
-    table.add_column("Field", style="dim", width=15)
-    table.add_column("Value", style="white")
-    
-    table.add_row("Status", Text(f"{status_icon} {status.upper()}", style=status_style))
-    table.add_row("Mission", result.get("mission", stage))
-    table.add_row("Server", result.get("server", "N/A"))
-    table.add_row("Mode", mode.upper())
+    table.add_column("Field", style="dim", width=10)
+    table.add_column("Value")
+
+    table.add_row("Status",  Text(f"{status_icon} {status.upper()}", style=status_style))
     table.add_row("Summary", result.get("summary", "No summary"))
-    
+    table.add_row("Mode",    result.get("deployment_mode", "local").upper())
+
     console.print(table)
-    
-    # Print findings if present
+
+    # Findings — labeled by stage context
     findings = result.get("findings", [])
     if findings:
-        print_findings_table(stage, findings, color)
-    
+        info = get_stage_info(stage)
+        label = f"{stage.upper()} Findings"
+        print_findings_table(label, findings, color)
+
     console.print()
 
 
-def print_findings_table(stage: str, findings: List[Any], color: str = "white"):
-    """Display findings in a formatted table."""
+def print_findings_table(stage_or_label: str, findings: List[Any], color: str = "white"):
+    """Display findings in a formatted table. stage_or_label can be a stage name or display label."""
     if not findings:
         return
-    
+
+    label = stage_or_label if " " in stage_or_label else f"{stage_or_label.upper()} Findings"
+
     table = Table(
-        title=f"[bold {color}]Findings ({len(findings)})[/]",
+        title=f"[bold {color}]{label} ({len(findings)})[/]",
         box=box.SIMPLE,
         border_style=color,
         show_header=True,
