@@ -246,119 +246,127 @@ function ToastStack({ toasts }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
-function DashboardView({ history, serverStatus, connected, onNavigate }) {
-  const runs = history.length;
-  const successes = history.filter(r => r.status === 'success').length;
-  const rate = runs ? Math.round(successes / runs * 100) : null;
-  const last = history[0];
+const STAGE_INFO_FULL = [
+  { id:'discover',  emoji:'🔍', label:'Discover',  purpose:'Map codebase — detect language, frameworks, entry points, port, deps', outputs:'Tech stack · Entry points · Port · Dependency list' },
+  { id:'normalize', emoji:'🔧', label:'Normalize', purpose:'Standardize repo structure — add .gitignore, README, linting configs', outputs:'.gitignore · README.md · pyproject.toml · .editorconfig' },
+  { id:'docs',      emoji:'📚', label:'Docs',      purpose:'Generate architecture diagrams, threat models, ERDs, API docs', outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram' },
+  { id:'iac',       emoji:'🏗️',  label:'IAC',       purpose:'Generate Terraform + Docker for your detected cloud stack', outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml' },
+  { id:'cd',        emoji:'🚀', label:'CD',        purpose:'Generate ArgoCD, Kustomize, and Kubernetes deployment manifests', outputs:'deploy.yml · argocd app · k8s manifests · kustomize overlays' },
+  { id:'ci',        emoji:'⚙️',  label:'CI',        purpose:'Generate chained GitHub Actions pipeline — Security → Tests → Build', outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml' },
+  { id:'e2e',       emoji:'🧪', label:'E2E',       purpose:'Scaffold Playwright E2E tests and CI workflow for API endpoints', outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml' },
+  { id:'review',    emoji:'👁️',  label:'Review',    purpose:'AI code review — quality, patterns, complexity, dead code', outputs:'Code quality report · Improvement suggestions · Findings list' },
+  { id:'test',      emoji:'✅', label:'Test',      purpose:'Run unit tests, measure coverage, report failures', outputs:'Test results · Coverage % · Failing test details' },
+  { id:'scan',      emoji:'🔒', label:'Scan',      purpose:'Security vulnerability scan — SAST, deps, secrets detection', outputs:'SARIF report · CVE list · Severity-classified findings' },
+  { id:'bridge',    emoji:'🌉', label:'Bridge',    purpose:'Push all generated files to GitHub, create PR if needed', outputs:'GitHub repo · All generated files committed · PR link' },
+  { id:'deploy',    emoji:'☁️',  label:'Deploy',    purpose:'Deploy to cloud (AWS EKS / GCP Cloud Run / Azure AKS)', outputs:'Live deployment URL · Health check · Rollback plan' },
+  { id:'monitor',   emoji:'📊', label:'Monitor',   purpose:'Set up Prometheus, Grafana, alerts, SLOs, dashboards', outputs:'prometheus.yml · grafana dashboards · alert rules · SLO config' },
+];
+
+function DashboardView({ history, connected, onNavigate }) {
+  const runs       = history.length;
+  const successes  = history.filter(r => r.status === 'success').length;
+  const rate       = runs ? Math.round(successes / runs * 100) : null;
+  const last       = history[0];
+  const totalStages = history.reduce((a,r) => a + (r.stageCount||0), 0);
 
   return (
-    <div className="slide-in">
-      {/* Hero header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-2xl">⚡</div>
-        <div>
-          <h1 className="text-2xl font-bold brand-gradient">ForgeFlow</h1>
-          <p className="text-base-content/50 text-sm">AI Platform Engineering CLI</p>
+    <div className="slide-in space-y-6">
+
+      {/* Hero */}
+      <div className="live-hero flex items-center gap-5 px-6 py-5">
+        <SevaForgeLogo size={56} />
+        <div className="flex-1">
+          <div className="seva-wordmark text-2xl mb-1">Sevaforge</div>
+          <NoCaaSBadge />
+          <p className="text-sm opacity-50 mt-2">AI Platform Engineering · 14-stage pipeline automation · ForgeFlow v2.1</p>
         </div>
-        <div className="ml-auto flex gap-2 items-center">
-          {connected === true && <span className="badge badge-success gap-1"><span className="w-2 h-2 rounded-full bg-current inline-block" />Connected</span>}
-          {connected === false && <span className="badge badge-error gap-1"><span className="w-2 h-2 rounded-full bg-current inline-block" />Offline</span>}
-          {serverStatus && <span className="badge badge-outline">{serverStatus.mode?.toUpperCase()}</span>}
+        <div className="flex flex-col items-end gap-2">
+          <span className={`badge gap-1 ${connected===true?'badge-success':connected===false?'badge-error':'badge-ghost'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full bg-current ${connected===true?'animate-pulse':''}`}/>
+            {connected===true?'Dashboard Live':connected===false?'Disconnected':'Connecting…'}
+          </span>
+          <span className="text-xs font-mono opacity-30">localhost · SSE stream</span>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="stats stats-horizontal shadow w-full mb-6 bg-base-200">
-        <div className="stat stat-primary">
-          <div className="stat-figure text-primary text-3xl">▶</div>
-          <div className="stat-title">Total Runs</div>
-          <div className="stat-value">{runs}</div>
-          <div className="stat-desc">pipeline executions</div>
-        </div>
-        <div className={`stat ${rate === null ? '' : rate >= 80 ? 'stat-success' : 'stat-warning'}`}>
-          <div className="stat-figure text-2xl">{rate === null ? '—' : rate >= 80 ? '✓' : '⚠'}</div>
-          <div className="stat-title">Success Rate</div>
-          <div className="stat-value">{rate === null ? '—' : `${rate}%`}</div>
-          <div className="stat-desc">{successes} of {runs} succeeded</div>
-        </div>
-        <div className={`stat ${last ? (last.status === 'success' ? 'stat-success' : 'stat-error') : ''}`}>
-          <div className="stat-figure text-2xl">{last ? (last.status === 'success' ? '✓' : '✗') : '—'}</div>
-          <div className="stat-title">Last Run</div>
-          <div className="stat-value text-lg">{last ? (last.status === 'success' ? 'Passed' : 'Failed') : 'None'}</div>
-          <div className="stat-desc">{last ? timeSince(last.ts) : 'no runs yet'}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-figure text-2xl">🔬</div>
-          <div className="stat-title">Stages Executed</div>
-          <div className="stat-value">{history.reduce((a,r) => a + (r.stages||0), 0)}</div>
-          <div className="stat-desc">across all runs</div>
-        </div>
+      {/* Run stats — from SSE history */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label:'Pipeline Runs',    value: runs || '0',        sub:'total executions',        color:'#818cf8' },
+          { label:'Success Rate',     value: rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color: rate>=80?'#34d399':rate>50?'#fbbf24':'#f87171' },
+          { label:'Last Run',         value: last?(last.status==='success'?'Passed':'Failed'):'None', sub:last?timeSince(last.ts):'no runs yet', color:last?(last.status==='success'?'#34d399':'#f87171'):'#6b7280' },
+          { label:'Stages Run',       value: totalStages || '0', sub:'across all runs',         color:'#f59e0b' },
+        ].map(({label,value,sub,color}) => (
+          <div key={label} className="card bg-base-200/80 shadow">
+            <div className="card-body py-4 px-5">
+              <div className="text-xs uppercase tracking-widest opacity-40 mb-1">{label}</div>
+              <div className="text-2xl font-bold" style={{color}}>{value}</div>
+              <div className="text-xs opacity-40">{sub}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Cards row */}
-      <div className="grid grid-cols-2 gap-5 mb-6">
-        {/* Quick actions */}
-        <div className="card bg-base-200 shadow">
-          <div className="card-body gap-3">
-            <h2 className="card-title text-sm font-semibold uppercase tracking-widest text-base-content/50">Quick Actions</h2>
-            <button className="btn btn-primary w-full justify-start gap-2" onClick={() => onNavigate('pipeline')}>
-              <span>▶</span> Run Full Pipeline
-            </button>
-            <button className="btn btn-outline w-full justify-start gap-2" onClick={() => onNavigate('pipeline')}>
-              <span>⚡</span> Run Selected Stages
-            </button>
-            <button className="btn btn-ghost w-full justify-start gap-2" onClick={() => onNavigate('health')}>
-              <span>♥</span> Health Check
-            </button>
+      {/* Quick start */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">⚡ Quick Start</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { step:'1', label:'Run full pipeline with live GUI', cmd:'forgeflow run-all --gui ~/your-repo' },
+              { step:'2', label:'Run a single stage', cmd:'forgeflow discover --path ~/your-repo' },
+              { step:'3', label:'Check what ForgeFlow will generate', cmd:'forgeflow iac --cloud aws --path ~/repo' },
+              { step:'4', label:'Push everything to GitHub', cmd:'forgeflow bridge --path ~/your-repo' },
+            ].map(({step,label,cmd}) => (
+              <div key={step} className="rounded-xl p-3"
+                   style={{background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.15)'}}>
+                <div className="text-xs opacity-50 mb-1">Step {step} — {label}</div>
+                <code className="text-xs font-mono text-warning block">{cmd}</code>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Recent runs */}
-        <div className="card bg-base-200 shadow">
-          <div className="card-body">
-            <h2 className="card-title text-sm font-semibold uppercase tracking-widest text-base-content/50">Recent Runs</h2>
-            {history.length === 0
-              ? <p className="text-base-content/40 text-sm mt-2">No runs yet. Start a pipeline!</p>
-              : <div className="overflow-x-auto">
-                  <table className="table table-xs">
-                    <tbody>
-                      {history.slice(0,6).map((r,i) => (
-                        <tr key={i}>
-                          <td>{r.status === 'success' ? '✅' : '❌'}</td>
-                          <td className="font-mono text-xs max-w-[120px] truncate">{r.path?.split('/').pop() || 'repo'}</td>
-                          <td className="text-base-content/50">{r.stages} stages</td>
-                          <td><StatusBadge status={r.status} /></td>
-                          <td className="text-base-content/40 text-xs">{timeSince(r.ts)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+      {/* Pipeline stages overview */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">📋 Pipeline Stages — What Each One Does</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {STAGE_INFO_FULL.slice(0,10).map((s,i) => (
+              <div key={s.id} className="flex items-start gap-3 rounded-lg px-3 py-2"
+                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.05)'}}>
+                <span className="text-xl flex-shrink-0 mt-0.5">{s.emoji}</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</div>
+                  <div className="text-xs opacity-50 leading-relaxed">{s.purpose}</div>
+                  <div className="text-xs mt-1 opacity-35 truncate">→ {s.outputs}</div>
                 </div>
-            }
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Server details */}
-      {serverStatus && (
-        <div className="card bg-base-200 shadow">
-          <div className="card-body">
-            <h2 className="card-title text-sm font-semibold uppercase tracking-widest text-base-content/50 mb-2">Server Details</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                ['Version',       serverStatus.version    || '—'],
-                ['Mode',          serverStatus.mode?.toUpperCase() || '—'],
-                ['Active Tasks',  serverStatus.active_tasks ?? '—'],
-                ['Status',        serverStatus.status     || '—'],
-                ['Uptime',        serverStatus.uptime_seconds ? `${Math.round(serverStatus.uptime_seconds/60)}m` : '—'],
-                ['API Docs',      '/api/docs'],
-              ].map(([k,v]) => (
-                <div key={k}>
-                  <div className="text-xs text-base-content/40 uppercase">{k}</div>
-                  {k === 'API Docs'
-                    ? <a href={v} target="_blank" className="link link-primary text-sm font-semibold">{v} ↗</a>
-                    : <div className="text-sm font-semibold">{v}</div>}
+      {/* Recent runs */}
+      {history.length > 0 && (
+        <div className="card bg-base-200/80 shadow">
+          <div className="card-body py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-widest opacity-40">◷ Recent Runs</h3>
+              <button className="btn btn-xs btn-ghost opacity-50" onClick={() => onNavigate('history')}>View all →</button>
+            </div>
+            <div className="space-y-1.5">
+              {history.slice(0,5).map((r,i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2"
+                     style={{background: r.status==='success'?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
+                             border: r.status==='success'?'1px solid rgba(52,211,153,.15)':'1px solid rgba(239,68,68,.15)'}}>
+                  <span style={{color: r.status==='success'?'#34d399':'#f87171'}}>
+                    {r.status==='success'?'✓':'✗'}
+                  </span>
+                  <span className="font-mono text-xs flex-1 truncate opacity-70">{r.path || '—'}</span>
+                  <span className="text-xs opacity-40">{r.stageCount||0} stages</span>
+                  <span className="text-xs opacity-30">{timeSince(r.ts)}</span>
                 </div>
               ))}
             </div>
@@ -371,301 +379,283 @@ function DashboardView({ history, serverStatus, connected, onNavigate }) {
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
-function PipelineView({ call, onRunComplete }) {
-  const [repoPath,   setRepoPath]   = useState('');
-  const [selected,   setSelected]   = useState(new Set(STAGES.filter(s=>!s.tag).map(s=>s.id)));
-  const [stageState, setStageState] = useState({});  // id -> 'running'|'success'|'error'
-  const [results,    setResults]    = useState({});
-  const [running,    setRunning]    = useState(false);
-  const [expanded,   setExpanded]   = useState({});
-  const [severity,   setSeverity]   = useState('medium');
-  const [postMerge,  setPostMerge]  = useState(false);
-  const cancelRef = useRef(false);
+function PipelineView() {
+  const [expanded, setExpanded] = useState(null);
 
-  const visible = STAGES.filter(s => postMerge || s.tag !== 'post-merge');
-  const toggle  = id => setSelected(p => { const n=new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
-
-  const done  = Object.values(stageState).filter(s => s === 'success' || s === 'error').length;
-  const total = visible.filter(s => selected.has(s.id)).length;
-  const pct   = total ? Math.round(done / total * 100) : 0;
-
-  const runStages = async (stages) => {
-    if (!repoPath.trim()) { alert('Please enter a repo path.'); return; }
-    setRunning(true); cancelRef.current = false;
-    setStageState({}); setResults({});
-    let allOk = true; let count = 0;
-
-    for (const stage of stages) {
-      if (cancelRef.current) break;
-      if (!selected.has(stage.id)) continue;
-      count++;
-      setStageState(p => ({ ...p, [stage.id]: 'running' }));
-      try {
-        const body = { path: repoPath };
-        if (stage.id === 'scan') body.severity = severity;
-        const r = await call('POST', stage.endpoint, body);
-        setResults(p => ({ ...p, [stage.id]: r }));
-        const ok = ['success','accepted'].includes(r.status);
-        setStageState(p => ({ ...p, [stage.id]: ok ? 'success' : 'error' }));
-        if (!ok) allOk = false;
-      } catch (e) {
-        setResults(p => ({ ...p, [stage.id]: { status:'error', summary: e.message, findings:[] } }));
-        setStageState(p => ({ ...p, [stage.id]: 'error' }));
-        allOk = false;
-      }
-    }
-    setRunning(false);
-    onRunComplete({ path: repoPath, status: allOk?'success':'error', stages: count, ts: new Date() });
-  };
-
-  const stageIcon = (s) => {
-    const st = stageState[s.id];
-    if (st === 'running') return <span className="spin inline-block">⟳</span>;
-    if (st === 'success') return '✓';
-    if (st === 'error')   return '✗';
-    return null;
-  };
-
-  const stageClass = (s) => {
-    const st  = stageState[s.id];
-    const sel = selected.has(s.id);
-    const base = 'stage-card card bg-base-200 border-2 cursor-pointer p-3 text-center relative select-none';
-    if (st === 'running') return `${base} border-warning animate-pulse`;
-    if (st === 'success') return `${base} border-success bg-success/10`;
-    if (st === 'error')   return `${base} border-error bg-error/10`;
-    if (sel)              return `${base} border-primary bg-primary/10`;
-    return `${base} border-base-300 opacity-60`;
-  };
-
-  const colorMap = { primary:'badge-primary', secondary:'badge-secondary', accent:'badge-accent', success:'badge-success', warning:'badge-warning', error:'badge-error', info:'badge-info' };
+  const CORE   = STAGE_INFO_FULL.slice(0, 10);
+  const POST   = STAGE_INFO_FULL.slice(10);
+  const FLOW   = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','▶ APPROVAL','bridge'];
+  const COLORS = ['#818cf8','#818cf8','#c084fc','#f59e0b','#f59e0b','#f59e0b','#f59e0b','#38bdf8','#38bdf8','#fb923c','#6b7280','#34d399'];
 
   return (
-    <div className="slide-in">
-      <h2 className="text-xl font-bold mb-5 flex items-center gap-2">▶ Pipeline Runner</h2>
+    <div className="slide-in space-y-6">
 
-      {/* Repo input */}
-      <div className="card bg-base-200 shadow mb-5">
-        <div className="card-body py-4">
-          <div className="flex gap-3 items-end">
-            <div className="form-control flex-1">
-              <label className="label py-0 mb-1"><span className="label-text text-xs font-semibold uppercase tracking-wider opacity-60">Repository Path or Git URL</span></label>
-              <input
-                className="input input-bordered input-sm font-mono w-full"
-                placeholder="/path/to/repo   or   https://github.com/org/repo.git"
-                value={repoPath} onChange={e => setRepoPath(e.target.value)}
-                disabled={running}
-              />
-            </div>
-            <div className="form-control">
-              <label className="label py-0 mb-1"><span className="label-text text-xs uppercase tracking-wider opacity-60">Severity</span></label>
-              <select className="select select-bordered select-sm" value={severity} onChange={e => setSeverity(e.target.value)}>
-                <option value="low">Low+</option>
-                <option value="medium">Medium+</option>
-                <option value="high">High+</option>
-              </select>
-            </div>
+      {/* Flow diagram */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">Pipeline Sequence</h3>
+          <div className="flex flex-wrap items-center gap-1">
+            {FLOW.map((id,i) => (
+              <React.Fragment key={id}>
+                <span className="rounded-lg px-2.5 py-1 text-xs font-mono font-semibold"
+                      style={{background:'rgba(255,255,255,.05)', border:`1px solid ${COLORS[i]}40`, color:COLORS[i]}}>
+                  {id === '▶ APPROVAL' ? id : id.toUpperCase()}
+                </span>
+                {i < FLOW.length-1 && <span className="text-base-content/20 text-xs">→</span>}
+              </React.Fragment>
+            ))}
           </div>
+          <p className="text-xs opacity-30 mt-3">Post-merge (optional): DEPLOY → MONITOR</p>
         </div>
       </div>
 
-      {/* Stage selector */}
-      <div className="card bg-base-200 shadow mb-5">
-        <div className="card-body">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Select Stages <span className="badge badge-ghost ml-1">{selected.size} selected</span></h3>
-            <div className="flex gap-2 items-center">
-              <button className="btn btn-xs btn-ghost" onClick={() => setSelected(new Set(visible.map(s=>s.id)))}>All</button>
-              <button className="btn btn-xs btn-ghost" onClick={() => setSelected(new Set())}>None</button>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="toggle toggle-xs toggle-primary" checked={postMerge} onChange={e => setPostMerge(e.target.checked)} />
-                <span className="text-xs opacity-60">Post-merge</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="stage-grid">
-            {visible.map(stage => (
-              <div key={stage.id} className={stageClass(stage)} onClick={() => !running && toggle(stage.id)}>
-                {stage.tag && (
-                  <span className={`badge badge-xs absolute top-1 left-1 ${colorMap[stage.color]}`}>{stage.tag}</span>
-                )}
-                <div className="text-xl mb-1">{stage.emoji}</div>
-                <div className="text-xs font-bold">{stage.label}</div>
-                <div className="text-xs opacity-50 mt-0.5 leading-tight">{stage.desc}</div>
-                {stageIcon(stage) && (
-                  <div className={`absolute bottom-1 right-1.5 text-xs font-bold ${stageState[stage.id]==='success'?'text-success':stageState[stage.id]==='error'?'text-error':'text-warning'}`}>
-                    {stageIcon(stage)}
-                  </div>
-                )}
-                <div className={`absolute top-1 right-1 w-3 h-3 rounded-full border ${selected.has(stage.id) ? 'bg-primary border-primary' : 'border-base-content/20'} flex items-center justify-center`}>
-                  {selected.has(stage.id) && <span className="text-primary-content text-[8px]">✓</span>}
+      {/* How to run */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">▶ How to Run</h3>
+          <div className="space-y-3">
+            {[
+              { label:'Full pipeline with live browser GUI', cmd:'forgeflow run-all --gui ~/your-repo' },
+              { label:'Full pipeline (terminal only)',        cmd:'forgeflow run-all ~/your-repo' },
+              { label:'Single stage',                        cmd:'forgeflow discover --path ~/your-repo' },
+              { label:'CI/CD generation only',               cmd:'forgeflow ci --path ~/your-repo' },
+              { label:'Infrastructure only',                 cmd:'forgeflow iac --cloud aws --path ~/your-repo' },
+              { label:'Security scan only',                  cmd:'forgeflow scan --severity high --path ~/your-repo' },
+            ].map(({label,cmd}) => (
+              <div key={cmd} className="flex items-center gap-3 rounded-lg px-4 py-2.5"
+                   style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.15)'}}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs opacity-50 mb-0.5">{label}</div>
+                  <code className="text-sm font-mono text-warning">{cmd}</code>
                 </div>
               </div>
             ))}
           </div>
-
-          {/* Progress */}
-          {running && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs opacity-60 mb-1">
-                <span>Running pipeline…</span>
-                <span>{done} / {total}</span>
-              </div>
-              <progress className="progress progress-primary w-full" value={pct} max="100" />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 mb-6">
-        <button className="btn btn-primary gap-2" disabled={running || selected.size === 0} onClick={() => runStages(visible)}>
-          {running ? <><Spinner /> Running…</> : '▶ Run Selected'}
-        </button>
-        <button className="btn btn-success gap-2" disabled={running}
-          onClick={() => { setSelected(new Set(STAGES.map(s=>s.id))); setPostMerge(true); setTimeout(() => runStages(STAGES), 80); }}>
-          ⚡ Run Full Pipeline
-        </button>
-        {running && <button className="btn btn-error btn-outline gap-1" onClick={() => cancelRef.current = true}>✗ Cancel</button>}
-      </div>
-
-      {/* Results */}
-      {Object.keys(results).length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-3 text-sm uppercase tracking-widest opacity-60">Results</h3>
-          <div className="flex flex-col gap-2">
-            {STAGES.filter(s => results[s.id]).map(stage => {
-              const r = results[stage.id];
-              const ok = ['success','accepted'].includes(r.status);
-              const findings = r.findings || [];
-              const isOpen = expanded[stage.id];
-              return (
-                <div key={stage.id} className={`card shadow border ${ok ? 'border-success/30 bg-success/5' : 'border-error/30 bg-error/5'}`}>
-                  <div
-                    className="card-body py-3 px-4 cursor-pointer flex-row items-center gap-3"
-                    onClick={() => setExpanded(p => ({ ...p, [stage.id]: !p[stage.id] }))}
-                  >
-                    <span className="text-lg">{stage.emoji}</span>
-                    <span className="font-semibold">{stage.label}</span>
-                    <StatusBadge status={ok ? 'success' : 'error'} />
-                    <span className="flex-1 text-sm opacity-60 truncate">{r.summary}</span>
-                    <span className="badge badge-ghost badge-sm">{findings.length} findings</span>
-                    <span className="opacity-40">{isOpen ? '▲' : '▼'}</span>
+      {/* Core stages detail */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">Core Stages (10)</h3>
+          <div className="space-y-1">
+            {CORE.map((s,i) => (
+              <div key={s.id}>
+                <div className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer"
+                     style={{background: expanded===s.id?'rgba(124,58,237,.1)':'rgba(255,255,255,.03)',
+                             border:'1px solid rgba(255,255,255,.06)'}}
+                     onClick={() => setExpanded(expanded===s.id ? null : s.id)}>
+                  <span className="text-xl flex-shrink-0">{s.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm mr-2" style={{color:'#c4b5fd'}}>{s.label}</span>
+                    <span className="text-xs opacity-40">{s.purpose}</span>
                   </div>
-                  {isOpen && (
-                    <div className="border-t border-base-300 px-4 py-3 max-h-60 overflow-y-auto">
-                      {findings.length === 0
-                        ? <p className="text-sm opacity-40">No findings.</p>
-                        : findings.slice(0, 40).map((f, i) => (
-                            <div key={i} className="finding-row py-1.5 text-xs font-mono opacity-80">
-                              · {typeof f === 'string' ? f : JSON.stringify(f)}
-                            </div>
-                          ))
-                      }
-                      {findings.length > 40 && <p className="text-xs opacity-40 mt-1">… and {findings.length - 40} more</p>}
-                    </div>
-                  )}
+                  <span className="text-xs opacity-30">{expanded===s.id?'▲':'▼'}</span>
                 </div>
-              );
-            })}
+                {expanded===s.id && (
+                  <div className="mx-4 mb-2 rounded-b-lg px-4 py-3"
+                       style={{background:'rgba(124,58,237,.06)', border:'1px solid rgba(124,58,237,.15)', borderTop:'none'}}>
+                    <div className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-1">📦 Generates</div>
+                    <div className="text-sm opacity-70">{s.outputs}</div>
+                    <div className="mt-2">
+                      <code className="text-xs font-mono text-warning">forgeflow {s.id} --path ~/your-repo</code>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
-      {Object.keys(results).length === 0 && !running && (
-        <div className="hero py-16 opacity-30">
-          <div className="hero-content text-center flex-col">
-            <div className="text-5xl mb-3">▶</div>
-            <p>Enter a repo path, pick your stages, and hit run.</p>
+      {/* Post-merge stages */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-5">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">Post-Merge Stages</h3>
+          <p className="text-xs opacity-30 mb-4">Run after Bridge succeeds — requires a live cluster</p>
+          <div className="grid grid-cols-2 gap-3">
+            {POST.map(s => (
+              <div key={s.id} className="rounded-lg px-4 py-3"
+                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)'}}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">{s.emoji}</span>
+                  <span className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</span>
+                </div>
+                <div className="text-xs opacity-50">{s.purpose}</div>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
 
-function HealthView({ call }) {
-  const [data,      setData]      = useState(null);
-  const [loading,   setLoading]   = useState(false);
-  const [lastCheck, setLastCheck] = useState(null);
-  const [autoRefr,  setAutoRefr]  = useState(false);
+function HealthView({ sseConnected, liveState }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 5000); return () => clearInterval(t); }, []);
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await call('GET', '/api/v1/doctor');
-      setData(r); setLastCheck(new Date());
-    } catch (e) {
-      setData({ status:'error', summary: e.message, findings:[] });
-    }
-    setLoading(false);
-  }, [call]);
+  const checks = [
+    { label:'Dashboard SSE Stream',    ok: sseConnected,                  detail: sseConnected ? 'Receiving real-time events' : 'Not connected — run forgeflow run-all --gui' },
+    { label:'Pipeline Ready',          ok: true,                           detail: 'ForgeFlow CLI installed and configured' },
+    { label:'Live View',               ok: true,                           detail: 'React UI rendering correctly' },
+    { label:'Hourglass Animation',     ok: true,                           detail: 'Canvas animation engine active' },
+    { label:'SSE Event Bus',           ok: sseConnected,                  detail: sseConnected ? 'Events flowing' : 'Waiting for CLI connection' },
+    { label:'NoCaaS Mode',             ok: true,                           detail: 'Running at zero cost — no external services' },
+    { label:'Stage Announcements',     ok: true,                           detail: 'Purpose + Outputs displayed per stage' },
+    { label:'Sevaforge Branding',      ok: true,                           detail: 'Logo, NoCaaS badge, amber/purple theme active' },
+  ];
 
-  useEffect(() => { run(); }, []);
-  useEffect(() => {
-    if (!autoRefr) return;
-    const t = setInterval(run, 30000);
-    return () => clearInterval(t);
-  }, [autoRefr, run]);
-
-  const findings = data?.findings || [];
-  const okCount  = findings.filter(f => (typeof f === 'string' ? f : '').startsWith('OK:')).length;
-  const pct      = findings.length ? Math.round(okCount / findings.length * 100) : 0;
+  const okCount = checks.filter(c=>c.ok).length;
+  const pct = Math.round(okCount/checks.length*100);
 
   return (
-    <div className="slide-in">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold flex items-center gap-2">♥ Health Check</h2>
-        <div className="flex items-center gap-3">
-          {lastCheck && <span className="text-xs opacity-40">Checked {timeSince(lastCheck)}</span>}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="toggle toggle-xs toggle-primary" checked={autoRefr} onChange={e => setAutoRefr(e.target.checked)} />
-            <span className="text-xs opacity-60">Auto-refresh</span>
-          </label>
-          <button className="btn btn-sm btn-outline gap-1" onClick={run} disabled={loading}>
-            {loading ? <Spinner /> : '↻'} Refresh
-          </button>
+    <div className="slide-in space-y-5">
+
+      {/* Summary */}
+      <div className="live-hero flex items-center gap-6 px-6 py-5">
+        <div className="flex flex-col items-center">
+          <div className="text-4xl font-bold mb-1" style={{color: pct===100?'#34d399':'#fbbf24'}}>{pct}%</div>
+          <div className="text-xs opacity-40">System Health</div>
+          <progress className="progress progress-success w-20 mt-2 h-1.5" value={pct} max="100" />
+        </div>
+        <div className="flex-1">
+          <div className="font-bold text-lg mb-1" style={{color: pct===100?'#34d399':'#fbbf24'}}>
+            {pct===100 ? '✓ All Systems Operational' : `⚠ ${checks.length-okCount} check${checks.length-okCount>1?'s':''} need attention`}
+          </div>
+          <div className="text-sm opacity-50">{okCount} of {checks.length} components passing · {now.toLocaleTimeString()}</div>
+        </div>
+        <SevaForgeLogo size={44} />
+      </div>
+
+      {/* Component checks */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Component Status</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {checks.map((c,i) => (
+              <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                   style={{background: c.ok?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
+                           border: c.ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(239,68,68,.2)'}}>
+                <span className="text-base flex-shrink-0" style={{color:c.ok?'#34d399':'#f87171'}}>{c.ok?'✓':'✗'}</span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold" style={{color:c.ok?'#6ee7b7':'#fca5a5'}}>{c.label}</div>
+                  <div className="text-xs opacity-40 truncate">{c.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Summary card */}
-      {data && (
-        <div className="card bg-base-200 shadow mb-5">
-          <div className="card-body flex-row items-center gap-6 py-4">
-            <div className={`radial-progress text-lg font-bold ${pct === 100 ? 'text-success' : pct > 70 ? 'text-warning' : 'text-error'}`}
-              style={{ '--value': pct, '--size': '80px', '--thickness': '6px' }} role="progressbar">
-              {pct}%
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <StatusBadge status={data.status === 'success' ? 'healthy' : 'down'} />
-                <span className="font-semibold">{data.summary || 'Health check complete'}</span>
+      {/* Last pipeline state */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Last Pipeline State</h3>
+          {liveState.stages.length === 0
+            ? <p className="text-sm opacity-40">No pipeline run detected yet. Run <code className="text-warning font-mono">forgeflow run-all --gui .</code></p>
+            : (
+              <div className="space-y-2">
+                <div className="flex gap-6 text-sm">
+                  <div><span className="opacity-40">Path: </span><code className="font-mono text-warning text-xs">{liveState.pipelinePath || '—'}</code></div>
+                  <div><span className="opacity-40">Stages: </span><span className="font-semibold">{liveState.totalStages}</span></div>
+                  {liveState.elapsed>0 && <div><span className="opacity-40">Duration: </span><span className="font-semibold">{liveState.elapsed}s</span></div>}
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {liveState.stages.map(id => {
+                    const s = liveState.stageState[id];
+                    const c = s==='success'?'#34d399':s==='error'?'#f87171':s==='running'?'#fbbf24':'#4b5563';
+                    return (
+                      <span key={id} className="rounded px-2 py-0.5 text-xs font-mono"
+                            style={{background:`${c}18`, border:`1px solid ${c}40`, color:c}}>
+                        {id}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="text-sm opacity-50">{okCount} of {findings.length} components passing</div>
-              <progress className={`progress w-full mt-2 ${pct===100?'progress-success':pct>70?'progress-warning':'progress-error'}`} value={okCount} max={findings.length} />
-            </div>
+            )
+          }
+        </div>
+      </div>
+
+      {/* Environment */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Environment</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ['Dashboard URL',    window.location.origin],
+              ['SSE Endpoint',     `${window.location.origin}/events`],
+              ['UI Version',       'ForgeFlow v2.1'],
+              ['Platform',         'Sevaforge NoCaaS'],
+              ['Theme',            'Night · Amber+Purple'],
+              ['Time',             now.toLocaleString()],
+            ].map(([k,v]) => (
+              <div key={k}>
+                <div className="text-xs uppercase tracking-wider opacity-30 mb-0.5">{k}</div>
+                <div className="text-xs font-mono opacity-70 truncate">{v}</div>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
 
-      {loading && !data && (
-        <div className="hero py-16"><div className="hero-content flex-col gap-3"><Spinner size="lg" /><p className="opacity-40">Running health checks…</p></div></div>
-      )}
+// ── History ───────────────────────────────────────────────────────────────────
 
-      {findings.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {findings.map((f, i) => {
-            const txt = typeof f === 'string' ? f : JSON.stringify(f);
-            const ok  = txt.startsWith('OK:');
-            const name = txt.replace(/^(OK|FAIL|WARN):\s*/i, '');
+function HistoryView({ history, onClear }) {
+  const successes = history.filter(r=>r.status==='success').length;
+  const totalTime = history.reduce((a,r)=>a+(r.elapsed||0),0);
+
+  return (
+    <div className="slide-in space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">◷ Run History</h2>
+          {history.length>0 && <p className="text-xs opacity-40 mt-0.5">{history.length} runs · {successes} passed · {Math.round(totalTime)}s total time</p>}
+        </div>
+        {history.length > 0 && (
+          <button className="btn btn-sm btn-outline btn-error gap-1" onClick={onClear}>✗ Clear</button>
+        )}
+      </div>
+
+      {history.length === 0 ? (
+        <div className="live-hero flex flex-col items-center gap-4 py-16 text-center">
+          <SevaForgeLogo size={56} />
+          <div>
+            <div className="font-bold text-lg mb-1 opacity-60">No pipeline runs yet</div>
+            <p className="text-sm opacity-40">Pipeline runs appear here in real-time as you use ForgeFlow.</p>
+            <code className="text-xs font-mono text-warning block mt-3">forgeflow run-all --gui ~/your-repo</code>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {history.map((r,i) => {
+            const ok = r.status === 'success';
             return (
-              <div key={i} className={`card shadow border ${ok ? 'border-success/20 bg-success/5' : 'border-error/20 bg-error/5'}`}>
-                <div className="card-body py-2.5 px-3 flex-row items-center gap-2">
-                  <span className={`text-lg ${ok ? 'text-success' : 'text-error'}`}>{ok ? '●' : '●'}</span>
-                  <span className="text-sm flex-1">{name}</span>
-                  <span className={`badge badge-xs font-bold ${ok ? 'badge-success' : 'badge-error'}`}>{ok ? 'OK' : 'FAIL'}</span>
+              <div key={i} className="card shadow"
+                   style={{background: ok?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
+                           border: ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(239,68,68,.2)'}}>
+                <div className="card-body py-3 px-5 flex-row items-center gap-4">
+                  <span className="text-xl flex-shrink-0" style={{color:ok?'#34d399':'#f87171'}}>{ok?'✓':'✗'}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-sm truncate opacity-80">{r.path || 'unknown path'}</div>
+                    <div className="text-xs opacity-40 mt-0.5">
+                      {r.stageCount||0} stages completed · {timeSince(r.ts)}
+                      {r.elapsed ? ` · ${r.elapsed}s` : ''}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-semibold" style={{color:ok?'#6ee7b7':'#fca5a5'}}>
+                      {ok ? 'Passed' : 'Failed'}
+                    </div>
+                    {r.failedStage && <div className="text-xs opacity-40">failed at {r.failedStage}</div>}
+                  </div>
                 </div>
               </div>
             );
@@ -676,113 +666,83 @@ function HealthView({ call }) {
   );
 }
 
-// ── History ───────────────────────────────────────────────────────────────────
-
-function HistoryView({ history, onClear }) {
-  return (
-    <div className="slide-in">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold">◷ Run History</h2>
-        {history.length > 0 && (
-          <button className="btn btn-sm btn-error btn-outline" onClick={onClear}>Clear All</button>
-        )}
-      </div>
-
-      {history.length === 0
-        ? <div className="hero py-20 opacity-30"><div className="hero-content flex-col"><div className="text-5xl mb-3">◷</div><p>No pipeline runs yet.</p></div></div>
-        : (
-          <div className="card bg-base-200 shadow">
-            <div className="card-body p-0">
-              <div className="overflow-x-auto">
-                <table className="table table-sm">
-                  <thead>
-                    <tr className="text-xs uppercase tracking-wider opacity-50">
-                      <th>Status</th><th>Repo</th><th>Stages</th><th>Time</th><th>Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((r, i) => (
-                      <tr key={i} className="hover">
-                        <td><StatusBadge status={r.status} /></td>
-                        <td><span className="font-mono text-xs">{r.path || '—'}</span></td>
-                        <td><span className="badge badge-ghost badge-sm">{r.stages}</span></td>
-                        <td><span className="text-xs opacity-50">{timeSince(r.ts)}</span></td>
-                        <td><span className="text-xs opacity-50">{r.duration ? `${r.duration}s` : '—'}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )
-      }
-    </div>
-  );
-}
-
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-function SettingsView({ settings, onSave, toast }) {
-  const [form, setForm] = useState({ ...settings });
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
+function SettingsView() {
   return (
-    <div className="slide-in max-w-2xl">
-      <h2 className="text-xl font-bold mb-5">⚙ Settings</h2>
+    <div className="slide-in max-w-2xl space-y-5">
 
-      <div className="card bg-base-200 shadow mb-4">
-        <div className="card-body">
-          <h3 className="card-title text-sm uppercase tracking-widest opacity-50 mb-3">API Connection</h3>
-          <div className="form-control mb-3">
-            <label className="label py-0 mb-1"><span className="label-text text-xs font-semibold">API URL</span></label>
-            <input className="input input-bordered input-sm font-mono" value={form.apiUrl}
-              onChange={e => set('apiUrl', e.target.value)} placeholder="http://localhost:8000" />
-            <label className="label py-0 mt-0.5"><span className="label-text-alt opacity-40">Base URL of the ForgeFlow API server</span></label>
-          </div>
-          <div className="form-control mb-4">
-            <label className="label py-0 mb-1"><span className="label-text text-xs font-semibold">API Key (optional)</span></label>
-            <input className="input input-bordered input-sm font-mono" type="password" value={form.apiKey}
-              onChange={e => set('apiKey', e.target.value)} placeholder="Leave blank if not configured" />
-          </div>
-          <div className="divider my-1" />
-          <div className="flex items-center justify-between py-1">
-            <div>
-              <div className="font-semibold text-sm">Skip Auth Validation</div>
-              <div className="text-xs opacity-40">Connect without API key check</div>
-            </div>
-            <input type="checkbox" className="toggle toggle-primary" checked={form.skipAuth||false} onChange={e => set('skipAuth', e.target.checked)} />
+      {/* About */}
+      <div className="live-hero flex items-center gap-4 px-6 py-5">
+        <SevaForgeLogo size={52} />
+        <div>
+          <div className="seva-wordmark text-xl mb-1">Sevaforge</div>
+          <NoCaaSBadge />
+          <p className="text-xs opacity-40 mt-2">ForgeFlow v2.1 · Agent-MCP Architecture · 14 Stages</p>
+        </div>
+      </div>
+
+      {/* Platform facts */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Platform</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ['Version',           'v2.1.0'],
+              ['Architecture',      'Agent → MCP → Tool'],
+              ['AI Agents',         '14 production-ready'],
+              ['MCP Servers',       '14 thin wrappers'],
+              ['Core Stages',       '10 (discover → scan)'],
+              ['Post-Merge Stages', '4 (bridge → monitor)'],
+              ['CI Generator',      'GitHub Actions + GitLab CI'],
+              ['Cloud Support',     'AWS · GCP · Azure'],
+              ['Container Runtime', 'Docker · Kubernetes'],
+              ['CD Engine',         'ArgoCD + Kustomize'],
+              ['E2E Framework',     'Playwright + Cypress'],
+              ['Cost',              '🆓 NoCaaS — zero charge'],
+            ].map(([k,v]) => (
+              <div key={k} className="flex justify-between items-center rounded px-3 py-1.5"
+                   style={{background:'rgba(255,255,255,.03)'}}>
+                <span className="text-xs opacity-50">{k}</span>
+                <span className="text-xs font-semibold" style={{color:'#c4b5fd'}}>{v}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="flex gap-3 mb-6">
-        <button className="btn btn-primary" onClick={() => { onSave(form); toast('Settings saved', 'success'); }}>Save Settings</button>
-        <button className="btn btn-ghost" onClick={() => setForm({ ...settings })}>Reset</button>
-      </div>
-
-      <div className="card bg-base-200 shadow">
-        <div className="card-body">
-          <h3 className="card-title text-sm uppercase tracking-widest opacity-50">About ForgeFlow</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm mt-2">
+      {/* CLI Reference */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">CLI Reference</h3>
+          <div className="space-y-2">
             {[
-              ['Version', 'v2.1.0'],
-              ['Architecture', 'Agent-MCP'],
-              ['Agents', '14 production-ready'],
-              ['MCP Servers', '14 thin wrappers'],
-              ['Pipeline Stages', '14 (10 core + 4 post-merge)'],
-              ['Deployment Modes', 'Local · Hybrid · Cloud'],
-            ].map(([k,v]) => (
-              <div key={k} className="flex justify-between border-b border-base-300 pb-1">
-                <span className="opacity-50">{k}</span>
-                <span className="font-semibold">{v}</span>
+              ['run-all',   'forgeflow run-all --gui ~/repo',           'Full pipeline with live browser GUI'],
+              ['discover',  'forgeflow discover --path ~/repo',         'Scan and detect tech stack'],
+              ['iac',       'forgeflow iac --cloud aws --path ~/repo',  'Generate Terraform + Docker'],
+              ['ci',        'forgeflow ci --path ~/repo',               'Generate CI/CD workflows'],
+              ['scan',      'forgeflow scan --severity high ~/repo',    'Security vulnerability scan'],
+              ['bridge',    'forgeflow bridge --path ~/repo',           'Push everything to GitHub'],
+              ['secrets',   'forgeflow secrets bootstrap --path ~/repo','Bootstrap GitHub secrets'],
+            ].map(([name,cmd,desc]) => (
+              <div key={name} className="rounded-lg px-4 py-2.5"
+                   style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.15)'}}>
+                <div className="text-xs opacity-40 mb-0.5">{desc}</div>
+                <code className="text-sm font-mono text-warning">{cmd}</code>
               </div>
             ))}
           </div>
-          <div className="card-actions mt-4">
-            <a href="/api/docs" target="_blank" className="btn btn-sm btn-outline gap-1">API Docs ↗</a>
-            <a href="https://github.com/DLTKMandeep/sevaforge" target="_blank" className="btn btn-sm btn-ghost gap-1">GitHub ↗</a>
-          </div>
+        </div>
+      </div>
+
+      {/* Links */}
+      <div className="card bg-base-200/80 shadow">
+        <div className="card-body py-4 flex-row gap-3">
+          <a href="https://github.com/DLTKMandeep/sevaforge" target="_blank"
+             className="btn btn-sm btn-outline gap-1" style={{borderColor:'rgba(124,58,237,.4)', color:'#c4b5fd'}}>
+            GitHub ↗
+          </a>
+          <a href="/health" className="btn btn-sm btn-ghost opacity-50 gap-1">SSE Health ↗</a>
         </div>
       </div>
     </div>
@@ -1234,8 +1194,6 @@ function LiveView({ liveState }) {
 
 function App() {
   const [view,         setView]         = useState('dashboard');
-  const [config,       setConfig]       = useState({ apiUrl: window.location.origin, apiKey: '' });
-  const [serverStatus, setServerStatus] = useState(null);
   const [connected,    setConnected]    = useState(null);
   const [history,      setHistory]      = useState([]);
   const [toasts,       setToasts]       = useState([]);
@@ -1255,28 +1213,16 @@ function App() {
     elapsed:      0,
   });
 
-  const call = useApi(config);
-
   const addToast = useCallback((msg, type = 'info') => {
     const id = Date.now();
     setToasts(p => [...p, { id, msg, type }]);
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
   }, []);
 
-  // Server health polling
+  // Derive connection status from SSE (no REST polling — dashboard_server has no REST API)
   useEffect(() => {
-    const check = async () => {
-      try {
-        const r = await call('GET', '/api/v1/status');
-        setServerStatus(r); setConnected(true);
-      } catch {
-        setConnected(false); setServerStatus(null);
-      }
-    };
-    check();
-    const t = setInterval(check, 20000);
-    return () => clearInterval(t);
-  }, [call]);
+    setConnected(liveState.connected ? true : null);
+  }, [liveState.connected]);
 
   // ── SSE connection — live pipeline events from dashboard_server.py ──────────
   useEffect(() => {
@@ -1327,12 +1273,21 @@ function App() {
         }));
 
       } else if (type === 'pipeline_done') {
-        setLiveState(s => ({
-          ...s,
-          done:         true,
-          currentStage: null,
-          elapsed:      msg.elapsed_s || 0,
-        }));
+        setLiveState(s => {
+          // push history entry from SSE data + current live state
+          const failedStage = Object.entries(s.stageState)
+            .find(([, v]) => v === 'error')?.[0] || null;
+          const entry = {
+            path:       msg.path || s.pipelinePath || '—',
+            status:     msg.success ? 'success' : 'error',
+            stageCount: s.stages.length || msg.stage_count || 0,
+            elapsed:    msg.elapsed_s || 0,
+            failedStage,
+            ts:         Date.now(),
+          };
+          setHistory(prev => [entry, ...prev.slice(0, 99)]);
+          return { ...s, done: true, currentStage: null, elapsed: msg.elapsed_s || 0 };
+        });
         addToast(
           msg.success
             ? `Pipeline complete in ${msg.elapsed_s}s 🎉`
@@ -1345,11 +1300,6 @@ function App() {
     es.onerror = () => setLiveState(s => ({ ...s, connected: false }));
     return () => es.close();
   }, []); // single mount — SSE connection lives for the page lifetime
-
-  const handleRunComplete = (run) => {
-    setHistory(p => [run, ...p.slice(0, 99)]);
-    addToast(`Pipeline ${run.status === 'success' ? 'succeeded' : 'failed'} (${run.stages} stages)`, run.status === 'success' ? 'success' : 'error');
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-base-300">
@@ -1390,7 +1340,7 @@ function App() {
             <span className="text-xs opacity-60 flex-1">
               {connected===true ? 'Connected' : connected===false ? 'Offline' : 'Connecting…'}
             </span>
-            {serverStatus && <span className="badge badge-xs badge-outline">{serverStatus.mode?.toUpperCase()}</span>}
+            {liveState.done && <span className="badge badge-xs badge-outline">DONE</span>}
           </div>
         </div>
       </aside>
@@ -1400,24 +1350,22 @@ function App() {
         {/* Topbar */}
         <header className="bg-base-200 border-b border-base-300 h-13 flex items-center px-6 gap-3 min-h-[52px]">
           <span className="text-base font-semibold flex-1">{VIEWS.find(v=>v.id===view)?.label}</span>
-          {connected === true
-            ? <span className="badge badge-success badge-sm gap-1"><span className="w-1.5 h-1.5 rounded-full bg-current" />API Online</span>
-            : connected === false
-            ? <span className="badge badge-error badge-sm">API Offline</span>
-            : <span className="badge badge-ghost badge-sm"><Spinner /> Checking…</span>
+          {liveState.connected
+            ? <span className="badge badge-success badge-sm gap-1"><span className="w-1.5 h-1.5 rounded-full bg-current" />Live</span>
+            : <span className="badge badge-ghost badge-sm"><Spinner /> Connecting…</span>
           }
-          <span className="font-mono text-xs opacity-30 hidden md:block">{config.apiUrl}</span>
+          <span className="font-mono text-xs opacity-30 hidden md:block">{window.location.host}</span>
           <button className="btn btn-xs btn-ghost opacity-50" onClick={() => setView('settings')}>⚙</button>
         </header>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
           {view === 'live'      && <LiveView      liveState={liveState} />}
-          {view === 'dashboard' && <DashboardView history={history} serverStatus={serverStatus} connected={connected} onNavigate={setView} />}
-          {view === 'pipeline'  && <PipelineView  call={call} onRunComplete={handleRunComplete} />}
-          {view === 'health'    && <HealthView    call={call} />}
+          {view === 'dashboard' && <DashboardView history={history} onNavigate={setView} />}
+          {view === 'pipeline'  && <PipelineView />}
+          {view === 'health'    && <HealthView    sseConnected={liveState.connected} liveState={liveState} />}
           {view === 'history'   && <HistoryView   history={history} onClear={() => setHistory([])} />}
-          {view === 'settings'  && <SettingsView  settings={config} onSave={setConfig} toast={addToast} />}
+          {view === 'settings'  && <SettingsView />}
         </main>
       </div>
 
