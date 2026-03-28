@@ -265,10 +265,11 @@ class MissionControl:
     
     def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False) -> Dict[str, Any]:
         """
-        Run full pipeline with new sequence (v2.1):
-        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
+        Run full 11-stage pipeline:
+        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE
 
-        Post-merge (optional): DEPLOY → MONITOR
+        Bridge (GitHub push) is now a first-class pipeline stage — no manual
+        approval prompt.  Post-merge stages (DEPLOY → MONITOR) are optional.
 
         Args:
             path: Repository path to run pipeline on
@@ -276,25 +277,25 @@ class MissionControl:
             greenfield: If True, generation agents overwrite existing files (new project).
                         If False (default), existing files are preserved (brownfield).
 
-        If any stage fails, stops and reports the failure.
-        If all stages pass, prompts for manual approval before running bridge.
+        If any stage fails, the pipeline stops and reports the failure.
         """
         stages = [
-            ("discover", lambda: self._execute_stage("discover", path, greenfield)),
+            ("discover",  lambda: self._execute_stage("discover",  path, greenfield)),
             ("normalize", lambda: self._execute_stage("normalize", path, greenfield)),
-            ("docs", lambda: self._execute_stage("docs", path, greenfield)),
-            ("iac", lambda: self._execute_stage("iac", path, greenfield)),
-            ("cd", lambda: self._execute_stage("cd", path, greenfield)),
-            ("ci", lambda: self._execute_stage("ci", path, greenfield)),
-            ("e2e", lambda: self._execute_stage("e2e", path, greenfield)),
-            ("review", lambda: self._execute_stage("review", path, greenfield)),
-            ("test", lambda: self._execute_stage("test", path, greenfield)),
-            ("scan", lambda: self._execute_stage("scan", path, greenfield)),
+            ("docs",      lambda: self._execute_stage("docs",      path, greenfield)),
+            ("iac",       lambda: self._execute_stage("iac",       path, greenfield)),
+            ("cd",        lambda: self._execute_stage("cd",        path, greenfield)),
+            ("ci",        lambda: self._execute_stage("ci",        path, greenfield)),
+            ("e2e",       lambda: self._execute_stage("e2e",       path, greenfield)),
+            ("review",    lambda: self._execute_stage("review",    path, greenfield)),
+            ("test",      lambda: self._execute_stage("test",      path, greenfield)),
+            ("scan",      lambda: self._execute_stage("scan",      path, greenfield)),
+            ("bridge",    lambda: self._execute_stage("bridge",    path)),           # Push to GitHub
         ]
-        
+
         total = len(stages)
         print_pipeline_header("RUN-ALL PIPELINE", self.mode)
-        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE[/]")
+        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE[/]")
         console.print()
 
         dash = get_dashboard()
@@ -372,59 +373,22 @@ class MissionControl:
                     "completed_stages": [r[0] for r in results[:-1]]
                 }
 
-        # All stages passed - show summary and prompt for approval
+        # All 11 stages (including bridge/GitHub push) completed
         print_pipeline_summary(results, success=True)
-        
-        # Manual approval prompt before bridge
-        if prompt_bridge_approval():
-            # User approved - run bridge
-            print_stage_start("bridge", path)
-            bridge_result = self._execute_stage("bridge", path)
-            results.append(("bridge", bridge_result))
-            print_stage_result("bridge", bridge_result)
-            
-            if bridge_result.get("status") == "success":
-                # Bridge successful - check if post-merge stages requested
-                if include_post_merge and prompt_post_merge():
-                    return self._run_post_merge_stages(path, results)
+        print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
 
-                print_pipeline_summary(results, success=True)
-                print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
-                if dash:
-                    dash.emit_pipeline_done(success=True, summary="Full pipeline completed + pushed to GitHub")
-                return {
-                    "status": "success",
-                    "mission": "run-all",
-                    "deployment_mode": self.mode,
-                    "summary": "Full pipeline completed successfully",
-                    "stages": [r[0] for r in results],
-                    "bridge_result": bridge_result
-                }
-            else:
-                print_pipeline_summary(results, success=False)
-                if dash:
-                    dash.emit_pipeline_done(success=False, summary="Pipeline completed but bridge had issues")
-                return {
-                    "status": "warning",
-                    "mission": "run-all",
-                    "deployment_mode": self.mode,
-                    "summary": "Pipeline completed but bridge had issues",
-                    "stages": [r[0] for r in results],
-                    "bridge_result": bridge_result
-                }
-        else:
-            # User declined bridge
-            print_skipped_banner("Bridge skipped by user. All other stages completed successfully.")
-            if dash:
-                dash.emit_pipeline_done(success=True, summary="Pipeline complete — bridge skipped by user")
-            return {
-                "status": "success",
-                "mission": "run-all",
-                "deployment_mode": self.mode,
-                "summary": "Pipeline completed (bridge skipped by user)",
-                "stages": [r[0] for r in results],
-                "bridge_skipped": True
-            }
+        if include_post_merge and prompt_post_merge():
+            return self._run_post_merge_stages(path, results)
+
+        if dash:
+            dash.emit_pipeline_done(success=True, summary="Full pipeline completed + pushed to GitHub")
+        return {
+            "status": "success",
+            "mission": "run-all",
+            "deployment_mode": self.mode,
+            "summary": "Full pipeline completed successfully — code pushed to GitHub",
+            "stages": [r[0] for r in results],
+        }
     
     def _run_post_merge_stages(self, path: str, results: List[tuple]) -> Dict[str, Any]:
         """Run post-merge stages: deploy → monitor."""
