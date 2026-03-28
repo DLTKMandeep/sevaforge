@@ -248,66 +248,79 @@ function ToastStack({ toasts }) {
 
 const STAGE_INFO_FULL = [
   { id:'discover',  emoji:'🔍', label:'Discover',
+    consumer:'Sevaforge is reading your project for the first time. It figures out what programming language you used, what web framework is running, which port your app listens on, and what packages it depends on — so every later stage is tailored specifically to your codebase, not a generic template.',
     purpose:'Map codebase — detect language, frameworks, entry points, port, deps',
     outputs:'Tech stack · Entry points · Port · Dependency list',
     steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies (requirements / package.json / go.mod)…','Detecting exposed port and environment variables…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
 
   { id:'normalize', emoji:'🔧', label:'Normalize',
+    consumer:'Your project is getting tidied up so it meets professional engineering standards. Sevaforge adds the files that most teams forget — a proper .gitignore so passwords never get committed, a README so new developers can get started, and consistent code-style settings so the whole team formats code the same way.',
     purpose:'Standardize repo structure — add .gitignore, README, linting configs',
     outputs:'.gitignore · README.md · pyproject.toml · .editorconfig',
     steps:['Reading detected tech stack from previous stage…','Checking for missing .gitignore patterns…','Generating language-specific .gitignore…','Creating or updating README.md scaffold…','Writing pyproject.toml / package.json lint settings…','Adding .editorconfig for consistent formatting…','Verifying repo structure is CI-ready…'] },
 
   { id:'docs', emoji:'📚', label:'Docs',
+    consumer:'Sevaforge is writing your documentation automatically. It produces an architecture diagram showing how all the parts of your system connect, a threat model listing what could go wrong and how to prevent it, and a database diagram so anyone can understand the data structure — without you writing a single word.',
     purpose:'Generate architecture diagrams, threat models, ERDs, API docs',
     outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram',
     steps:['Parsing source files for modules and services…','Building C4 component model…','Generating ARCHITECTURE.md with Mermaid diagram…','Running STRIDE threat-modelling pass…','Writing THREAT_MODEL.md with risk table…','Extracting DB schema for Entity Relationship Diagram…','Generating API reference from route handlers…'] },
 
-  { id:'iac', emoji:'🏗️', label:'IAC',
+  { id:'iac', emoji:'🏗️', label:'Infrastructure',
+    consumer:'Sevaforge is building the cloud infrastructure blueprint for your app. It writes the Terraform files that tell AWS, GCP, or Azure exactly what servers, networks, and storage to create — and it builds a Dockerfile so your app runs identically on every machine, from your laptop to production.',
     purpose:'Generate Terraform + Docker for your detected cloud stack',
     outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml',
     steps:['Reading cloud target from config (AWS / GCP / Azure)…','Scaffolding Terraform provider block…','Generating network module (VPC, subnets, SGs)…','Generating cluster module (EKS / GKE / AKS)…','Writing variables.tf and outputs.tf…','Building multi-stage Dockerfile…','Writing docker-compose.yml for local dev…'] },
 
-  { id:'cd', emoji:'🚀', label:'CD',
+  { id:'cd', emoji:'🚀', label:'Continuous Deployment',
+    consumer:'Sevaforge is setting up your automated deployment pipeline. Every time you merge code, it will automatically roll out your changes to dev, then staging, then production — with safety checks at each step. No more manually copying files to servers or running deployment scripts by hand.',
     purpose:'Generate ArgoCD, Kustomize, and Kubernetes deployment manifests',
     outputs:'deploy.yml · argocd app · k8s manifests · kustomize overlays',
     steps:['Scaffolding ArgoCD Application manifest…','Generating AppProject and RBAC rules…','Writing Kustomize base (deployment, service, configmap)…','Creating dev / staging / prod overlays…','Generating GitHub Actions infra.yml workflow…','Writing bootstrap.yml for ArgoCD install…','Generating deploy.yml pilot-to-prod pipeline…'] },
 
-  { id:'ci', emoji:'⚙️', label:'CI',
+  { id:'ci', emoji:'⚙️', label:'Continuous Integration',
+    consumer:'Sevaforge is wiring up your quality gates. From now on, every time anyone pushes code, GitHub will automatically run your tests, check for security issues, and build a fresh container image. Bad code gets caught before it ever reaches your users — not after.',
     purpose:'Generate chained GitHub Actions pipeline — Security → Tests → Build',
     outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml',
     steps:['Detecting existing CI configs to avoid conflicts…','Writing ci.yml — lint + unit test job…','Adding security.yml — Trivy + Snyk scan job…','Writing release.yml — build + push container image…','Generating .gitlab-ci.yml equivalent…','Adding Dependabot auto-update config…','Linking jobs into dependency chain…'] },
 
-  { id:'e2e', emoji:'🧪', label:'E2E',
+  { id:'e2e', emoji:'🧪', label:'End-to-End Tests',
+    consumer:'Sevaforge is writing browser-level tests that check your app works from a real user\'s perspective. It creates test scripts that log in, navigate pages, fill forms, and call your APIs — the same actions your users take. These run automatically on every deployment so regressions are caught immediately.',
     purpose:'Scaffold Playwright E2E tests and CI workflow for API endpoints',
     outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml',
     steps:['Detecting API routes from source…','Scaffolding playwright.config.ts…','Generating auth flow spec (login / logout)…','Writing navigation and routing spec…','Generating form submission spec…','Adding API health-check spec…','Writing e2e.yml GitHub Actions workflow…'] },
 
-  { id:'review', emoji:'👁️', label:'Review',
+  { id:'review', emoji:'👁️', label:'Code Review',
+    consumer:'An AI engineer is reading every line of your code right now. It looks for functions that are too complex, duplicated logic, dead code nobody calls, inconsistent patterns, and missing error handling — then writes up a prioritised list of improvements so your team knows exactly what to fix first.',
     purpose:'AI code review — quality, patterns, complexity, dead code',
     outputs:'Code quality report · Improvement suggestions · Findings list',
     steps:['Reading all source files into context…','Analysing cyclomatic complexity…','Detecting code duplication and dead code…','Checking naming conventions and style…','Reviewing error handling patterns…','Identifying potential performance bottlenecks…','Writing code quality report…'] },
 
-  { id:'test', emoji:'✅', label:'Test',
+  { id:'test', emoji:'✅', label:'Test Suite',
+    consumer:'Sevaforge is running all your tests and measuring how much of your code they actually cover. You\'ll get a clear pass/fail result, the exact names of any failing tests, and a coverage percentage — so you know immediately whether your code is solid or has gaps that need attention.',
     purpose:'Run unit tests, measure coverage, report failures',
     outputs:'Test results · Coverage % · Failing test details',
     steps:['Discovering test files and test runner…','Installing test dependencies…','Running unit test suite…','Measuring line and branch coverage…','Collecting failing test names and stack traces…','Comparing coverage against threshold…','Writing test results report…'] },
 
-  { id:'scan', emoji:'🔒', label:'Scan',
+  { id:'scan', emoji:'🔒', label:'Security Scan',
+    consumer:'Sevaforge is checking your project for security holes before hackers find them. It scans your code for common vulnerabilities, checks every dependency for known CVEs, and hunts for accidentally committed secrets like API keys or passwords. You get a prioritised list of what to fix — critical issues first.',
     purpose:'Security vulnerability scan — SAST, deps, secrets detection',
     outputs:'SARIF report · CVE list · Severity-classified findings',
     steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity (Critical / High / Med / Low)…','Generating SARIF report…','Listing actionable remediation steps…'] },
 
-  { id:'bridge', emoji:'🌉', label:'Bridge',
+  { id:'bridge', emoji:'🌉', label:'Push to GitHub',
+    consumer:'All the files Sevaforge generated — the infrastructure code, deployment pipelines, tests, documentation, and security configs — are now being committed and pushed to your GitHub repository. Your team will see a pull request they can review, merge, and immediately start benefiting from.',
     purpose:'Push all generated files to GitHub, create PR if needed',
     outputs:'GitHub repo · All generated files committed · PR link',
     steps:['Authenticating with GitHub…','Checking if remote repository exists…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…','Recording PR URL in pipeline report…'] },
 
-  { id:'deploy', emoji:'☁️', label:'Deploy',
+  { id:'deploy', emoji:'☁️', label:'Deploy to Cloud',
+    consumer:'Your application is being deployed to the cloud right now. Sevaforge applies the infrastructure it built, pushes your container to the registry, and starts it up on Kubernetes. In a few minutes you\'ll have a live URL your users can hit — with automatic rollback if anything goes wrong.',
     purpose:'Deploy to cloud (AWS EKS / GCP Cloud Run / Azure AKS)',
     outputs:'Live deployment URL · Health check · Rollback plan',
     steps:['Reading kubeconfig / cloud credentials…','Running terraform plan…','Applying infrastructure changes…','Pushing container image to registry…','Applying Kubernetes manifests…','Waiting for pods to reach Running state…','Verifying health check endpoint…'] },
 
-  { id:'monitor', emoji:'📊', label:'Monitor',
+  { id:'monitor', emoji:'📊', label:'Monitoring Setup',
+    consumer:'Sevaforge is installing your observability stack so you always know what your app is doing in production. You\'ll get live dashboards showing response times, error rates, and server load — plus automatic alerts that page you the moment something goes wrong, before your users even notice.',
     purpose:'Set up Prometheus, Grafana, alerts, SLOs, dashboards',
     outputs:'prometheus.yml · grafana dashboards · alert rules · SLO config',
     steps:['Installing Prometheus stack via Helm…','Writing scrape config for app metrics…','Importing Grafana dashboard templates…','Configuring alert rules (error rate, latency, saturation)…','Defining SLO objectives and burn-rate alerts…','Writing runbook links into alerts…','Verifying metrics are flowing…'] },
@@ -433,10 +446,10 @@ function DashboardView({ history, connected, onNavigate }) {
 function PipelineView() {
   const [expanded, setExpanded] = useState(null);
 
-  const CORE   = STAGE_INFO_FULL.slice(0, 10);
-  const POST   = STAGE_INFO_FULL.slice(10);
-  const FLOW   = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','▶ APPROVAL','bridge'];
-  const COLORS = ['#818cf8','#818cf8','#c084fc','#f59e0b','#f59e0b','#f59e0b','#f59e0b','#38bdf8','#38bdf8','#fb923c','#6b7280','#34d399'];
+  const CORE   = STAGE_INFO_FULL.slice(0, 11);  // includes bridge
+  const POST   = STAGE_INFO_FULL.slice(11);
+  const FLOW   = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','bridge'];
+  const COLORS = ['#818cf8','#818cf8','#c084fc','#f59e0b','#f59e0b','#f59e0b','#f59e0b','#38bdf8','#38bdf8','#fb923c','#34d399'];
 
   return (
     <div className="slide-in space-y-6">
@@ -446,17 +459,20 @@ function PipelineView() {
         <div className="card-body py-5">
           <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">Pipeline Sequence</h3>
           <div className="flex flex-wrap items-center gap-1">
-            {FLOW.map((id,i) => (
-              <React.Fragment key={id}>
-                <span className="rounded-lg px-2.5 py-1 text-xs font-mono font-semibold"
-                      style={{background:'rgba(255,255,255,.05)', border:`1px solid ${COLORS[i]}40`, color:COLORS[i]}}>
-                  {id === '▶ APPROVAL' ? id : id.toUpperCase()}
-                </span>
-                {i < FLOW.length-1 && <span className="text-base-content/20 text-xs">→</span>}
-              </React.Fragment>
-            ))}
+            {FLOW.map((id,i) => {
+              const meta = STAGE_INFO_FULL.find(s=>s.id===id);
+              return (
+                <React.Fragment key={id}>
+                  <span className="rounded-lg px-2.5 py-1 text-xs font-mono font-semibold"
+                        style={{background:'rgba(255,255,255,.05)', border:`1px solid ${COLORS[i]}40`, color:COLORS[i]}}>
+                    {meta?.emoji} {meta?.label || id.toUpperCase()}
+                  </span>
+                  {i < FLOW.length-1 && <span className="text-base-content/20 text-xs">→</span>}
+                </React.Fragment>
+              );
+            })}
           </div>
-          <p className="text-xs opacity-30 mt-3">Post-merge (optional): DEPLOY → MONITOR</p>
+          <p className="text-xs opacity-30 mt-3">Post-merge (optional): 🚀 Deploy → 📊 Monitor</p>
         </div>
       </div>
 
@@ -488,28 +504,47 @@ function PipelineView() {
       {/* Core stages detail */}
       <div className="card bg-base-200/80 shadow">
         <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">Core Stages (10)</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">All 11 Stages — click any to learn more</h3>
           <div className="space-y-1">
             {CORE.map((s,i) => (
               <div key={s.id}>
-                <div className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer"
+                {/* Collapsed row */}
+                <div className="flex items-center gap-3 rounded-lg px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors"
                      style={{background: expanded===s.id?'rgba(124,58,237,.1)':'rgba(255,255,255,.03)',
-                             border:'1px solid rgba(255,255,255,.06)'}}
+                             border:`1px solid ${expanded===s.id?'rgba(124,58,237,.3)':'rgba(255,255,255,.06)'}`}}
                      onClick={() => setExpanded(expanded===s.id ? null : s.id)}>
-                  <span className="text-xl flex-shrink-0">{s.emoji}</span>
+                  <span className="text-xl flex-shrink-0 w-8 text-center">{s.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-sm mr-2" style={{color:'#c4b5fd'}}>{s.label}</span>
-                    <span className="text-xs opacity-40">{s.purpose}</span>
+                    <div className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</div>
+                    <div className="text-xs opacity-45 truncate mt-0.5">
+                      {s.consumer ? s.consumer.split('.')[0] + '.' : s.purpose}
+                    </div>
                   </div>
-                  <span className="text-xs opacity-30">{expanded===s.id?'▲':'▼'}</span>
+                  <span className="text-xs opacity-25 flex-shrink-0">{expanded===s.id?'▲':'▼'}</span>
                 </div>
+
+                {/* Expanded panel */}
                 {expanded===s.id && (
-                  <div className="mx-4 mb-2 rounded-b-lg px-4 py-3"
-                       style={{background:'rgba(124,58,237,.06)', border:'1px solid rgba(124,58,237,.15)', borderTop:'none'}}>
-                    <div className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-1">📦 Generates</div>
-                    <div className="text-sm opacity-70">{s.outputs}</div>
-                    <div className="mt-2">
-                      <code className="text-xs font-mono text-warning">forgeflow {s.id} --path ~/your-repo</code>
+                  <div className="mx-2 mb-2 rounded-b-xl px-5 py-4 space-y-3"
+                       style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.2)', borderTop:'none'}}>
+                    {/* Consumer description — hero text */}
+                    {s.consumer && (
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-widest mb-1.5"
+                             style={{color:'#c084fc', opacity:0.65}}>What this does for you</div>
+                        <div className="text-sm leading-relaxed text-base-content/80">{s.consumer}</div>
+                      </div>
+                    )}
+                    {/* Technical outputs */}
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Files it produces</div>
+                      <div className="text-sm opacity-60 font-mono">{s.outputs}</div>
+                    </div>
+                    {/* CLI command */}
+                    <div className="pt-1">
+                      <code className="text-xs font-mono text-warning bg-black/20 px-2 py-1 rounded">
+                        forgeflow {s.id} --path ~/your-repo
+                      </code>
                     </div>
                   </div>
                 )}
@@ -1120,10 +1155,12 @@ function LiveView({ liveState }) {
   const staticMeta = STAGE_INFO_FULL.find(s => s.id === currentStage) || {};
   const sseInfo    = stageInfo[currentStage] || {};
   const activeInfo = {
+    consumer:   staticMeta.consumer   || '',
     purpose:    sseInfo.purpose    || staticMeta.purpose    || '',
     outputs:    sseInfo.outputs    || staticMeta.outputs    || '',
     agent:      sseInfo.agent      || '',
     mcp_server: sseInfo.mcp_server || '',
+    label:      staticMeta.label   || (currentStage || '').toUpperCase(),
   };
   const allFinished = done && !currentStage;
 
@@ -1187,7 +1224,7 @@ function LiveView({ liveState }) {
                   <div>
                     <div className="font-bold text-warning uppercase tracking-widest text-lg flex items-center gap-2">
                       <span className="spin inline-block text-base">⟳</span>
-                      {currentStage}
+                      {activeInfo.label}
                     </div>
                     {(activeInfo.agent || activeInfo.mcp_server) && (
                       <div className="text-xs opacity-50 font-mono mt-0.5">
@@ -1197,16 +1234,19 @@ function LiveView({ liveState }) {
                   </div>
                 </div>
 
-                {/* Purpose — always shown (falls back to static data) */}
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">🎯 What this stage does</div>
-                    <div className="text-sm leading-relaxed">{activeInfo.purpose || 'Processing…'}</div>
+                {/* Consumer description — plain English, prominent */}
+                {activeInfo.consumer && (
+                  <div className="mb-3 rounded-lg px-3 py-2.5"
+                       style={{background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)'}}>
+                    <div className="text-xs font-bold uppercase tracking-widest mb-1.5"
+                         style={{color:'#c084fc', opacity:0.7}}>What's happening for you</div>
+                    <div className="text-sm leading-relaxed text-base-content/80">{activeInfo.consumer}</div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">📦 Files it produces</div>
-                    <div className="text-sm opacity-70 leading-relaxed">{activeInfo.outputs || '—'}</div>
-                  </div>
+                )}
+
+                {/* Technical detail — collapsible secondary info */}
+                <div className="flex gap-4 text-xs opacity-50 mb-1">
+                  <span>📦 <span className="opacity-80">{activeInfo.outputs || '—'}</span></span>
                 </div>
 
                 {/* Live activity ticker */}
