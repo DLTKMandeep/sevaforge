@@ -328,9 +328,9 @@
     }
     /* Left canvas column */
     .aip-canvas-col {
-      flex-shrink: 0; position: relative; width: 260px;
+      flex-shrink: 0; position: relative; width: 260px; height: 190px;
     }
-    .aip-canvas-col canvas { display: block; width: 100%; height: 100%; }
+    .aip-canvas-col canvas { display: block; width: 260px; height: 190px; }
     /* Vertical separator */
     .aip-sep {
       width: 1px;
@@ -873,7 +873,7 @@ function AgentIntelPanel({ currentStage, currentNum = 0, totalStages = 0 }) {
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
-    const W = cv.offsetWidth || 260, H = cv.offsetHeight || 190;
+    const W = 260, H = 190;
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
 
@@ -1307,6 +1307,15 @@ function RunningView({ liveState }) {
         </div>
       )}
 
+      {/* ── Agent Intelligence Panel ── */}
+      {currentStage && !allFinished && (
+        <AgentIntelPanel
+          currentStage={currentStage}
+          currentNum={currentNum}
+          totalStages={totalStages}
+        />
+      )}
+
       {/* ── Stage results grid ── */}
       {Object.entries(stageResults).length>0 && (
         <div>
@@ -1420,14 +1429,6 @@ function RunningView({ liveState }) {
         </div>
       )}
 
-      {/* ── Agent Intelligence Panel ── */}
-      {currentStage && !allFinished && (
-        <AgentIntelPanel
-          currentStage={currentStage}
-          currentNum={currentNum}
-          totalStages={totalStages}
-        />
-      )}
     </div>
   );
 }
