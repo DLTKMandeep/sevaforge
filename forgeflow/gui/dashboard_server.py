@@ -217,10 +217,19 @@ _run_lock = threading.Lock()
 _running  = False   # True while a pipeline is in flight
 
 
-def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
+def _spawn_pipeline(
+    path: str,
+    stages: Optional[List[str]] = None,
+    greenfield: bool = False,
+    greenfield_config: Optional[Dict[str, Any]] = None,
+) -> None:
     """
     Run MissionControl.run_all() in a daemon thread.
     Called from the /api/run POST handler.
+
+    For greenfield projects, ``path`` is the target directory that will be
+    created (parent must already exist).  ``greenfield_config`` carries the
+    wizard answers (language, framework, cloud, database, cicd, app_type …).
     """
     global _running
 
@@ -247,8 +256,20 @@ def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
                     "Cannot find MissionControl — tried forgeflow.core, core, and forgeflow_local.core"
                 )
 
+            # For greenfield mode, create the target directory first so
+            # the scaffolding agent has a real path to populate.
+            if greenfield:
+                import os as _os
+                _os.makedirs(path, exist_ok=True)
+
             mc = MissionControl()
-            mc.run_all(path=path)
+            # Pass greenfield flag and config through to run_all.
+            # The call signature is run_all(path, include_post_merge=True, greenfield=False, config=None)
+            # We pass config as a keyword so older versions that don't have it still work.
+            kwargs: Dict[str, Any] = {"path": path, "greenfield": greenfield}
+            if greenfield_config:
+                kwargs["config"] = greenfield_config
+            mc.run_all(**kwargs)
         except Exception as exc:
             _bus.emit("log", {"stage": "server", "message": f"Pipeline error: {exc}"})
             _bus.emit("pipeline_done", {"success": False, "elapsed_s": 0,
@@ -341,17 +362,34 @@ class _Handler(BaseHTTPRequestHandler):
             self._json({"error": "invalid JSON"}, status=400)
             return
 
-        repo_path = (payload.get("path") or "").strip()
-        if not repo_path:
-            self._json({"error": "path is required"}, status=400)
-            return
+        greenfield        = bool(payload.get("greenfield", False))
+        greenfield_config = payload.get("config") or {}
 
-        # Expand ~ so /Users/mandeep/demo-api works
-        repo_path = str(Path(repo_path).expanduser())
-
-        if not Path(repo_path).exists():
-            self._json({"error": f"Path not found: {repo_path}"}, status=400)
-            return
+        if greenfield:
+            # Greenfield: caller supplies parent_path + project_name.
+            # We combine them to get the target directory.
+            parent_path  = (payload.get("parent_path") or "").strip()
+            project_name = (payload.get("project_name") or "").strip()
+            if not parent_path or not project_name:
+                self._json({"error": "parent_path and project_name are required for greenfield mode"}, status=400)
+                return
+            parent_path = str(Path(parent_path).expanduser())
+            if not Path(parent_path).exists():
+                self._json({"error": f"Parent directory not found: {parent_path}"}, status=400)
+                return
+            # Sanitise project name — no path separators
+            safe_name = project_name.replace("/", "-").replace("\\", "-").strip()
+            repo_path = str(Path(parent_path) / safe_name)
+        else:
+            repo_path = (payload.get("path") or "").strip()
+            if not repo_path:
+                self._json({"error": "path is required"}, status=400)
+                return
+            # Expand ~ so /Users/mandeep/demo-api works
+            repo_path = str(Path(repo_path).expanduser())
+            if not Path(repo_path).exists():
+                self._json({"error": f"Path not found: {repo_path}"}, status=400)
+                return
 
         if _running:
             self._json({"error": "A pipeline is already running"}, status=409)
@@ -362,7 +400,11 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            _spawn_pipeline(repo_path)
+            _spawn_pipeline(
+                repo_path,
+                greenfield=greenfield,
+                greenfield_config=greenfield_config if greenfield else None,
+            )
         finally:
             _run_lock.release()
 

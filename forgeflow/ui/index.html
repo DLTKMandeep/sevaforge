@@ -939,23 +939,85 @@ function AgentAtWorkBanner({ currentStage, currentNum = 0, totalStages = 0 }) {
   );
 }
 
+// ── Greenfield wizard options (mirrors wizard.py) ────────────────────────────
+const GF_APP_TYPES  = ['Web API / Backend','Frontend Web App','Full-Stack Web App','CLI Tool','Data Pipeline','ML / AI Service','Mobile Backend','Microservice','Monolith'];
+const GF_LANGUAGES  = ['Python','TypeScript','JavaScript','Go','Java','Rust','C#','Ruby','PHP'];
+const GF_FRAMEWORKS = {
+  Python:     ['FastAPI','Django','Flask','None'],
+  TypeScript: ['NestJS','Express','Next.js','None'],
+  JavaScript: ['Express','Next.js','Fastify','None'],
+  Go:         ['Gin','Echo','Fiber','None'],
+  Java:       ['Spring Boot','Quarkus','Micronaut','None'],
+  Rust:       ['Actix-web','Axum','Rocket','None'],
+  'C#':       ['ASP.NET Core','Minimal API','None'],
+  Ruby:       ['Rails','Sinatra','None'],
+  PHP:        ['Laravel','Symfony','None'],
+};
+const GF_CLOUDS   = ['AWS','GCP','Azure','None / Self-hosted'];
+const GF_DBS      = ['PostgreSQL','MySQL','MongoDB','Redis','DynamoDB','SQLite','None'];
+const GF_CICD     = ['GitHub Actions','GitLab CI','CircleCI','None'];
+
 // ── Idle / launch screen ──────────────────────────────────────────────────────
 function IdleScreen({ connected, onLaunch }) {
-  const [chosenPath, setChosenPath] = useState('');
-  const [launching,  setLaunching]  = useState(false);
-  const [launchErr,  setLaunchErr]  = useState('');
+  // mode: 'brownfield' | 'greenfield'
+  const [mode,        setMode]       = useState('brownfield');
+
+  // Brownfield state
+  const [chosenPath,  setChosenPath] = useState('');
+
+  // Greenfield state
+  const [gfName,      setGfName]     = useState('');
+  const [gfParent,    setGfParent]   = useState('');
+  const [gfAppType,   setGfAppType]  = useState(GF_APP_TYPES[0]);
+  const [gfLang,      setGfLang]     = useState('Python');
+  const [gfFramework, setGfFw]       = useState('FastAPI');
+  const [gfCloud,     setGfCloud]    = useState('AWS');
+  const [gfDb,        setGfDb]       = useState('PostgreSQL');
+  const [gfCicd,      setGfCicd]     = useState('GitHub Actions');
+
+  const [launching,   setLaunching]  = useState(false);
+  const [launchErr,   setLaunchErr]  = useState('');
+
+  // When language changes, reset framework to first option for that lang
+  const handleLangChange = (lang) => {
+    setGfLang(lang);
+    setGfFw((GF_FRAMEWORKS[lang] || ['None'])[0]);
+  };
+
+  const canLaunchBF  = chosenPath.trim() && !launching;
+  const canLaunchGF  = gfName.trim() && gfParent.trim() && !launching;
 
   const handleLaunch = async () => {
-    const p = chosenPath.trim();
-    if (!p) { setLaunchErr('Please select a project folder first.'); return; }
     setLaunching(true); setLaunchErr('');
     try {
-      const res  = await fetch('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path:p}) });
+      let body;
+      if (mode === 'greenfield') {
+        if (!gfName.trim() || !gfParent.trim()) { setLaunchErr('Project name and parent directory are required.'); setLaunching(false); return; }
+        body = {
+          greenfield:   true,
+          parent_path:  gfParent.trim(),
+          project_name: gfName.trim(),
+          config: { app_type:gfAppType, language:gfLang, framework:gfFramework, cloud:gfCloud, database:gfDb, cicd:gfCicd },
+        };
+      } else {
+        const p = chosenPath.trim();
+        if (!p) { setLaunchErr('Please select a project folder first.'); setLaunching(false); return; }
+        body = { path: p };
+      }
+      const res  = await fetch('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setLaunchErr(data.error || `Error ${res.status}`); setLaunching(false); return; }
-      onLaunch(p);
+      onLaunch(data.path || body.path || chosenPath);
     } catch(e) { setLaunchErr(`Server unreachable: ${e.message}`); setLaunching(false); }
   };
+
+  // Shared select / input style
+  const selStyle = {
+    width:'100%',padding:'8px 10px',fontSize:'13px',
+    background:'var(--surface2)',border:'1px solid var(--border)',
+    borderRadius:6,color:'var(--text)',outline:'none',cursor:'pointer',
+  };
+  const labelStyle = { fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
 
   return (
     <div style={{maxWidth:700, margin:'0 auto'}} className="fade-in">
@@ -996,39 +1058,204 @@ function IdleScreen({ connected, onLaunch }) {
         </div>
       </div>
 
-      {/* ── Step 1: Select folder ── */}
+      {/* ── Step 1: Project Mode ── */}
       <div className="sf-card" style={{marginBottom:14}}>
         <div className="sf-card-header">
           <span style={{
             background:'var(--orange)',color:'#fff',width:18,height:18,borderRadius:'50%',
             display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
           }}>1</span>
-          Select your project folder
+          Choose project type
         </div>
         <div className="sf-card-body">
-          <FolderPicker onPathSelected={setChosenPath} />
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            {/* Brownfield card */}
+            <div onClick={()=>{setMode('brownfield');setLaunchErr('');}}
+                 style={{
+                   cursor:'pointer',padding:'14px 16px',borderRadius:8,transition:'all .15s',
+                   border: mode==='brownfield' ? '2px solid var(--orange)' : '2px solid var(--border)',
+                   background: mode==='brownfield' ? 'var(--orange-lt)' : 'var(--surface2)',
+                 }}>
+              <div style={{fontSize:22,marginBottom:6}}>📂</div>
+              <div style={{fontWeight:800,fontSize:'13.5px',color:'var(--text)',marginBottom:3}}>Existing Project</div>
+              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.45}}>
+                Bring your own codebase. Sevaforge analyses it and adds infrastructure, CI/CD, tests, and docs.
+              </div>
+              {mode==='brownfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'var(--orange)'}}>✓ Selected</div>}
+            </div>
+            {/* Greenfield card */}
+            <div onClick={()=>{setMode('greenfield');setLaunchErr('');}}
+                 style={{
+                   cursor:'pointer',padding:'14px 16px',borderRadius:8,transition:'all .15s',
+                   border: mode==='greenfield' ? '2px solid #6366f1' : '2px solid var(--border)',
+                   background: mode==='greenfield' ? 'rgba(99,102,241,.08)' : 'var(--surface2)',
+                 }}>
+              <div style={{fontSize:22,marginBottom:6}}>🌱</div>
+              <div style={{fontWeight:800,fontSize:'13.5px',color:'var(--text)',marginBottom:3}}>New Project</div>
+              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.45}}>
+                Start from scratch. Sevaforge scaffolds the entire directory structure, then runs the full pipeline.
+              </div>
+              {mode==='greenfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Step 2: Launch ── */}
+      {/* ── Step 2a: Brownfield folder picker ── */}
+      {mode === 'brownfield' && (
+        <div className="sf-card" style={{marginBottom:14}}>
+          <div className="sf-card-header">
+            <span style={{
+              background:'var(--orange)',color:'#fff',width:18,height:18,borderRadius:'50%',
+              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+            }}>2</span>
+            Select your project folder
+          </div>
+          <div className="sf-card-body">
+            <FolderPicker onPathSelected={setChosenPath} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2b: Greenfield wizard ── */}
+      {mode === 'greenfield' && (
+        <div className="sf-card" style={{marginBottom:14}}>
+          <div className="sf-card-header">
+            <span style={{
+              background:'#6366f1',color:'#fff',width:18,height:18,borderRadius:'50%',
+              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+            }}>2</span>
+            Configure your new project
+          </div>
+          <div className="sf-card-body" style={{display:'flex',flexDirection:'column',gap:14}}>
+
+            {/* Row 1: project name + parent dir */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={labelStyle}>Project Name</label>
+                <input type="text" placeholder="my-awesome-api"
+                  value={gfName} onChange={e=>setGfName(e.target.value)}
+                  style={{...selStyle,fontFamily:'monospace'}} />
+              </div>
+              <div>
+                <label style={labelStyle}>Parent Directory</label>
+                <div style={{display:'flex',gap:6}}>
+                  <input type="text" placeholder="~/projects"
+                    value={gfParent} onChange={e=>setGfParent(e.target.value)}
+                    style={{...selStyle,flex:1,fontFamily:'monospace'}} />
+                  <button
+                    onClick={async()=>{
+                      try{
+                        const r=await fetch('/api/browse',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+                        const d=await r.json();
+                        if(d.path) setGfParent(d.path);
+                      }catch(e){}
+                    }}
+                    style={{
+                      padding:'8px 12px',background:'var(--surface2)',border:'1px solid var(--border)',
+                      borderRadius:6,color:'var(--text)',cursor:'pointer',fontSize:'13px',flexShrink:0,
+                    }} title="Browse for folder">📁</button>
+                </div>
+                {gfName && gfParent && (
+                  <div style={{marginTop:5,fontSize:'10.5px',color:'var(--muted)',fontFamily:'monospace'}}>
+                    → {gfParent.replace(/\/$/,'')}/{gfName}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: app type + language */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={labelStyle}>App Type</label>
+                <select value={gfAppType} onChange={e=>setGfAppType(e.target.value)} style={selStyle}>
+                  {GF_APP_TYPES.map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Language</label>
+                <select value={gfLang} onChange={e=>handleLangChange(e.target.value)} style={selStyle}>
+                  {GF_LANGUAGES.map(l=><option key={l}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3: framework + cloud */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={labelStyle}>Framework</label>
+                <select value={gfFramework} onChange={e=>setGfFw(e.target.value)} style={selStyle}>
+                  {(GF_FRAMEWORKS[gfLang]||['None']).map(f=><option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Cloud Provider</label>
+                <select value={gfCloud} onChange={e=>setGfCloud(e.target.value)} style={selStyle}>
+                  {GF_CLOUDS.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 4: database + CI/CD */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={labelStyle}>Database</label>
+                <select value={gfDb} onChange={e=>setGfDb(e.target.value)} style={selStyle}>
+                  {GF_DBS.map(d=><option key={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>CI / CD</label>
+                <select value={gfCicd} onChange={e=>setGfCicd(e.target.value)} style={selStyle}>
+                  {GF_CICD.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Selection summary pills */}
+            {gfName && gfLang && (
+              <div style={{
+                display:'flex',flexWrap:'wrap',gap:6,padding:'10px 12px',
+                background:'rgba(99,102,241,.07)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',
+              }}>
+                {[gfAppType,gfLang,gfFramework,gfCloud,gfDb,gfCicd]
+                  .filter(v=>v&&v!=='None'&&v!=='None / Self-hosted')
+                  .map(v=>(
+                  <span key={v} style={{
+                    fontSize:'11px',fontWeight:600,padding:'3px 9px',borderRadius:12,
+                    background:'rgba(99,102,241,.15)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,.25)',
+                  }}>{v}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 3: Launch ── */}
       <div className="sf-card" style={{marginBottom:22}}>
         <div className="sf-card-header">
           <span style={{
-            background:chosenPath?'var(--orange)':'#cbd5e1',color:'#fff',width:18,height:18,borderRadius:'50%',
+            background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--orange)':'#cbd5e1',
+            color:'#fff',width:18,height:18,borderRadius:'50%',
             display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
-          }}>2</span>
+          }}>3</span>
           Launch the full pipeline
         </div>
         <div className="sf-card-body">
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
             <div style={{flex:1,minWidth:240}}>
               <div style={{fontWeight:700,fontSize:'13.5px',color:'var(--text)',marginBottom:5}}>
-                11 stages will run automatically, end to end
+                {mode==='greenfield'
+                  ? 'Scaffold + run all 11 stages on your brand-new project'
+                  : '11 stages will run automatically, end to end'}
               </div>
               <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.5}}>
-                Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub
+                {mode==='greenfield'
+                  ? 'Scaffold → Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub'
+                  : 'Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub'}
               </div>
-              {chosenPath && (
+              {mode==='brownfield' && chosenPath && (
                 <div style={{
                   marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
                   fontFamily:'monospace',fontSize:'11.5px',color:'var(--orange)',
@@ -1039,11 +1266,28 @@ function IdleScreen({ connected, onLaunch }) {
                   📁 {chosenPath}
                 </div>
               )}
+              {mode==='greenfield' && gfName && gfParent && (
+                <div style={{
+                  marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
+                  fontFamily:'monospace',fontSize:'11.5px',color:'#6366f1',
+                  background:'rgba(99,102,241,.08)',padding:'5px 11px',borderRadius:6,
+                  border:'1px solid rgba(99,102,241,.25)',maxWidth:'100%',overflow:'hidden',
+                  textOverflow:'ellipsis',whiteSpace:'nowrap',
+                }}>
+                  🌱 {gfParent.replace(/\/$/,'')}/{gfName}
+                </div>
+              )}
             </div>
             <button className="btn-primary" onClick={handleLaunch}
-                    disabled={!chosenPath || launching}
-                    style={{flexShrink:0,padding:'11px 28px',fontSize:'14px'}}>
-              {launching ? <><span className="spin">⟳</span> Starting…</> : '▶  Run Pipeline'}
+                    disabled={mode==='brownfield'?!canLaunchBF:!canLaunchGF}
+                    style={{
+                      flexShrink:0,padding:'11px 28px',fontSize:'14px',
+                      background: mode==='greenfield' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : undefined,
+                      boxShadow:  mode==='greenfield' ? '0 4px 18px rgba(99,102,241,.35)' : undefined,
+                    }}>
+              {launching
+                ? <><span className="spin">⟳</span> Starting…</>
+                : mode==='greenfield' ? '🌱  Scaffold & Run' : '▶  Run Pipeline'}
             </button>
           </div>
           {launchErr && (
