@@ -80,47 +80,66 @@ _bus = _EventBus()
 
 
 def _pick_folder_native() -> Optional[str]:
-    """Open the OS-native folder picker dialog and return the chosen path."""
+    """
+    Open the OS-native folder picker and return the chosen path.
+
+    Spawns a *fresh Python subprocess* so tkinter runs on that process's main
+    thread — avoids the 'must run on main thread' restriction when called from
+    inside a ThreadingMixIn request handler.
+    """
     import subprocess, sys as _sys
 
-    # macOS — AppleScript dialog (reliable, no extra deps)
+    # ── Primary: subprocess + tkinter (works on macOS, Linux, Windows) ─────
+    _tk_script = (
+        "import tkinter as tk, sys;"
+        "from tkinter import filedialog;"
+        "r=tk.Tk();r.withdraw();r.lift();r.attributes('-topmost',True);"
+        "p=filedialog.askdirectory(title='Select your AI project folder');"
+        "r.destroy();print(p or '',end='')"
+    )
+    try:
+        result = subprocess.run(
+            [_sys.executable, "-c", _tk_script],
+            capture_output=True, text=True, timeout=120
+        )
+        path = result.stdout.strip()
+        if path:
+            return path
+        # empty stdout = user cancelled
+        return None
+    except Exception:
+        pass
+
+    # ── macOS fallback: osascript ────────────────────────────────────────────
     if _sys.platform == "darwin":
-        script = 'POSIX path of (choose folder with prompt "Select your AI project folder")'
         try:
-            r = subprocess.run(["osascript", "-e", script],
-                               capture_output=True, text=True, timeout=120)
+            r = subprocess.run(
+                ["osascript", "-e",
+                 'POSIX path of (choose folder with prompt "Select your AI project folder")'],
+                capture_output=True, text=True, timeout=120,
+            )
             if r.returncode == 0:
-                return r.stdout.strip()
-            return None   # user cancelled
+                return r.stdout.strip() or None
         except Exception:
             pass
 
-    # Linux — zenity (GNOME), kdialog (KDE), or xdg fallback
+    # ── Linux fallback: zenity / kdialog ────────────────────────────────────
     if _sys.platform.startswith("linux"):
-        for cmd in (["zenity", "--file-selection", "--directory",
-                     "--title=Select your AI project folder"],
-                    ["kdialog", "--getexistingdirectory", "."],):
+        for cmd in (
+            ["zenity", "--file-selection", "--directory",
+             "--title=Select your AI project folder"],
+            ["kdialog", "--getexistingdirectory", "."],
+        ):
             try:
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if r.returncode == 0:
-                    return r.stdout.strip()
+                    return r.stdout.strip() or None
             except FileNotFoundError:
                 continue
             except Exception:
                 break
 
-    # Universal fallback — tkinter (ships with Python on all platforms)
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes("-topmost", 1)
-        folder = filedialog.askdirectory(title="Select your AI project folder")
-        root.destroy()
-        return folder or None
-    except Exception:
-        return None
+    return None
 
 
 # Global run-lock: prevents two pipelines running at the same time
@@ -165,6 +184,13 @@ def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
 
 class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True   # threads die when the main process exits
+
+    def handle_error(self, request, client_address):
+        """Silence noisy-but-harmless browser connection resets."""
+        import sys as _sys
+        if _sys.exc_info()[0] in (ConnectionResetError, BrokenPipeError):
+            return
+        super().handle_error(request, client_address)
 
 
 # ---------------------------------------------------------------------------
