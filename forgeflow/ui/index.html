@@ -1241,25 +1241,13 @@ function LiveView({ liveState }) {
 
   const pct = totalStages ? Math.round((Object.values(stageState).filter(s=>s==='success'||s==='error').length) / totalStages * 100) : 0;
 
-  const stageColor = (id) => {
-    const s = stageState[id];
-    if (s === 'running') return 'border-warning bg-warning/10 animate-pulse';
-    if (s === 'success') return 'border-emerald-600/50 bg-emerald-950/25';
-    if (s === 'error')   return 'border-rose-600/50 bg-rose-950/25';
-    return 'border-base-300 opacity-35';
-  };
-
-  const stageIcon = (id) => {
-    const s = stageState[id];
-    if (s === 'running') return <span className="spin text-warning text-lg">⟳</span>;
-    if (s === 'success') return <span className="text-success text-lg">✓</span>;
-    if (s === 'error')   return <span className="text-error text-lg">✗</span>;
-    return <span className="opacity-30 text-lg">○</span>;
-  };
-
   const stageEmoji = (id) => STAGE_INFO_FULL.find(s=>s.id===id)?.emoji || '▸';
+  const stageLabel = (id) => STAGE_INFO_FULL.find(s=>s.id===id)?.label || id;
 
-  if (!connected) {
+  // Show idle/launch screen when: not connected yet, OR connected but no pipeline has started
+  const showIdle = !connected || (stages.length === 0 && !done);
+
+  if (showIdle) {
     return (
       <div className="slide-in flex flex-col items-center justify-center min-h-full py-10 px-4"
            style={{gap: '2rem'}}>
@@ -1357,10 +1345,16 @@ function LiveView({ liveState }) {
           ))}
         </div>
 
-        {/* Idle hourglass */}
-        <div style={{opacity:0.15}} className="float-med">
-          <HourGlass status="running" size={100} />
+        {/* Server status indicator */}
+        <div style={{display:'flex', alignItems:'center', gap:'8px', opacity:0.45, fontSize:'0.75rem'}}>
+          <span style={{
+            width:7, height:7, borderRadius:'50%', display:'inline-block',
+            background: connected ? '#34d399' : '#6b7280',
+            boxShadow: connected ? '0 0 8px #34d399' : 'none',
+          }} />
+          {connected ? 'Dashboard ready — paste your path above to run' : 'Connecting to dashboard server…'}
         </div>
+
       </div>
     );
   }
@@ -1369,197 +1363,297 @@ function LiveView({ liveState }) {
   const staticMeta = STAGE_INFO_FULL.find(s => s.id === currentStage) || {};
   const sseInfo    = stageInfo[currentStage] || {};
   const activeInfo = {
-    consumer:   staticMeta.consumer   || '',
-    purpose:    sseInfo.purpose    || staticMeta.purpose    || '',
-    outputs:    sseInfo.outputs    || staticMeta.outputs    || '',
-    agent:      sseInfo.agent      || '',
+    consumer:   staticMeta.consumer || '',
+    purpose:    sseInfo.purpose  || staticMeta.purpose  || '',
+    outputs:    sseInfo.outputs  || staticMeta.outputs  || '',
+    agent:      sseInfo.agent    || '',
     mcp_server: sseInfo.mcp_server || '',
-    label:      staticMeta.label   || (currentStage || '').toUpperCase(),
+    label:      staticMeta.label || (currentStage || '').toUpperCase(),
   };
   const allFinished = done && !currentStage;
+  const hasFailed   = Object.values(stageState).some(s => s === 'error');
 
-  const hasFailed = Object.values(stageState).some(s=>s==='error');
+  // Node colours by state
+  const nodeStyle = (id) => {
+    const s = stageState[id];
+    const isActive = id === currentStage;
+    if (isActive)       return { bg:'rgba(245,158,11,.12)', border:'2px solid #f59e0b',
+                                  color:'#fbbf24', glow:'0 0 16px rgba(245,158,11,.35)' };
+    if (s === 'success') return { bg:'rgba(16,65,45,.5)',   border:'1.5px solid rgba(52,211,153,.5)',
+                                  color:'#6ee7b7', glow:'none' };
+    if (s === 'error')   return { bg:'rgba(65,16,16,.5)',   border:'1.5px solid rgba(239,68,68,.45)',
+                                  color:'#f87171', glow:'none' };
+    return { bg:'rgba(255,255,255,.03)', border:'1.5px solid rgba(255,255,255,.08)',
+             color:'rgba(226,232,240,.3)', glow:'none' };
+  };
+
+  const nodeStatus = (id) => {
+    const s = stageState[id];
+    if (id === currentStage) return { dot:'#f59e0b', text:'Running', spin:true };
+    if (s === 'success')     return { dot:'#34d399', text:'Done',    spin:false };
+    if (s === 'error')       return { dot:'#f87171', text:'Error',   spin:false };
+    return { dot:'rgba(255,255,255,.15)', text:'Pending', spin:false };
+  };
 
   return (
-    <div className="slide-in space-y-5">
+    <div className="slide-in" style={{display:'flex', flexDirection:'column', gap:'1rem'}}>
 
-      {/* ── Running pipeline header ── */}
-      {!allFinished ? (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(124,58,237,.18) 0%, rgba(245,158,11,.12) 100%)',
-          border: '1px solid rgba(245,158,11,.25)',
-          borderRadius: 18,
-          padding: '1.1rem 1.4rem',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Subtle animated sweep behind the header */}
-          <div style={{
-            position:'absolute', inset:0, pointerEvents:'none',
-            background:'linear-gradient(90deg,transparent 0%,rgba(245,158,11,.06) 50%,transparent 100%)',
-            animation:'shimmer 3s linear infinite',
-            backgroundSize:'200% auto',
-          }} />
-          <div className="flex items-center gap-4 relative">
-            <SevaForgeLogo size={52} animate={!!currentStage} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="seva-wordmark" style={{fontSize:'1.4rem'}}>Sevaforge</span>
-                <NoCaaSBadge />
-              </div>
-              {currentStage ? (
-                <div style={{fontSize:'1.05rem', fontWeight:800, color:'#fbbf24', letterSpacing:'-0.3px'}}>
-                  🚀 Building your cloud right now
-                  <span style={{fontSize:'0.8rem', fontWeight:500, color:'rgba(226,232,240,.5)', marginLeft:'8px'}}>
-                    — stage {currentNum}/{totalStages}: <span style={{color:'#f59e0b', fontFamily:'monospace'}}>{(STAGE_INFO_FULL.find(s=>s.id===currentStage)||{}).label || currentStage.toUpperCase()}</span>
-                  </span>
-                </div>
-              ) : (
-                <div style={{fontSize:'1rem', fontWeight:700, color:'rgba(226,232,240,.6)'}}>
-                  ⚡ Pipeline initialising — getting ready…
-                </div>
-              )}
-              <div className="text-xs font-mono opacity-35 truncate mt-0.5">{pipelinePath || '—'}</div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              {elapsed > 0 && (
-                <div className="badge badge-outline font-mono text-xs" style={{borderColor:'rgba(245,158,11,.4)', color:'#fbbf24'}}>
-                  {elapsed}s elapsed
-                </div>
-              )}
-              {totalStages > 0 && (
-                <div className="rounded-full px-3 py-1 text-xs font-bold"
-                     style={{background:'rgba(245,158,11,.15)', color:'#f59e0b', border:'1px solid rgba(245,158,11,.3)'}}>
-                  {Math.min(currentNum,totalStages)} / {totalStages} stages
-                </div>
-              )}
-            </div>
+      {/* ══ TOP BAR — pipeline identity + live stats ══════════════════════ */}
+      <div style={{
+        background:'linear-gradient(135deg,rgba(13,13,20,.95),rgba(20,14,35,.95))',
+        border:'1px solid rgba(255,255,255,.07)',
+        borderRadius:14, padding:'1rem 1.4rem',
+        display:'flex', alignItems:'center', gap:'1rem',
+      }}>
+        <SevaForgeLogo size={40} animate={!!currentStage && !allFinished} />
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'2px'}}>
+            <span className="seva-wordmark" style={{fontSize:'1.15rem'}}>Sevaforge</span>
+            <NoCaaSBadge />
+          </div>
+          <div style={{fontFamily:'monospace', fontSize:'0.72rem', color:'rgba(226,232,240,.3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+            {pipelinePath || '—'}
           </div>
         </div>
-      ) : null}
+        {/* Live stats */}
+        <div style={{display:'flex', gap:'8px', flexShrink:0}}>
+          {totalStages > 0 && (
+            <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:700,
+                         background:'rgba(245,158,11,.12)', border:'1px solid rgba(245,158,11,.25)', color:'#f59e0b'}}>
+              {Math.min(currentNum,totalStages)} / {totalStages}
+            </div>
+          )}
+          {elapsed > 0 && (
+            <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:600,
+                         background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)', color:'rgba(226,232,240,.6)'}}>
+              {elapsed}s
+            </div>
+          )}
+          <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:700,
+                       background: allFinished
+                         ? (hasFailed ? 'rgba(239,68,68,.15)' : 'rgba(52,211,153,.12)')
+                         : 'rgba(245,158,11,.12)',
+                       border: allFinished
+                         ? (hasFailed ? '1px solid rgba(239,68,68,.35)' : '1px solid rgba(52,211,153,.3)')
+                         : '1px solid rgba(245,158,11,.25)',
+                       color: allFinished
+                         ? (hasFailed ? '#f87171' : '#34d399')
+                         : '#fbbf24'}}>
+            {allFinished ? (hasFailed ? '✗ Failed' : '✓ Complete') : (currentStage ? '⟳ Running' : '⚡ Starting')}
+          </div>
+        </div>
+      </div>
 
-      {/* Progress bar */}
+      {/* ══ PROGRESS TRACK ════════════════════════════════════════════════ */}
       {totalStages > 0 && (
         <div>
-          <div className="flex justify-between text-xs opacity-50 mb-1">
-            <span>Pipeline Progress</span><span>{pct}%</span>
+          <div style={{height:4, background:'rgba(255,255,255,.06)', borderRadius:4, overflow:'hidden'}}>
+            <div style={{
+              height:'100%', borderRadius:4,
+              width:`${pct}%`,
+              background: hasFailed
+                ? 'linear-gradient(90deg,#f59e0b,#f87171)'
+                : 'linear-gradient(90deg,#f59e0b,#34d399)',
+              transition:'width 1s ease',
+              boxShadow:'0 0 8px rgba(245,158,11,.4)',
+            }} />
           </div>
-          <progress className="progress progress-primary w-full h-2.5" value={pct} max="100" />
+          <div style={{display:'flex', justifyContent:'space-between', marginTop:4, fontSize:'0.68rem', color:'rgba(226,232,240,.3)'}}>
+            <span>{pct}% complete</span>
+            <span>{Object.values(stageState).filter(s=>s==='success').length} of {totalStages} passed</span>
+          </div>
         </div>
       )}
 
-      {/* ── Current stage spotlight ── */}
-      {currentStage && (
-        <div className="card border-2 border-warning/60 shadow-xl"
-             style={{background:'linear-gradient(135deg,rgba(245,158,11,.06),rgba(124,58,237,.06))'}}>
-          <div className="card-body py-5">
-            <div className="flex gap-5 items-start">
-
-              {/* Hourglass — animates while stage runs */}
-              <div className="flex-shrink-0">
-                <HourGlass status="running" size={156} />
-                <div className="text-center mt-2 text-xs font-mono opacity-40">stage {currentNum}/{totalStages}</div>
-              </div>
-
-              {/* Stage info */}
-              <div className="flex-1 min-w-0">
-
-                {/* Stage name header */}
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-4xl">{stageEmoji(currentStage)}</span>
-                  <div>
-                    <div className="font-bold text-warning uppercase tracking-widest text-lg flex items-center gap-2">
-                      <span className="spin inline-block text-base">⟳</span>
-                      {activeInfo.label}
+      {/* ══ PIPELINE CANVAS — node graph ══════════════════════════════════ */}
+      {stages.length > 0 && (
+        <div style={{
+          background:'rgba(8,8,16,.6)',
+          border:'1px solid rgba(255,255,255,.07)',
+          borderRadius:14,
+          padding:'1.2rem',
+          overflowX:'auto',
+        }}>
+          <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em',
+                       color:'rgba(226,232,240,.25)', marginBottom:'1rem', textTransform:'uppercase'}}>
+            Pipeline — {stages.length} stages
+          </div>
+          {/* Scrollable node row */}
+          <div style={{display:'flex', alignItems:'center', gap:0, minWidth:'max-content', paddingBottom:4}}>
+            {stages.map((id, i) => {
+              const ns    = nodeStyle(id);
+              const nstat = nodeStatus(id);
+              const meta  = STAGE_INFO_FULL.find(s => s.id === id) || {};
+              return (
+                <React.Fragment key={id}>
+                  {/* Node */}
+                  <div style={{
+                    width: 120, flexShrink:0,
+                    background: ns.bg,
+                    border: ns.border,
+                    borderRadius: 10,
+                    padding: '10px 10px 8px',
+                    boxShadow: ns.glow,
+                    transition: 'all 0.3s ease',
+                    position:'relative',
+                  }}>
+                    {/* Running pulse ring */}
+                    {id === currentStage && (
+                      <div style={{
+                        position:'absolute', inset:-3, borderRadius:13,
+                        border:'2px solid rgba(245,158,11,.4)',
+                        animation:'pulse 1.4s ease-in-out infinite',
+                        pointerEvents:'none',
+                      }} />
+                    )}
+                    <div style={{fontSize:'1.3rem', marginBottom:4, lineHeight:1}}>{meta.emoji || '▸'}</div>
+                    <div style={{fontSize:'0.72rem', fontWeight:700, color:ns.color,
+                                 whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                                 marginBottom:6}}>
+                      {meta.label || id}
                     </div>
-                    {(activeInfo.agent || activeInfo.mcp_server) && (
-                      <div className="text-xs opacity-50 font-mono mt-0.5">
-                        {activeInfo.agent}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
+                    {/* Status pill */}
+                    <div style={{display:'flex', alignItems:'center', gap:4}}>
+                      <span style={{
+                        width:6, height:6, borderRadius:'50%', flexShrink:0,
+                        background: nstat.dot,
+                        ...(nstat.spin ? {animation:'pulse 1s ease-in-out infinite'} : {}),
+                      }} />
+                      <span style={{fontSize:'0.62rem', fontWeight:600, color: nstat.dot, opacity:0.9}}>
+                        {nstat.text}
+                      </span>
+                    </div>
+                    {/* Stage number */}
+                    <div style={{position:'absolute', top:5, right:7, fontSize:'0.58rem',
+                                 color:'rgba(226,232,240,.2)', fontWeight:600}}>
+                      {i + 1}
+                    </div>
+                  </div>
+                  {/* Arrow connector */}
+                  {i < stages.length - 1 && (
+                    <div style={{display:'flex', alignItems:'center', flexShrink:0, width:28}}>
+                      <svg width="28" height="12" viewBox="0 0 28 12">
+                        <line x1="0" y1="6" x2="20" y2="6"
+                              stroke={stageState[id]==='success' ? 'rgba(52,211,153,.5)' : 'rgba(255,255,255,.1)'}
+                              strokeWidth="1.5" />
+                        <polyline points="17,2 24,6 17,10"
+                              stroke={stageState[id]==='success' ? 'rgba(52,211,153,.5)' : 'rgba(255,255,255,.1)'}
+                              strokeWidth="1.5" fill="none" />
+                      </svg>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ══ ACTIVE STAGE DETAIL ═══════════════════════════════════════════ */}
+      {currentStage && (
+        <div style={{
+          display:'grid', gridTemplateColumns:'164px 1fr', gap:'1rem',
+        }}>
+          {/* Hourglass */}
+          <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:8}}>
+            <HourGlass status="running" size={160} />
+            <div style={{fontSize:'0.65rem', color:'rgba(226,232,240,.3)', textAlign:'center', fontFamily:'monospace'}}>
+              stage {currentNum}/{totalStages}
+            </div>
+          </div>
+
+          {/* Stage info panel */}
+          <div style={{
+            background:'rgba(255,255,255,.03)',
+            border:'1px solid rgba(245,158,11,.2)',
+            borderRadius:12, padding:'1rem 1.2rem',
+            display:'flex', flexDirection:'column', gap:'0.75rem',
+          }}>
+            {/* Stage name */}
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <span style={{fontSize:'2rem'}}>{stageEmoji(currentStage)}</span>
+              <div>
+                <div style={{fontWeight:800, fontSize:'1.1rem', color:'#fbbf24',
+                             letterSpacing:'-0.3px', display:'flex', alignItems:'center', gap:8}}>
+                  <span className="spin" style={{fontSize:'0.9rem'}}>⟳</span>
+                  {stageLabel(currentStage)}
+                </div>
+                <div style={{fontSize:'0.68rem', color:'rgba(226,232,240,.3)', fontFamily:'monospace', marginTop:1}}>
+                  {activeInfo.agent}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* Consumer description */}
+            {activeInfo.consumer && (
+              <div style={{
+                background:'rgba(124,58,237,.07)',
+                border:'1px solid rgba(124,58,237,.2)',
+                borderRadius:8, padding:'0.65rem 0.85rem',
+              }}>
+                <div style={{fontSize:'0.63rem', fontWeight:700, letterSpacing:'0.09em',
+                             color:'#c084fc', opacity:0.65, marginBottom:5, textTransform:'uppercase'}}>
+                  What's happening
+                </div>
+                <div style={{fontSize:'0.82rem', lineHeight:1.55, color:'rgba(226,232,240,.75)'}}>
+                  {activeInfo.consumer}
+                </div>
+              </div>
+            )}
+
+            {/* Outputs + Activity ticker */}
+            {activeInfo.outputs && (
+              <div style={{fontSize:'0.7rem', color:'rgba(226,232,240,.3)', fontFamily:'monospace'}}>
+                📦 {activeInfo.outputs}
+              </div>
+            )}
+            <ActivityTicker stageId={currentStage} running={true} />
+          </div>
+        </div>
+      )}
+
+      {/* ══ COMPLETED STAGE RESULTS LIST ══════════════════════════════════ */}
+      {Object.entries(stageResults).length > 0 && (
+        <div style={{
+          background:'rgba(8,8,16,.6)',
+          border:'1px solid rgba(255,255,255,.07)',
+          borderRadius:14, padding:'1rem 1.2rem',
+        }}>
+          <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em',
+                       color:'rgba(226,232,240,.25)', marginBottom:'0.75rem', textTransform:'uppercase'}}>
+            Stage Results
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}}>
+            {Object.entries(stageResults).map(([id, result]) => {
+              const ok   = result.status === 'success';
+              const meta = STAGE_INFO_FULL.find(s=>s.id===id) || {};
+              return (
+                <div key={id} style={{
+                  display:'flex', alignItems:'center', gap:8,
+                  padding:'7px 10px', borderRadius:8,
+                  background: ok ? 'rgba(6,40,30,.5)' : 'rgba(50,8,8,.5)',
+                  border: ok ? '1px solid rgba(52,211,153,.2)' : '1px solid rgba(239,68,68,.2)',
+                }}>
+                  <span style={{fontSize:'0.85rem', flexShrink:0}}>{meta.emoji || (ok?'✓':'✗')}</span>
+                  <div style={{minWidth:0, flex:1}}>
+                    <div style={{fontSize:'0.75rem', fontWeight:700,
+                                 color: ok ? '#6ee7b7' : '#fca5a5'}}>
+                      {meta.label || id}
+                    </div>
+                    {result.summary && (
+                      <div style={{fontSize:'0.65rem', color:'rgba(226,232,240,.35)',
+                                   overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                        {result.summary.slice(0,60)}
                       </div>
                     )}
                   </div>
+                  <span style={{flexShrink:0, fontSize:'0.62rem', fontWeight:700,
+                                color: ok ? '#34d399' : '#f87171', opacity:0.8}}>
+                    {ok ? '✓' : '✗'}
+                  </span>
                 </div>
-
-                {/* Consumer description — plain English, prominent */}
-                {activeInfo.consumer && (
-                  <div className="mb-3 rounded-lg px-3 py-2.5"
-                       style={{background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)'}}>
-                    <div className="text-xs font-bold uppercase tracking-widest mb-1.5"
-                         style={{color:'#c084fc', opacity:0.7}}>What's happening for you</div>
-                    <div className="text-sm leading-relaxed text-base-content/80">{activeInfo.consumer}</div>
-                  </div>
-                )}
-
-                {/* Technical detail — collapsible secondary info */}
-                <div className="flex gap-4 text-xs opacity-50 mb-1">
-                  <span>📦 <span className="opacity-80">{activeInfo.outputs || '—'}</span></span>
-                </div>
-
-                {/* Live activity ticker */}
-                <ActivityTicker stageId={currentStage} running={true} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stage pipeline flow — with sand-fill + burst animations */}
-      {stages.length > 0 && (
-        <div className="card bg-base-200/60 shadow backdrop-blur-sm">
-          <div className="card-body py-4">
-            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Pipeline Flow</h3>
-            <div className="flex flex-wrap gap-2">
-              {stages.map((id, i) => {
-                const s = stageState[id];
-                const extraCls = s === 'success' ? 'sand-fill-success burst-success'
-                               : s === 'error'   ? 'sand-fill-error burst-error' : '';
-                return (
-                  <div key={id}
-                       className={`stage-card card border-2 p-2 flex flex-col items-center gap-1 min-w-[76px] ${stageColor(id)} ${extraCls}`}>
-                    <span className="text-base">{stageEmoji(id)}</span>
-                    <span className="text-xs font-mono font-semibold">{id}</span>
-                    {stageIcon(id)}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Stage results — clean tick/cross list ── */}
-      {Object.entries(stageResults).length > 0 && (
-        <div className="card bg-base-200/60 shadow backdrop-blur-sm">
-          <div className="card-body py-4">
-            <h3 className="text-xs font-semibold uppercase tracking-widest opacity-40 mb-3">Stage Results</h3>
-            <div className="space-y-1.5">
-              {Object.entries(stageResults).map(([id, result]) => {
-                const ok = result.status === 'success';
-                return (
-                  <div key={id}
-                       className="flex items-center gap-3 rounded-lg px-3 py-2"
-                       style={{
-                         background: ok ? 'rgba(6,50,40,.35)'   : 'rgba(60,10,10,.35)',
-                         border:     ok ? '1px solid rgba(52,211,153,.2)' : '1px solid rgba(239,68,68,.2)',
-                       }}>
-                    {/* Tick / cross */}
-                    <span className="text-base flex-shrink-0"
-                          style={{color: ok ? '#34d399' : '#f87171'}}>
-                      {ok ? '✓' : '✗'}
-                    </span>
-                    <span className="font-mono font-bold text-sm tracking-wide"
-                          style={{color: ok ? '#6ee7b7' : '#fca5a5'}}>
-                      {id.toUpperCase()}
-                    </span>
-                    <span className="text-xs opacity-50 flex-1 truncate">{result.summary || ''}</span>
-                    {(result.findings||[]).length > 0 &&
-                      <span className="text-xs opacity-40 flex-shrink-0">
-                        {result.findings.length} findings
-                      </span>}
-                  </div>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
         </div>
       )}
