@@ -953,9 +953,10 @@ const GF_FRAMEWORKS = {
   Ruby:       ['Rails','Sinatra','None'],
   PHP:        ['Laravel','Symfony','None'],
 };
-const GF_CLOUDS   = ['AWS','GCP','Azure','None / Self-hosted'];
-const GF_DBS      = ['PostgreSQL','MySQL','MongoDB','Redis','DynamoDB','SQLite','None'];
-const GF_CICD     = ['GitHub Actions','GitLab CI','CircleCI','None'];
+const GF_CLOUDS   = ['AWS','GCP','Azure','DigitalOcean','Oracle Cloud','Hetzner','None / Self-hosted'];
+const GF_DBS      = ['PostgreSQL','MySQL','MongoDB','Redis','DynamoDB','Cassandra','CockroachDB','SQLite','None'];
+const GF_CI       = ['GitHub Actions','GitLab CI','CircleCI','Jenkins','Azure DevOps','Bitbucket Pipelines','TeamCity','Buildkite','None'];
+const GF_CD       = ['ArgoCD','Flux CD','Spinnaker','GitHub Actions (deploy)','GitLab CD','AWS CodeDeploy','Azure DevOps','Helm + kubectl','None'];
 
 // ── Idle / launch screen ──────────────────────────────────────────────────────
 function IdleScreen({ connected, onLaunch }) {
@@ -973,7 +974,9 @@ function IdleScreen({ connected, onLaunch }) {
   const [gfFramework, setGfFw]       = useState('FastAPI');
   const [gfCloud,     setGfCloud]    = useState('AWS');
   const [gfDb,        setGfDb]       = useState('PostgreSQL');
-  const [gfCicd,      setGfCicd]     = useState('GitHub Actions');
+  const [gfCi,        setGfCi]       = useState('GitHub Actions');
+  const [gfCd,        setGfCd]       = useState('ArgoCD');
+  const [gfParentErr, setGfParentErr]= useState('');
 
   const [launching,   setLaunching]  = useState(false);
   const [launchErr,   setLaunchErr]  = useState('');
@@ -997,7 +1000,7 @@ function IdleScreen({ connected, onLaunch }) {
           greenfield:   true,
           parent_path:  gfParent.trim(),
           project_name: gfName.trim(),
-          config: { app_type:gfAppType, language:gfLang, framework:gfFramework, cloud:gfCloud, database:gfDb, cicd:gfCicd },
+          config: { app_type:gfAppType, language:gfLang, framework:gfFramework, cloud:gfCloud, database:gfDb, ci:gfCi, cd:gfCd },
         };
       } else {
         const p = chosenPath.trim();
@@ -1011,11 +1014,18 @@ function IdleScreen({ connected, onLaunch }) {
     } catch(e) { setLaunchErr(`Server unreachable: ${e.message}`); setLaunching(false); }
   };
 
-  // Shared select / input style
+  // Shared styles
   const selStyle = {
     width:'100%',padding:'8px 10px',fontSize:'13px',
     background:'var(--surface2)',border:'1px solid var(--border)',
     borderRadius:6,color:'var(--text)',outline:'none',cursor:'pointer',
+    appearance:'auto',
+  };
+  const inputStyle = {
+    width:'100%',padding:'8px 10px',fontSize:'13px',
+    background:'var(--surface2)',border:'1px solid var(--border)',
+    borderRadius:6,color:'var(--text)',outline:'none',cursor:'text',
+    boxSizing:'border-box',
   };
   const labelStyle = { fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
 
@@ -1135,30 +1145,38 @@ function IdleScreen({ connected, onLaunch }) {
                 <label style={labelStyle}>Project Name</label>
                 <input type="text" placeholder="my-awesome-api"
                   value={gfName} onChange={e=>setGfName(e.target.value)}
-                  style={{...selStyle,fontFamily:'monospace'}} />
+                  style={{...inputStyle,fontFamily:'monospace'}} />
               </div>
               <div>
-                <label style={labelStyle}>Parent Directory</label>
+                <label style={labelStyle}>Where to create it</label>
                 <div style={{display:'flex',gap:6}}>
-                  <input type="text" placeholder="~/projects"
-                    value={gfParent} onChange={e=>setGfParent(e.target.value)}
-                    style={{...selStyle,flex:1,fontFamily:'monospace'}} />
+                  <input type="text" placeholder="e.g. /Users/you/projects"
+                    value={gfParent} onChange={e=>{ setGfParent(e.target.value); setGfParentErr(''); }}
+                    style={{...inputStyle,flex:1,fontFamily:'monospace',minWidth:0}} />
                   <button
                     onClick={async()=>{
+                      setGfParentErr('');
                       try{
                         const r=await fetch('/api/browse',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
                         const d=await r.json();
-                        if(d.path) setGfParent(d.path);
-                      }catch(e){}
+                        if(d.path){ setGfParent(d.path); }
+                        else if(d.cancelled){ /* user cancelled, do nothing */ }
+                        else { setGfParentErr('Picker unavailable — type path above'); }
+                      }catch(e){ setGfParentErr('Picker unavailable — type path above'); }
                     }}
                     style={{
-                      padding:'8px 12px',background:'var(--surface2)',border:'1px solid var(--border)',
-                      borderRadius:6,color:'var(--text)',cursor:'pointer',fontSize:'13px',flexShrink:0,
-                    }} title="Browse for folder">📁</button>
+                      padding:'8px 11px',background:'var(--surface2)',border:'1px solid var(--border)',
+                      borderRadius:6,color:'var(--text)',cursor:'pointer',fontSize:'15px',flexShrink:0,
+                      whiteSpace:'nowrap',
+                    }} title="Open folder picker">📁</button>
                 </div>
-                {gfName && gfParent && (
-                  <div style={{marginTop:5,fontSize:'10.5px',color:'var(--muted)',fontFamily:'monospace'}}>
-                    → {gfParent.replace(/\/$/,'')}/{gfName}
+                {gfParentErr && (
+                  <div style={{marginTop:4,fontSize:'10.5px',color:'var(--warn)'}}>⚠ {gfParentErr}</div>
+                )}
+                {gfName && gfParent && !gfParentErr && (
+                  <div style={{marginTop:5,fontSize:'10px',color:'rgba(99,102,241,.85)',fontFamily:'monospace',
+                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    → {gfParent.replace(/\/+$/,'')}/{gfName.trim()}
                   </div>
                 )}
               </div>
@@ -1196,7 +1214,7 @@ function IdleScreen({ connected, onLaunch }) {
               </div>
             </div>
 
-            {/* Row 4: database + CI/CD */}
+            {/* Row 4: database + CI */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <div>
                 <label style={labelStyle}>Database</label>
@@ -1205,11 +1223,22 @@ function IdleScreen({ connected, onLaunch }) {
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>CI / CD</label>
-                <select value={gfCicd} onChange={e=>setGfCicd(e.target.value)} style={selStyle}>
-                  {GF_CICD.map(c=><option key={c}>{c}</option>)}
+                <label style={labelStyle}>CI — Continuous Integration</label>
+                <select value={gfCi} onChange={e=>setGfCi(e.target.value)} style={selStyle}>
+                  {GF_CI.map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
+            </div>
+
+            {/* Row 5: CD */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div>
+                <label style={labelStyle}>CD — Continuous Delivery</label>
+                <select value={gfCd} onChange={e=>setGfCd(e.target.value)} style={selStyle}>
+                  {GF_CD.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div/>{/* spacer */}
             </div>
 
             {/* Selection summary pills */}
@@ -1218,7 +1247,7 @@ function IdleScreen({ connected, onLaunch }) {
                 display:'flex',flexWrap:'wrap',gap:6,padding:'10px 12px',
                 background:'rgba(99,102,241,.07)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',
               }}>
-                {[gfAppType,gfLang,gfFramework,gfCloud,gfDb,gfCicd]
+                {[gfAppType,gfLang,gfFramework,gfCloud,gfDb,gfCi,gfCd]
                   .filter(v=>v&&v!=='None'&&v!=='None / Self-hosted')
                   .map(v=>(
                   <span key={v} style={{
