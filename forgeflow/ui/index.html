@@ -976,7 +976,8 @@ function IdleScreen({ connected, onLaunch }) {
   const [gfDb,        setGfDb]       = useState('PostgreSQL');
   const [gfCi,        setGfCi]       = useState('GitHub Actions');
   const [gfCd,        setGfCd]       = useState('ArgoCD');
-  const [gfParentErr, setGfParentErr]= useState('');
+  const [gfParentErr,      setGfParentErr]     = useState('');
+  const [showParentPicker, setShowParentPicker] = useState(false);
 
   const [launching,   setLaunching]  = useState(false);
   const [launchErr,   setLaunchErr]  = useState('');
@@ -1139,6 +1140,14 @@ function IdleScreen({ connected, onLaunch }) {
           </div>
           <div className="sf-card-body" style={{display:'flex',flexDirection:'column',gap:14}}>
 
+            {/* Folder browser modal for parent dir */}
+            {showParentPicker && (
+              <FolderBrowserModal
+                onSelect={p=>{ setGfParent(p); setShowParentPicker(false); setGfParentErr(''); }}
+                onCancel={()=>setShowParentPicker(false)}
+              />
+            )}
+
             {/* Row 1: project name + parent dir */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <div>
@@ -1149,31 +1158,30 @@ function IdleScreen({ connected, onLaunch }) {
               </div>
               <div>
                 <label style={labelStyle}>Where to create it</label>
-                <div style={{display:'flex',gap:6}}>
-                  <input type="text" placeholder="e.g. /Users/you/projects"
-                    value={gfParent} onChange={e=>{ setGfParent(e.target.value); setGfParentErr(''); }}
-                    style={{...inputStyle,flex:1,fontFamily:'monospace',minWidth:0}} />
-                  <button
-                    onClick={async()=>{
-                      setGfParentErr('');
-                      try{
-                        const r=await fetch('/api/browse',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-                        const d=await r.json();
-                        if(d.path){ setGfParent(d.path); }
-                        else if(d.cancelled){ /* user cancelled, do nothing */ }
-                        else { setGfParentErr('Picker unavailable — type path above'); }
-                      }catch(e){ setGfParentErr('Picker unavailable — type path above'); }
-                    }}
-                    style={{
-                      padding:'8px 11px',background:'var(--surface2)',border:'1px solid var(--border)',
-                      borderRadius:6,color:'var(--text)',cursor:'pointer',fontSize:'15px',flexShrink:0,
-                      whiteSpace:'nowrap',
-                    }} title="Open folder picker">📁</button>
+                {/* Clickable zone — same style as brownfield FolderPicker */}
+                <div
+                  onClick={()=>setShowParentPicker(true)}
+                  style={{
+                    display:'flex',alignItems:'center',gap:10,
+                    padding:'9px 12px',borderRadius:7,cursor:'pointer',
+                    border:`1.5px solid ${gfParent?'rgba(99,102,241,.5)':'var(--border)'}`,
+                    background: gfParent?'rgba(99,102,241,.07)':'var(--surface2)',
+                    transition:'all .13s',marginBottom:5,
+                  }}>
+                  <span style={{fontSize:'16px',flexShrink:0}}>{gfParent?'📁':'📂'}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    {gfParent
+                      ? <div style={{fontSize:'11.5px',fontFamily:'monospace',color:'#a5b4fc',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{gfParent}</div>
+                      : <div style={{fontSize:'12px',color:'var(--muted)'}}>Click to browse &amp; select folder</div>
+                    }
+                  </div>
+                  <span style={{fontSize:'10.5px',color:'var(--light)',flexShrink:0}}>{gfParent?'change':'browse'}</span>
                 </div>
-                {gfParentErr && (
-                  <div style={{marginTop:4,fontSize:'10.5px',color:'var(--warn)'}}>⚠ {gfParentErr}</div>
-                )}
-                {gfName && gfParent && !gfParentErr && (
+                {/* Manual type fallback */}
+                <input type="text" placeholder="or type path manually"
+                  value={gfParent} onChange={e=>{ setGfParent(e.target.value); setGfParentErr(''); }}
+                  style={{...inputStyle,fontFamily:'monospace',fontSize:'11.5px'}} />
+                {gfName && gfParent && (
                   <div style={{marginTop:5,fontSize:'10px',color:'rgba(99,102,241,.85)',fontFamily:'monospace',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     → {gfParent.replace(/\/+$/,'')}/{gfName.trim()}
