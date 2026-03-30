@@ -333,12 +333,20 @@
       font-size: 11.5px; font-weight: 600; color: #8b949e;
       font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.03em;
     }
+    .console-live-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.3);
+      color: #3fb950; padding: 2px 8px; border-radius: 20px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+      font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase;
+    }
+    .console-live-dot { width: 5px; height: 5px; border-radius: 50%; background: #3fb950; animation: pulse 1.6s ease-in-out infinite; }
     .console-count {
       margin-left: auto; font-size: 10px; color: #484f58;
       font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
     }
     .live-console-body {
-      height: 220px; overflow-y: auto; padding: 10px 14px;
+      height: 240px; overflow-y: auto; padding: 10px 14px; position: relative;
     }
     .live-console-body::-webkit-scrollbar { width: 4px; }
     .live-console-body::-webkit-scrollbar-track { background: transparent; }
@@ -349,7 +357,89 @@
     }
     .console-line .ts   { color: #484f58; user-select: none; margin-right: 8px; }
     .console-line .name { color: #58a6ff; margin-right: 6px; font-weight: 600; }
-    .console-empty { color: #484f58; font-size: 11.5px; padding: 20px 0; text-align: center; }
+
+    /* Agent-at-work idle screen inside the console */
+    .console-agent-idle {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 0; padding: 10px;
+      position: relative; overflow: hidden;
+    }
+    /* Scanning sweep line */
+    .console-scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent 0%, rgba(249,115,22,.6) 50%, transparent 100%);
+      animation: scanSweep 2.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes scanSweep {
+      0%   { top: 0%;   opacity: 0; }
+      5%   { opacity: 1; }
+      95%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    /* Floating grid dots bg */
+    .console-grid {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(249,115,22,.12) 1px, transparent 1px);
+      background-size: 22px 22px;
+      animation: gridPulse 4s ease-in-out infinite;
+    }
+    @keyframes gridPulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+    /* Orbit ring */
+    .console-orbit {
+      position: relative; width: 68px; height: 68px; flex-shrink: 0; margin-bottom: 14px;
+    }
+    .console-orbit-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 1.5px solid rgba(249,115,22,.25);
+      animation: orbitSpin 3s linear infinite;
+    }
+    .console-orbit-ring::after {
+      content: ''; position: absolute; top: -4px; left: 50%; margin-left: -4px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 8px var(--orange);
+    }
+    .console-orbit-ring-2 {
+      position: absolute; inset: 10px; border-radius: 50%;
+      border: 1px dashed rgba(88,166,255,.2);
+      animation: orbitSpin 5s linear infinite reverse;
+    }
+    .console-orbit-ring-2::after {
+      content: ''; position: absolute; bottom: -3px; left: 50%; margin-left: -3px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #58a6ff; box-shadow: 0 0 6px #58a6ff;
+    }
+    @keyframes orbitSpin { to { transform: rotate(360deg); } }
+    /* Idle text */
+    .console-idle-title {
+      font-size: 14px; font-weight: 700; color: #e6edf3;
+      font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.2px;
+      text-align: center; position: relative; z-index: 1;
+    }
+    .console-idle-sub {
+      font-size: 11.5px; color: #6e7681; margin-top: 5px;
+      font-family: 'Inter', system-ui, sans-serif;
+      text-align: center; position: relative; z-index: 1; line-height: 1.5;
+    }
+    /* Typing dots */
+    .console-typing { display: inline-flex; gap: 4px; margin-top: 12px; position: relative; z-index: 1; }
+    .console-typing span {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--orange);
+      animation: typingBounce 1.2s ease-in-out infinite;
+    }
+    .console-typing span:nth-child(2) { animation-delay: .2s; }
+    .console-typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
+    /* Stage label chip */
+    .console-stage-chip {
+      display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+      background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.25);
+      color: var(--orange); padding: 4px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; font-family: 'Inter', system-ui, sans-serif;
+      position: relative; z-index: 1;
+    }
+
     @keyframes consoleFade { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
 
     /* ─── Scrollbar ───────────────────────────────────────────────────── */
@@ -785,8 +875,23 @@ function FolderPicker({ onPathSelected }) {
 }
 
 // ── Live Console ──────────────────────────────────────────────────────────────
-function LiveConsole({ logs = [] }) {
-  const bodyRef = useRef(null);
+const IDLE_QUIPS = [
+  'Analysing your codebase…',
+  'Wiring up CI/CD pipelines…',
+  'Generating Terraform modules…',
+  'Writing Playwright test specs…',
+  'Running security scan…',
+  'Building Docker image…',
+  'Drafting architecture docs…',
+  'Committing to GitHub…',
+  'Scanning for CVEs…',
+  'Creating Kustomize overlays…',
+];
+
+function LiveConsole({ logs = [], currentStage = null }) {
+  const bodyRef    = useRef(null);
+  const [quipIdx, setQuipIdx] = useState(0);
+  const [quipVis, setQuipVis] = useState(true);
 
   // Auto-scroll to bottom whenever a new log line arrives
   useEffect(() => {
@@ -794,13 +899,26 @@ function LiveConsole({ logs = [] }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [logs]);
 
+  // Cycle quips while idle
+  useEffect(() => {
+    if (logs.length > 0) return;
+    const iv = setInterval(() => {
+      setQuipVis(false);
+      setTimeout(() => { setQuipIdx(i => (i + 1) % IDLE_QUIPS.length); setQuipVis(true); }, 350);
+    }, 3200);
+    return () => clearInterval(iv);
+  }, [logs.length]);
+
   const levelColor = (lvl = '') => {
     const l = lvl.toUpperCase();
     if (l === 'ERROR'    || l === 'CRITICAL') return '#f85149';
     if (l === 'WARNING'  || l === 'WARN')     return '#e3b341';
     if (l === 'DEBUG')                         return '#6e7681';
-    return '#3fb950'; // INFO and everything else
+    return '#3fb950';
   };
+
+  const stageLabel = id => (STAGE_INFO_FULL.find(s => s.id === id) || {}).label || id;
+  const stageEmoji = id => (STAGE_INFO_FULL.find(s => s.id === id) || {}).emoji || '▸';
 
   return (
     <div className="live-console">
@@ -809,14 +927,66 @@ function LiveConsole({ logs = [] }) {
         <span className="console-dot" style={{background:'#ff5f57'}} />
         <span className="console-dot" style={{background:'#febc2e'}} />
         <span className="console-dot" style={{background:'#28c840'}} />
-        <span className="console-title">⚡ Live Agent Console</span>
-        <span className="console-count">{logs.length} lines</span>
+        <span className="console-title">⚡ Agent Console</span>
+        {logs.length > 0 && (
+          <span className="console-live-badge" style={{marginLeft:8}}>
+            <span className="console-live-dot" /> Live
+          </span>
+        )}
+        <span className="console-count">{logs.length > 0 ? `${logs.length} lines` : 'waiting…'}</span>
       </div>
 
-      {/* Log lines */}
+      {/* Body */}
       <div className="live-console-body" ref={bodyRef}>
         {logs.length === 0 ? (
-          <div className="console-empty">Waiting for agent output…</div>
+          /* ── Animated "agent at work" idle screen ── */
+          <div className="console-agent-idle">
+            {/* Dot grid background */}
+            <div className="console-grid" />
+            {/* Scanning sweep */}
+            <div className="console-scan-line" />
+
+            {/* Orbit rings with orbiting dots */}
+            <div className="console-orbit">
+              <div style={{
+                position:'absolute',inset:0,borderRadius:'50%',
+                background:'radial-gradient(circle, rgba(249,115,22,.1) 0%, transparent 70%)',
+              }}/>
+              <div style={{
+                position:'absolute',inset:'50%',transform:'translate(-50%,-50%)',
+                width:22,height:22,
+              }}>
+                <SevaForgeLogo size={22} />
+              </div>
+              <div className="console-orbit-ring" />
+              <div className="console-orbit-ring-2" />
+            </div>
+
+            <div className="console-idle-title">Your agent is at work</div>
+            <div className="console-idle-sub"
+                 style={{opacity: quipVis ? 1 : 0, transition: 'opacity .35s ease'}}>
+              {IDLE_QUIPS[quipIdx]}
+            </div>
+
+            {currentStage && (
+              <div className="console-stage-chip">
+                <span>{stageEmoji(currentStage)}</span>
+                <span>{stageLabel(currentStage)}</span>
+                <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'var(--orange)'}} />
+              </div>
+            )}
+
+            <div style={{
+              fontSize:'10.5px',color:'#484f58',marginTop:10,
+              fontFamily:'Inter,system-ui,sans-serif',position:'relative',zIndex:1,
+            }}>
+              Relax ☕ — log output will stream here
+            </div>
+
+            <div className="console-typing">
+              <span/><span/><span/>
+            </div>
+          </div>
         ) : (
           logs.map((line, i) => (
             <div key={i} className="console-line" style={{color: levelColor(line.level)}}>
@@ -1277,7 +1447,7 @@ function RunningView({ liveState, logs = [] }) {
                      textTransform:'uppercase',letterSpacing:'0.07em'}}>
           Agent Console
         </div>
-        <LiveConsole logs={logs} />
+        <LiveConsole logs={logs} currentStage={liveState.currentStage} />
       </div>
     </div>
   );
