@@ -310,6 +310,11 @@ class MissionControl:
         # Pause between stages when GUI is watching so the hourglass has time to display
         STAGE_PAUSE_S = 15
 
+        # Helper: send a log line to the browser console
+        def _log(msg: str, stage: str = "") -> None:
+            if dash:
+                dash.emit_log(stage, msg)
+
         results: List[tuple] = []
         for idx, (stage_name, stage_fn) in enumerate(stages, 1):
             # Display stage start with number context
@@ -324,8 +329,17 @@ class MissionControl:
                     "agent":      info.get("agent", ""),
                     "mcp_server": info.get("mcp_server", ""),
                 })
+                _log(f"▶  Stage {idx}/{total} — {stage_name.upper()} starting", stage_name)
+                stage_info = STAGE_MAPPING.get(stage_name, {})
+                if stage_info.get("purpose"):
+                    _log(f"   Purpose : {stage_info['purpose']}", stage_name)
+                if stage_info.get("outputs"):
+                    _log(f"   Outputs : {stage_info['outputs']}", stage_name)
+                if stage_info.get("agent"):
+                    _log(f"   Agent   : {stage_info['agent']}", stage_name)
 
             # Execute stage
+            _log(f"   Running agent… (this may take a while)", stage_name)
             result = stage_fn()
 
             # Normalise "already done" results so the pipeline never stops early
@@ -344,23 +358,40 @@ class MissionControl:
             # Display stage result
             print_stage_result(stage_name, result)
 
+            final_status = result.get("status", "error")
+            summary      = result.get("summary", "")
+
             # Emit stage_result to browser
             if dash:
                 dash.emit_stage_result(stage_name, {
-                    "status":   result.get("status", "error"),
-                    "summary":  result.get("summary", ""),
+                    "status":   final_status,
+                    "summary":  summary,
                     "findings": result.get("findings", []),
                 })
+                if final_status in ("success", "warning"):
+                    _log(f"✓  {stage_name.upper()} complete — {summary[:120]}" if summary else f"✓  {stage_name.upper()} complete", stage_name)
+                else:
+                    _log(f"✗  {stage_name.upper()} FAILED — {summary[:120]}" if summary else f"✗  {stage_name.upper()} FAILED", stage_name)
+
+                # Emit any per-stage findings as individual log lines
+                for finding in result.get("findings", [])[:8]:   # cap at 8 to avoid flooding
+                    if isinstance(finding, str):
+                        _log(f"   · {finding[:140]}", stage_name)
+                    elif isinstance(finding, dict):
+                        desc = finding.get("description") or finding.get("message") or finding.get("title") or str(finding)
+                        _log(f"   · {str(desc)[:140]}", stage_name)
 
                 # ── 15-second spotlight pause so the GUI hourglass is visible ──
                 if idx < total:
                     console.print(f"  [dim]⏳ Waiting {STAGE_PAUSE_S}s before next stage…[/]")
+                    _log(f"   ⏳ Pausing {STAGE_PAUSE_S}s before next stage…", stage_name)
                     time.sleep(STAGE_PAUSE_S)
 
             if result.get("status") not in {"success", "warning"}:
                 # Pipeline truly failed
                 print_pipeline_summary(results, success=False)
                 print_error_banner("Pipeline failed", stage_name)
+                _log(f"✗  Pipeline halted at {stage_name} — see results for details", stage_name)
                 if dash:
                     dash.emit_pipeline_done(success=False, summary=f"Pipeline failed at {stage_name}")
                 return {
@@ -376,6 +407,9 @@ class MissionControl:
         # All 11 stages (including bridge/GitHub push) completed
         print_pipeline_summary(results, success=True)
         print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
+        _log("🎉  All 11 stages complete — pipeline finished successfully!", "bridge")
+        _log("    Infrastructure, CI/CD, docs, tests, and security scan generated.", "bridge")
+        _log("    Code pushed to GitHub — check your PR.", "bridge")
 
         if include_post_merge and prompt_post_merge():
             return self._run_post_merge_stages(path, results)
