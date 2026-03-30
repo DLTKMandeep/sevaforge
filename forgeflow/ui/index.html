@@ -12,22 +12,29 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy:      #1a1038;
+      /* ── Sidebar (dark slate) ─────────────────────────── */
+      --navy:      #0f172a;
       --navy-md:   #1e293b;
       --navy-lt:   #334155;
-      --orange:    #f97316;
-      --orange2:   #ea580c;
-      --orange-lt: #fff7ed;
-      --orange-br: #fed7aa;
-      --bg:        #f5f7fa;
-      --bg2:       #eef1f6;
+      /* ── Primary blue ────────────────────────────────── */
+      --blue:      #2563eb;
+      --blue2:     #1d4ed8;
+      --blue3:     #60a5fa;   /* lighter blue for dark backgrounds */
+      --blue-lt:   #eff6ff;
+      --blue-br:   #bfdbfe;
+      /* ── Backgrounds ─────────────────────────────────── */
+      --bg:        #f8fafc;
+      --bg2:       #f1f5f9;
+      /* ── Surfaces ────────────────────────────────────── */
       --card:      #ffffff;
-      --border:    #e4e8ef;
-      --border-lt: #f0f3f8;
+      --border:    #e2e8f0;
+      --border-lt: #f1f5f9;
+      /* ── Typography ──────────────────────────────────── */
       --text:      #0f172a;
       --text2:     #334155;
       --muted:     #64748b;
       --light:     #94a3b8;
+      /* ── Semantic ─────────────────────────────────────── */
       --ok:        #059669;
       --ok-bg:     #ecfdf5;
       --ok-br:     #6ee7b7;
@@ -47,7 +54,7 @@
 
     /* ─── Sidebar ─────────────────────────────────────────────────────── */
     .sf-sidebar {
-      width: 256px; min-width: 256px;
+      width: 252px; min-width: 252px;
       background: var(--navy);
       display: flex; flex-direction: column; height: 100vh;
       border-right: 1px solid rgba(255,255,255,.04);
@@ -56,7 +63,7 @@
 
     /* Logo block */
     .sf-logo-block {
-      padding: 18px 16px 16px;
+      padding: 20px 16px 16px;
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
     .sf-logo-row {
@@ -64,22 +71,22 @@
     }
     .sf-logo-text { flex: 1; min-width: 0; }
     .sf-logo-name {
-      font-size: 15.5px; font-weight: 800; color: #fff;
-      letter-spacing: -0.4px; line-height: 1.1;
+      font-size: 15px; font-weight: 800; color: #fff;
+      letter-spacing: -0.3px; line-height: 1.1;
     }
     .sf-logo-sub {
-      font-size: 9.5px; font-weight: 600; color: var(--orange);
-      letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px;
+      font-size: 9px; font-weight: 700; color: var(--blue3);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-top: 2px;
     }
     .sf-logo-divider { height: 1px; background: rgba(255,255,255,.06); margin: 12px 0 10px; }
     .sf-logo-tagline {
-      font-size: 10.5px; color: rgba(255,255,255,.3); line-height: 1.45;
+      font-size: 10.5px; color: rgba(255,255,255,.28); line-height: 1.45;
       font-weight: 400; padding: 0 2px;
     }
     .sf-aidaas-badge {
       display: inline-flex; align-items: center; gap: 5px;
-      background: rgba(249,115,22,.12); border: 1px solid rgba(249,115,22,.22);
-      color: var(--orange); padding: 3px 9px; border-radius: 20px;
+      background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.2);
+      color: var(--blue3); padding: 3px 9px; border-radius: 20px;
       font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; margin-top: 8px;
     }
@@ -87,27 +94,27 @@
     /* Nav */
     .sf-nav { flex: 1; padding: 10px 10px 6px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
     .sf-nav-group-label {
-      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.22);
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.2);
       text-transform: uppercase; letter-spacing: 0.12em;
       padding: 10px 8px 5px;
     }
     .sf-nav-item {
       display: flex; align-items: center; gap: 9px;
-      padding: 8px 10px; border-radius: 6px; cursor: pointer;
-      font-size: 15px; font-weight: 500; color: rgba(255,255,255,.48);
+      padding: 8px 10px; border-radius: 7px; cursor: pointer;
+      font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,.45);
       transition: all .12s ease; border: none; background: transparent;
       width: 100%; text-align: left; position: relative;
     }
-    .sf-nav-item:hover  { background: rgba(255,255,255,.06); color: rgba(255,255,255,.88); }
-    .sf-nav-item.active { background: rgba(249,115,22,.13); color: #fff; font-weight: 600; }
+    .sf-nav-item:hover  { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+    .sf-nav-item.active { background: rgba(96,165,250,.12); color: #fff; font-weight: 600; }
     .sf-nav-item.active::before {
       content: ''; position: absolute; left: 0; top: 20%; height: 60%;
-      width: 2.5px; background: var(--orange); border-radius: 0 2px 2px 0;
+      width: 3px; background: var(--blue3); border-radius: 0 3px 3px 0;
     }
     .sf-nav-icon {
       width: 16px; height: 16px; text-align: center; flex-shrink: 0;
       font-size: 12px; display: flex; align-items: center; justify-content: center;
-      opacity: 0.6;
+      opacity: 0.55;
     }
     .sf-nav-item.active .sf-nav-icon, .sf-nav-item:hover .sf-nav-icon { opacity: 1; }
     .sf-nav-badge {
@@ -126,7 +133,9 @@
     /* ─── Main content ─────────────────────────────────────────────────── */
     .sf-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .sf-topbar {
-      background: var(--card); border-bottom: 1px solid var(--border);
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(15,23,42,.04);
       padding: 0 28px; height: 52px; display: flex; align-items: center;
       gap: 12px; flex-shrink: 0;
     }
@@ -137,8 +146,8 @@
     .sf-breadcrumb .current { color: var(--text); font-weight: 600; }
     .sf-topbar-right { display: flex; align-items: center; gap: 10px; }
     .sf-version-chip {
-      background: var(--bg2); border: 1px solid var(--border);
-      color: var(--muted); font-size: 10.5px; font-weight: 600;
+      background: var(--blue-lt); border: 1px solid var(--blue-br);
+      color: var(--blue); font-size: 10px; font-weight: 700;
       padding: 3px 10px; border-radius: 20px; letter-spacing: 0.03em;
     }
     .sf-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
@@ -147,36 +156,36 @@
     .sf-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 1px 2px rgba(15,23,42,.02);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 4px 12px rgba(15,23,42,.04);
     }
     .sf-card-header {
       padding: 12px 18px; border-bottom: 1px solid var(--border-lt);
       font-size: 10.5px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.08em;
       display: flex; align-items: center; gap: 8px;
-      background: #fafbfd; border-radius: 10px 10px 0 0;
+      background: #fafbfc; border-radius: 12px 12px 0 0;
     }
     .sf-card-body { padding: 18px; }
 
     /* ─── Buttons ─────────────────────────────────────────────────────── */
     .btn-primary {
-      background: var(--orange); color: #fff; border: none;
-      padding: 9px 20px; border-radius: 7px; font-size: 13.5px; font-weight: 600;
+      background: var(--blue); color: #fff; border: none;
+      padding: 9px 20px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
       cursor: pointer; transition: all .15s; font-family: inherit;
       display: inline-flex; align-items: center; gap: 7px; letter-spacing: -0.1px;
-      box-shadow: 0 1px 2px rgba(234,88,12,.25), 0 2px 8px rgba(234,88,12,.15);
+      box-shadow: 0 1px 2px rgba(37,99,235,.2), 0 2px 8px rgba(37,99,235,.12);
     }
-    .btn-primary:hover { background: var(--orange2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(234,88,12,.3); }
+    .btn-primary:hover { background: var(--blue2); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,235,.3); }
     .btn-primary:active { transform: none; }
-    .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-secondary {
       background: var(--card); color: var(--text2);
-      border: 1px solid var(--border); padding: 8px 16px; border-radius: 7px;
+      border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px;
       font-size: 13px; font-weight: 500; cursor: pointer; transition: all .12s;
       display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
     }
-    .btn-secondary:hover { border-color: #94a3b8; background: var(--bg2); }
+    .btn-secondary:hover { border-color: var(--blue-br); background: var(--blue-lt); color: var(--blue); }
 
     /* ─── Pills/tags ──────────────────────────────────────────────────── */
     .pill {
@@ -184,17 +193,17 @@
       padding: 3px 9px; border-radius: 20px;
       font-size: 11px; font-weight: 600; white-space: nowrap;
     }
-    .pill-running  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .pill-running  { background: var(--blue-lt); color: var(--blue); border: 1px solid var(--blue-br); }
     .pill-done     { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
     .pill-error    { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-br); }
     .pill-pending  { background: var(--bg2); color: var(--light); border: 1px solid var(--border); }
-    .pill-preview  { background: rgba(124,58,237,.1); color: #7c3aed; border: 1px solid rgba(124,58,237,.3); }
+    .pill-preview  { background: rgba(124,58,237,.08); color: #7c3aed; border: 1px solid rgba(124,58,237,.25); }
     .pill-skipped  { background: var(--bg2); color: var(--muted); border: 1px solid var(--border); font-style: italic; }
 
     /* ─── Pipeline node graph ─────────────────────────────────────────── */
     .pipeline-canvas {
       background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 10px; padding: 22px 18px;
+      border-radius: 12px; padding: 22px 18px;
       overflow-x: auto; overflow-y: visible;
     }
     .pipeline-node {
@@ -202,21 +211,21 @@
       background: var(--card); border: 1.5px solid var(--border);
       border-radius: 10px; padding: 12px 10px 10px;
       position: relative; transition: all .18s ease;
-      box-shadow: 0 1px 4px rgba(15,23,42,.06);
+      box-shadow: 0 1px 4px rgba(15,23,42,.05);
     }
     .pipeline-node.running {
-      border-color: var(--orange); background: #fff7ed;
-      box-shadow: 0 0 0 3px rgba(249,115,22,.12), 0 4px 16px rgba(249,115,22,.12);
+      border-color: var(--blue); background: var(--blue-lt);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1), 0 4px 16px rgba(37,99,235,.1);
     }
     .pipeline-node.done  { border-color: var(--ok); background: var(--ok-bg); }
     .pipeline-node.error { border-color: var(--err); background: var(--err-bg); }
-    .pipeline-node.pending { opacity: .45; }
+    .pipeline-node.pending { opacity: .4; }
     .pipeline-arrow { display: flex; align-items: center; flex-shrink: 0; width: 20px; }
     .node-num { position: absolute; top: 5px; right: 7px; font-size: 9px; font-weight: 700; color: var(--light); }
 
     /* ─── Progress bar ────────────────────────────────────────────────── */
     .sf-progress-track { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
-    .sf-progress-fill  { height: 100%; border-radius: 4px; transition: width .8s ease; background: linear-gradient(90deg, var(--orange), var(--ok)); }
+    .sf-progress-fill  { height: 100%; border-radius: 4px; transition: width .8s ease; background: linear-gradient(90deg, var(--blue), var(--ok)); }
 
     /* ─── Folder picker ───────────────────────────────────────────────── */
     .folder-drop-zone {
@@ -224,38 +233,42 @@
       padding: 28px 24px; text-align: center; cursor: pointer;
       transition: all .18s ease; background: var(--bg2);
     }
-    .folder-drop-zone:hover, .folder-drop-zone.has-path { border-color: var(--orange); background: var(--orange-lt); }
+    .folder-drop-zone:hover, .folder-drop-zone.has-path { border-color: var(--blue); background: var(--blue-lt); }
     .folder-icon { font-size: 2rem; margin-bottom: 10px; }
 
     /* ─── Idle hero banner ────────────────────────────────────────────── */
     .idle-hero {
-      background: linear-gradient(140deg, #0f172a 0%, #1e293b 60%, #0f2942 100%);
-      border-radius: 14px; padding: 32px 36px; margin-bottom: 24px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #1d4ed8 100%);
+      border-radius: 14px; padding: 32px 36px; margin-bottom: 22px;
       color: white; position: relative; overflow: hidden;
     }
     .idle-hero::before {
-      content: ''; position: absolute; top: -80px; right: -80px;
-      width: 280px; height: 280px;
-      background: radial-gradient(circle, rgba(249,115,22,.18) 0%, transparent 70%);
+      content: ''; position: absolute; top: -80px; right: -60px;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(96,165,250,.22) 0%, transparent 70%);
     }
     .idle-hero::after {
-      content: ''; position: absolute; bottom: -60px; left: 0;
-      width: 320px; height: 200px;
-      background: radial-gradient(ellipse, rgba(249,115,22,.06) 0%, transparent 70%);
+      content: ''; position: absolute; bottom: -60px; left: 10px;
+      width: 300px; height: 200px;
+      background: radial-gradient(ellipse, rgba(59,130,246,.1) 0%, transparent 70%);
     }
 
     /* ─── Stat cards ──────────────────────────────────────────────────── */
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(15,23,42,.04);
+    }
     .stat-label { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
     .stat-value { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 3px; letter-spacing: -1px; }
     .stat-sub   { font-size: 11.5px; color: var(--muted); }
 
     /* ─── Ticker ──────────────────────────────────────────────────────── */
-    .ticker-wrap { background: var(--orange-lt); border: 1px solid var(--orange-br); border-radius: 8px; padding: 10px 13px; margin-top: 10px; }
-    .ticker-label { font-size: 9.5px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+    .ticker-wrap { background: var(--blue-lt); border: 1px solid var(--blue-br); border-radius: 8px; padding: 10px 13px; margin-top: 10px; }
+    .ticker-label { font-size: 9.5px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
 
     /* ─── Hourglass ───────────────────────────────────────────────────── */
-    .hg-wrap { border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1.5px rgba(249,115,22,.2), 0 6px 20px rgba(249,115,22,.1); }
+    .hg-wrap { border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1.5px rgba(37,99,235,.2), 0 6px 24px rgba(37,99,235,.12); }
     .hg-wrap canvas { display: block; border-radius: 9px; }
 
     /* ─── Victory ─────────────────────────────────────────────────────── */
@@ -278,24 +291,24 @@
     /* ─── Feature item ────────────────────────────────────────────────── */
     .feature-item {
       display: flex; gap: 12px; align-items: flex-start;
-      padding: 11px 14px; border-radius: 8px;
+      padding: 11px 14px; border-radius: 9px;
       background: var(--bg2); border: 1px solid var(--border);
-      transition: border-color .15s;
+      transition: all .15s;
     }
-    .feature-item:hover { border-color: #94a3b8; }
+    .feature-item:hover { border-color: var(--blue-br); background: var(--blue-lt); }
     .feature-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
     .feature-label { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
     .feature-sub   { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
     /* ─── Input ───────────────────────────────────────────────────────── */
     .sf-input {
-      flex: 1; padding: 9px 13px; border-radius: 7px;
+      flex: 1; padding: 9px 13px; border-radius: 8px;
       font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
       font-size: 12.5px; border: 1.5px solid var(--border);
       outline: none; background: var(--card); color: var(--text);
-      transition: border-color .15s;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .sf-input:focus { border-color: var(--orange); }
+    .sf-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
     .sf-input.err   { border-color: var(--err); }
 
     /* ─── Stage result row ────────────────────────────────────────────── */
@@ -311,7 +324,10 @@
     @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.35} }
     @keyframes fadeIn   { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
     @keyframes victoryPop { 0%{transform:scale(.93);opacity:0} 100%{transform:scale(1);opacity:1} }
-    @keyframes runnerGlow { 0%,100%{box-shadow:0 0 0 3px rgba(249,115,22,.12),0 4px 16px rgba(249,115,22,.12)} 50%{box-shadow:0 0 0 4px rgba(249,115,22,.22),0 6px 20px rgba(249,115,22,.2)} }
+    @keyframes runnerGlow {
+      0%,100%{box-shadow:0 0 0 3px rgba(37,99,235,.1),0 4px 16px rgba(37,99,235,.1)}
+      50%{box-shadow:0 0 0 4px rgba(37,99,235,.2),0 6px 20px rgba(37,99,235,.18)}
+    }
     .spin        { animation: spin .7s linear infinite; display: inline-block; }
     .pulse       { animation: pulse 1.6s ease-in-out infinite; }
     .fade-in     { animation: fadeIn .25s ease both; }
@@ -321,22 +337,19 @@
     /* ─── Agent at Work Banner ────────────────────────────────────────────── */
     .aaw-wrap {
       border-radius: 14px; overflow: hidden; position: relative;
-      background: linear-gradient(130deg, #0f172a 0%, #1a1038 50%, #0c1a36 100%);
-      border: 1px solid rgba(249,115,22,.2);
-      box-shadow: 0 0 0 1px rgba(249,115,22,.05), 0 8px 40px rgba(15,23,42,.45),
+      background: linear-gradient(130deg, #0f172a 0%, #1e293b 55%, #0f2351 100%);
+      border: 1px solid rgba(96,165,250,.2);
+      box-shadow: 0 0 0 1px rgba(59,130,246,.06), 0 8px 40px rgba(15,23,42,.35),
                   inset 0 1px 0 rgba(255,255,255,.04);
       display: flex; align-items: center; gap: 0; min-height: 200px;
     }
-    /* Animated radial glow behind orb */
     .aaw-glow-bg {
       position: absolute; left: 0; top: 0; width: 240px; height: 100%;
-      background: radial-gradient(ellipse at 50% 50%, rgba(249,115,22,.13) 0%, transparent 70%);
+      background: radial-gradient(ellipse at 50% 50%, rgba(59,130,246,.15) 0%, transparent 70%);
       animation: aawGlowPulse 3s ease-in-out infinite;
       pointer-events: none;
     }
     @keyframes aawGlowPulse { 0%,100%{opacity:.6; transform:scale(1)} 50%{opacity:1; transform:scale(1.12)} }
-
-    /* Left hourglass column */
     .aaw-orb-col {
       width: 180px; flex-shrink: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -346,66 +359,49 @@
       font-size: 10px; font-weight: 700; color: rgba(255,255,255,.3);
       font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.05em;
     }
-
-    /* Vertical separator */
     .aaw-sep {
       width: 1px; align-self: stretch;
-      background: linear-gradient(to bottom, transparent 5%, rgba(249,115,22,.2) 30%,
-                  rgba(249,115,22,.2) 70%, transparent 95%);
+      background: linear-gradient(to bottom, transparent 5%, rgba(96,165,250,.25) 30%,
+                  rgba(96,165,250,.25) 70%, transparent 95%);
       flex-shrink: 0;
     }
-    /* Right content */
     .aaw-content {
       flex: 1; padding: 28px 32px; display: flex; flex-direction: column;
       justify-content: center;
     }
     .aaw-badge {
       display: inline-flex; align-items: center; gap: 7px; margin-bottom: 14px;
-      background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.22);
-      color: var(--orange); padding: 4px 12px; border-radius: 20px;
+      background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.25);
+      color: var(--blue3); padding: 4px 12px; border-radius: 20px;
       font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
       width: fit-content;
     }
     .aaw-badge-dot {
-      width: 6px; height: 6px; border-radius: 50%; background: var(--orange);
+      width: 6px; height: 6px; border-radius: 50%; background: var(--blue3);
       animation: pulse 1.4s ease-in-out infinite;
     }
-    /* Stage name row */
-    .aaw-stage-row {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
-    }
+    .aaw-stage-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
     .aaw-stage-emoji { font-size: 1.5rem; line-height: 1; }
-    .aaw-stage-name {
-      font-size: 21px; font-weight: 900; color: #fff; letter-spacing: -0.4px; line-height: 1.1;
-    }
-    .aaw-expect {
-      font-size: 12.5px; color: rgba(255,255,255,.48); margin-bottom: 16px;
-      line-height: 1.55; max-width: 420px;
-    }
-    /* Step text box */
+    .aaw-stage-name { font-size: 21px; font-weight: 900; color: #fff; letter-spacing: -0.4px; line-height: 1.1; }
+    .aaw-expect { font-size: 12.5px; color: rgba(255,255,255,.48); margin-bottom: 16px; line-height: 1.55; max-width: 420px; }
     .aaw-step-box {
-      background: rgba(249,115,22,.08); border: 1px solid rgba(249,115,22,.18);
+      background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2);
       border-radius: 8px; padding: 11px 14px; margin-bottom: 14px;
     }
     .aaw-step-label {
-      font-size: 9px; font-weight: 800; color: rgba(249,115,22,.75);
+      font-size: 9px; font-weight: 800; color: rgba(147,197,253,.8);
       text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
     }
-    .aaw-step-text {
-      font-size: 13px; color: rgba(255,255,255,.8); line-height: 1.5;
-      min-height: 1.5em; transition: opacity .3s ease;
-    }
-    /* Bottom row */
+    .aaw-step-text { font-size: 13px; color: rgba(255,255,255,.8); line-height: 1.5; min-height: 1.5em; transition: opacity .3s ease; }
     .aaw-bottom { display: flex; align-items: center; gap: 10px; }
     .aaw-counter {
       font-size: 11px; font-weight: 700; color: rgba(255,255,255,.35);
       background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
       padding: 4px 12px; border-radius: 20px;
     }
-    /* Sound wave */
     .aaw-wave { display: flex; align-items: center; gap: 3px; height: 20px; margin-left: auto; }
     .aaw-wave span {
-      width: 3px; border-radius: 2px; background: var(--orange); opacity: .65;
+      width: 3px; border-radius: 2px; background: var(--blue3); opacity: .7;
       animation: aawWaveBar 1.1s ease-in-out infinite;
     }
     .aaw-wave span:nth-child(1){height:5px; animation-delay:.0s}
@@ -415,7 +411,7 @@
     .aaw-wave span:nth-child(5){height:15px;animation-delay:.4s}
     .aaw-wave span:nth-child(6){height:7px; animation-delay:.15s}
     .aaw-wave span:nth-child(7){height:13px;animation-delay:.25s}
-    @keyframes aawWaveBar { 0%,100%{transform:scaleY(.3);opacity:.3} 50%{transform:scaleY(1);opacity:.8} }
+    @keyframes aawWaveBar { 0%,100%{transform:scaleY(.3);opacity:.3} 50%{transform:scaleY(1);opacity:.85} }
 
     /* ─── Scrollbar ───────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -519,25 +515,25 @@ function HourGlass({ status = 'running', size = 140 }) {
       if (last===null) last=ts;
       const dt=Math.min(ts-last,50); last=ts;
       level+=dt/CYCLE; if(level>1) level=0;
-      ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff8f0'; ctx.fillRect(0,0,W,H);
+      ctx.clearRect(0,0,W,H); ctx.fillStyle='#f0f6ff'; ctx.fillRect(0,0,W,H);
       const og=ctx.createLinearGradient(cx,cy-TH,cx,cy+TH);
-      og.addColorStop(0,'rgba(249,115,22,.8)'); og.addColorStop(.5,'rgba(234,88,12,.6)'); og.addColorStop(1,'rgba(249,115,22,.8)');
+      og.addColorStop(0,'rgba(37,99,235,.8)'); og.addColorStop(.5,'rgba(29,78,216,.6)'); og.addColorStop(1,'rgba(37,99,235,.8)');
       ctx.save(); outlinePath(); ctx.strokeStyle=og; ctx.lineWidth=2; ctx.stroke(); ctx.restore();
       const topSandH=TH*(1-level), topSandY=cy-topSandH, topSandSpan=NK+(TW-NK)*topSandH/TH;
       ctx.save(); topClip(); ctx.clip();
       const tg=ctx.createLinearGradient(0,topSandY,0,cy);
-      tg.addColorStop(0,'rgba(249,115,22,.18)'); tg.addColorStop(1,'rgba(249,115,22,.45)');
+      tg.addColorStop(0,'rgba(37,99,235,.18)'); tg.addColorStop(1,'rgba(37,99,235,.45)');
       ctx.beginPath(); ctx.moveTo(cx-topSandSpan,topSandY); ctx.lineTo(cx+topSandSpan,topSandY); ctx.lineTo(cx+NK,cy); ctx.lineTo(cx-NK,cy); ctx.closePath(); ctx.fillStyle=tg; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(cx-topSandSpan,topSandY); ctx.lineTo(cx+topSandSpan,topSandY); ctx.strokeStyle='rgba(249,115,22,.7)'; ctx.lineWidth=1.3; ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(cx-topSandSpan,topSandY); ctx.lineTo(cx+topSandSpan,topSandY); ctx.strokeStyle='rgba(37,99,235,.7)'; ctx.lineWidth=1.3; ctx.stroke(); ctx.restore();
       const botSandH=TH*level, botSandY=cy+TH-botSandH, botSandSpan=NK+(TW-NK)*botSandH/TH;
       ctx.save(); botClip(); ctx.clip();
       const bg2=ctx.createLinearGradient(0,botSandY,0,cy+TH);
-      bg2.addColorStop(0,'rgba(249,115,22,.22)'); bg2.addColorStop(1,'rgba(249,115,22,.5)');
+      bg2.addColorStop(0,'rgba(37,99,235,.22)'); bg2.addColorStop(1,'rgba(37,99,235,.5)');
       ctx.beginPath(); ctx.moveTo(cx-botSandSpan,botSandY); ctx.lineTo(cx+botSandSpan,botSandY); ctx.lineTo(cx+TW,cy+TH); ctx.lineTo(cx-TW,cy+TH); ctx.closePath(); ctx.fillStyle=bg2; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(cx-botSandSpan,botSandY); ctx.lineTo(cx+botSandSpan,botSandY); ctx.strokeStyle='rgba(249,115,22,.55)'; ctx.lineWidth=1.1; ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(cx-botSandSpan,botSandY); ctx.lineTo(cx+botSandSpan,botSandY); ctx.strokeStyle='rgba(37,99,235,.55)'; ctx.lineWidth=1.1; ctx.stroke(); ctx.restore();
       if (status==='running') {
         if (Math.random()<.35) grains.push({x:cx+(Math.random()-.5)*3,y:cy+1,vy:1.2+Math.random()*2,r:.7+Math.random()*.9,a:.6+Math.random()*.4});
-        grains=grains.filter(g=>{ g.y+=g.vy; g.vy+=.18; if(g.y>botSandY) return false; ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,Math.PI*2); ctx.fillStyle=`rgba(249,115,22,${g.a})`; ctx.fill(); return true; });
+        grains=grains.filter(g=>{ g.y+=g.vy; g.vy+=.18; if(g.y>botSandY) return false; ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,Math.PI*2); ctx.fillStyle=`rgba(37,99,235,${g.a})`; ctx.fill(); return true; });
       }
       rafId=requestAnimationFrame(frame);
     };
@@ -561,11 +557,11 @@ function ActivityTicker({ stageId, running }) {
   return (
     <div className="ticker-wrap">
       <div className="ticker-label">⚡ Live activity</div>
-      <div style={{fontSize:'12px',color:'#92400e',lineHeight:1.55,opacity:vis?1:0,transition:'opacity .28s',minHeight:'1.3rem'}}>
+      <div style={{fontSize:'12px',color:'#1e40af',lineHeight:1.55,opacity:vis?1:0,transition:'opacity .28s',minHeight:'1.3rem'}}>
         {steps[idx]}
       </div>
       <div style={{display:'flex',gap:4,marginTop:7}}>
-        {steps.map((_,i)=><span key={i} style={{width:5,height:5,borderRadius:'50%',display:'inline-block',background:i===idx?'var(--orange)':'var(--orange-br)',transition:'background .3s'}} />)}
+        {steps.map((_,i)=><span key={i} style={{width:5,height:5,borderRadius:'50%',display:'inline-block',background:i===idx?'var(--blue)':'var(--blue-br)',transition:'background .3s'}} />)}
       </div>
     </div>
   );
@@ -584,13 +580,13 @@ function SevaForgeLogo({ size = 34, spinning = false, variant = 'default' }) {
           <stop offset="100%" stopColor="#0f172a"/>
         </linearGradient>
         <linearGradient id={`${id}_flame`} x1="20" y1="7" x2="20" y2="35" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#fbbf24"/>
-          <stop offset="45%" stopColor="#f97316"/>
-          <stop offset="100%" stopColor="#ea580c"/>
+          <stop offset="0%" stopColor="#93c5fd"/>
+          <stop offset="45%" stopColor="#3b82f6"/>
+          <stop offset="100%" stopColor="#2563eb"/>
         </linearGradient>
         <radialGradient id={`${id}_glow`} cx="50%" cy="30%" r="50%" gradientUnits="objectBoundingBox">
-          <stop offset="0%" stopColor="rgba(249,115,22,.3)"/>
-          <stop offset="100%" stopColor="rgba(249,115,22,0)"/>
+          <stop offset="0%" stopColor="rgba(37,99,235,.35)"/>
+          <stop offset="100%" stopColor="rgba(37,99,235,0)"/>
         </radialGradient>
       </defs>
       {/* Rounded square background */}
@@ -600,10 +596,10 @@ function SevaForgeLogo({ size = 34, spinning = false, variant = 'default' }) {
       {/* Forge flame mark – stylized teardrop flame that curves like a forge ember */}
       <path d="M20 33C20 33 12.5 27.5 12.5 20.5C12.5 16 15.5 12.5 19.5 11.5C18.5 14.5 20 17 22 17C24.5 17 26 14.5 25 11.5C28.5 14 28.5 19 26.5 22.5C25 25 24.5 28 24 31C22.5 32.5 21 33 20 33Z"
             fill={`url(#${id}_flame)`}/>
-      {/* Ember sparks top-right */}
-      <circle cx="27.5" cy="12" r="1.8" fill="#fbbf24" opacity="0.85"/>
-      <circle cx="30"   cy="9"  r="1.1" fill="#fb923c" opacity="0.5"/>
-      <circle cx="25.5" cy="8.5" r="0.75" fill="#fde68a" opacity="0.6"/>
+      {/* Spark dots top-right */}
+      <circle cx="27.5" cy="12" r="1.8" fill="#93c5fd" opacity="0.85"/>
+      <circle cx="30"   cy="9"  r="1.1" fill="#60a5fa" opacity="0.5"/>
+      <circle cx="25.5" cy="8.5" r="0.75" fill="#bfdbfe" opacity="0.6"/>
     </svg>
   );
 }
@@ -618,7 +614,7 @@ function SevaForgeWordmark({ size = 32, showTagline = true }) {
           Sevaforge
         </div>
         {showTagline && (
-          <div style={{fontSize:9.5,fontWeight:600,color:'var(--orange)',letterSpacing:'0.1em',textTransform:'uppercase',marginTop:1}}>
+          <div style={{fontSize:9.5,fontWeight:600,color:'var(--blue)',letterSpacing:'0.1em',textTransform:'uppercase',marginTop:1}}>
             AIDDaaS
           </div>
         )}
@@ -677,7 +673,7 @@ function FolderBrowserModal({ onSelect, onCancel }) {
             {/* Breadcrumb */}
             <div style={{display:'flex',alignItems:'center',gap:3,flexWrap:'wrap'}}>
               <span style={{
-                fontSize:'10.5px',color:'var(--orange)',cursor:'pointer',fontWeight:600,
+                fontSize:'10.5px',color:'var(--blue)',cursor:'pointer',fontWeight:600,
               }} onClick={()=>nav('/')}>
                 /
               </span>
@@ -691,7 +687,7 @@ function FolderBrowserModal({ onSelect, onCancel }) {
                       onClick={()=>!isLast && nav(fullPath)}
                       style={{
                         fontSize:'10.5px',fontWeight:isLast?700:500,
-                        color:isLast?'var(--text)':'var(--orange)',
+                        color:isLast?'var(--text)':'var(--blue)',
                         cursor:isLast?'default':'pointer',
                         maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
                       }}>{part}</span>
@@ -811,7 +807,7 @@ function FolderPicker({ onPathSelected }) {
         {path ? (
           <>
             <div style={{fontSize:'2rem',marginBottom:8}}>📁</div>
-            <div style={{fontSize:'12.5px',fontWeight:700,color:'var(--orange)',marginBottom:4}}>Folder selected</div>
+            <div style={{fontSize:'12.5px',fontWeight:700,color:'var(--blue)',marginBottom:4}}>Folder selected</div>
             <div style={{fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
             <div style={{fontSize:'11px',color:'var(--light)',marginTop:8}}>Click to change</div>
           </>
@@ -1063,10 +1059,10 @@ function IdleScreen({ connected, onLaunch }) {
                 Sevaforge
               </div>
               <div style={{
-                fontSize:9.5,fontWeight:700,color:'var(--orange)',letterSpacing:'0.12em',
+                fontSize:9.5,fontWeight:700,color:'var(--blue)',letterSpacing:'0.12em',
                 textTransform:'uppercase',marginTop:3,
                 display:'inline-flex',alignItems:'center',gap:5,
-                background:'rgba(249,115,22,.12)',border:'1px solid rgba(249,115,22,.2)',
+                background:'rgba(37,99,235,.12)',border:'1px solid rgba(37,99,235,.2)',
                 padding:'2px 8px',borderRadius:4,
               }}>
                 ● AIDDaaS
@@ -1093,7 +1089,7 @@ function IdleScreen({ connected, onLaunch }) {
       <div className="sf-card" style={{marginBottom:14}}>
         <div className="sf-card-header">
           <span style={{
-            background:'var(--orange)',color:'#fff',width:18,height:18,borderRadius:'50%',
+            background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
             display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
           }}>1</span>
           Choose project type
@@ -1104,15 +1100,15 @@ function IdleScreen({ connected, onLaunch }) {
             <div onClick={()=>{setMode('brownfield');setLaunchErr('');}}
                  style={{
                    cursor:'pointer',padding:'14px 16px',borderRadius:8,transition:'all .15s',
-                   border: mode==='brownfield' ? '2px solid var(--orange)' : '2px solid var(--border)',
-                   background: mode==='brownfield' ? 'var(--orange-lt)' : 'var(--surface2)',
+                   border: mode==='brownfield' ? '2px solid var(--blue)' : '2px solid var(--border)',
+                   background: mode==='brownfield' ? 'var(--blue-lt)' : 'var(--surface2)',
                  }}>
               <div style={{fontSize:22,marginBottom:6}}>📂</div>
               <div style={{fontWeight:800,fontSize:'13.5px',color:'var(--text)',marginBottom:3}}>Existing Project</div>
               <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.45}}>
                 Bring your own codebase. Sevaforge analyses it and adds infrastructure, CI/CD, tests, and docs.
               </div>
-              {mode==='brownfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'var(--orange)'}}>✓ Selected</div>}
+              {mode==='brownfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
             </div>
             {/* Greenfield card */}
             <div onClick={()=>{setMode('greenfield');setLaunchErr('');}}
@@ -1137,7 +1133,7 @@ function IdleScreen({ connected, onLaunch }) {
         <div className="sf-card" style={{marginBottom:14}}>
           <div className="sf-card-header">
             <span style={{
-              background:'var(--orange)',color:'#fff',width:18,height:18,borderRadius:'50%',
+              background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
               display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
             }}>2</span>
             Select your project folder
@@ -1319,7 +1315,7 @@ function IdleScreen({ connected, onLaunch }) {
       <div className="sf-card" style={{marginBottom:22}}>
         <div className="sf-card-header">
           <span style={{
-            background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--orange)':'#cbd5e1',
+            background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--blue)':'#cbd5e1',
             color:'#fff',width:18,height:18,borderRadius:'50%',
             display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
           }}>3</span>
@@ -1341,9 +1337,9 @@ function IdleScreen({ connected, onLaunch }) {
               {mode==='brownfield' && chosenPath && (
                 <div style={{
                   marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
-                  fontFamily:'monospace',fontSize:'11.5px',color:'var(--orange)',
-                  background:'var(--orange-lt)',padding:'5px 11px',borderRadius:6,
-                  border:'1px solid var(--orange-br)',maxWidth:'100%',overflow:'hidden',
+                  fontFamily:'monospace',fontSize:'11.5px',color:'var(--blue)',
+                  background:'var(--blue-lt)',padding:'5px 11px',borderRadius:6,
+                  border:'1px solid var(--blue-br)',maxWidth:'100%',overflow:'hidden',
                   textOverflow:'ellipsis',whiteSpace:'nowrap',
                 }}>
                   📁 {chosenPath}
@@ -1742,7 +1738,7 @@ function RunningView({ liveState, logs, onReset }) {
                   ? '⚠ Pipeline completed with errors'
                   : dryRun ? '🔬 Dry run complete — preview finished!' : '🎉 All stages complete!')
               : currentStage
-                ? <>{dryRun?'🔬 Simulating':'Running'} <span style={{color: dryRun?'#7c3aed':'var(--orange)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
+                ? <>{dryRun?'🔬 Simulating':'Running'} <span style={{color: dryRun?'#7c3aed':'var(--blue)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
                 : 'Pipeline starting…'}
           </div>
           <div style={{fontFamily:'monospace',fontSize:'11px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -2074,7 +2070,7 @@ function DashboardView({ history, connected, onNavigate }) {
               borderRadius:8,border:'1px solid var(--border)',background:'var(--bg2)',
             }}>
               <div style={{
-                width:24,height:24,borderRadius:'50%',background:'var(--orange)',color:'#fff',
+                width:24,height:24,borderRadius:'50%',background:'var(--blue)',color:'#fff',
                 display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
                 flexShrink:0,marginTop:1,
               }}>{i+1}</div>
@@ -2152,7 +2148,7 @@ function StagesView() {
           <div key={s.id} className="sf-card">
             <div style={{padding:'15px 18px',display:'flex',gap:14,alignItems:'flex-start'}}>
               <div style={{
-                width:28,height:28,borderRadius:'50%',background:'var(--orange)',color:'#fff',
+                width:28,height:28,borderRadius:'50%',background:'var(--blue)',color:'#fff',
                 display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:800,
                 flexShrink:0,marginTop:1,
               }}>{i+1}</div>
@@ -2362,7 +2358,7 @@ function SettingsView() {
           ].map(([desc,cmd])=>(
             <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)'}}>
               <div style={{fontSize:'10.5px',color:'var(--muted)',marginBottom:4,fontWeight:500}}>{desc}</div>
-              <code style={{fontSize:'12px',color:'var(--orange)',fontWeight:600}}>{cmd}</code>
+              <code style={{fontSize:'12px',color:'var(--blue)',fontWeight:600}}>{cmd}</code>
             </div>
           ))}
         </div>
@@ -2510,8 +2506,8 @@ function App() {
               {v.label}
               {pipelineActive && (
                 <span className="sf-nav-badge" style={{
-                  background:done?'var(--ok)':'var(--orange)',
-                  boxShadow:done?'0 0 5px var(--ok)':'0 0 5px var(--orange)',
+                  background:done?'var(--ok)':'var(--blue)',
+                  boxShadow:done?'0 0 5px var(--ok)':'0 0 5px var(--blue)',
                   animation:done?'none':'pulse 1.6s ease-in-out infinite',
                 }}/>
               )}
