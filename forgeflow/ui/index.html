@@ -1338,8 +1338,101 @@ function IdleScreen({ connected, onLaunch }) {
   );
 }
 
+// ── Live console (right-hand vertical log panel) ──────────────────────────────
+function LiveConsole({ logs, currentStage }) {
+  const scrollRef = useRef(null);
+
+  // Auto-scroll to newest entry
+  useEffect(()=>{
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [logs.length]);
+
+  const stageLabel = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).label || id;
+  const stageEmoji = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).emoji || '▸';
+
+  const levelColor = lvl => {
+    if (lvl==='ERROR')                    return '#f87171';
+    if (lvl==='WARNING'||lvl==='WARN')    return '#fb923c';
+    return 'rgba(200,210,230,.72)';
+  };
+
+  // Build a flat list, inserting a stage-header row whenever the stage changes
+  const rows = [];
+  let lastStage = null;
+  logs.forEach((entry, i) => {
+    if (entry.stage && entry.stage !== lastStage) {
+      rows.push({ _header: true, stage: entry.stage, key: `h${i}` });
+      lastStage = entry.stage;
+    }
+    rows.push({ ...entry, key: `l${i}` });
+  });
+
+  return (
+    <div style={{
+      display:'flex',flexDirection:'column',
+      background:'#0d1117',border:'1px solid rgba(255,255,255,.07)',
+      borderRadius:10,overflow:'hidden',
+      position:'sticky',top:0,
+      height:'calc(100vh - 160px)',minHeight:420,
+    }}>
+      {/* Header */}
+      <div style={{
+        padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,.07)',
+        display:'flex',alignItems:'center',gap:8,flexShrink:0,
+        background:'rgba(255,255,255,.025)',
+      }}>
+        <span style={{
+          width:7,height:7,borderRadius:'50%',flexShrink:0,display:'inline-block',
+          background: currentStage ? '#22c55e' : '#374151',
+          boxShadow:  currentStage ? '0 0 7px #22c55e' : 'none',
+          transition: 'all .3s',
+        }}/>
+        <span style={{fontSize:'11px',fontWeight:700,color:'rgba(255,255,255,.55)',letterSpacing:'0.09em',flex:1}}>
+          LIVE OUTPUT
+        </span>
+        <span style={{fontSize:'9.5px',color:'rgba(255,255,255,.25)',fontFamily:'monospace'}}>
+          {logs.length} lines
+        </span>
+      </div>
+
+      {/* Scrollable log body */}
+      <div ref={scrollRef} style={{flex:1,overflowY:'auto',padding:'6px 0',fontFamily:'monospace',fontSize:'10.5px',lineHeight:1.55}}>
+        {logs.length===0 && (
+          <div style={{padding:'24px 14px',color:'rgba(255,255,255,.18)',textAlign:'center',fontSize:'11.5px'}}>
+            Waiting for agent output…
+          </div>
+        )}
+        {rows.map(row => row._header
+          ? (
+            <div key={row.key} style={{
+              padding:'7px 12px 3px',margin:'4px 0 0',
+              borderTop:'1px solid rgba(255,255,255,.05)',
+              display:'flex',alignItems:'center',gap:5,
+            }}>
+              <span style={{fontSize:'11px'}}>{stageEmoji(row.stage)}</span>
+              <span style={{fontSize:'9.5px',fontWeight:800,color:'rgba(255,255,255,.35)',
+                textTransform:'uppercase',letterSpacing:'0.1em'}}>
+                {stageLabel(row.stage)}
+              </span>
+            </div>
+          ) : (
+            <div key={row.key} style={{
+              padding:'1px 12px',display:'flex',gap:8,alignItems:'baseline',
+            }}>
+              <span style={{color:'rgba(255,255,255,.18)',flexShrink:0,fontSize:'9px',minWidth:48}}>{row.t}</span>
+              <span style={{color:levelColor(row.level),wordBreak:'break-word',whiteSpace:'pre-wrap',flex:1}}>
+                {row.msg}
+              </span>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Running / pipeline live view ──────────────────────────────────────────────
-function RunningView({ liveState }) {
+function RunningView({ liveState, logs }) {
   const { pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed } = liveState;
 
@@ -1368,7 +1461,10 @@ function RunningView({ liveState }) {
   };
 
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,alignItems:'start'}}>
+
+      {/* ── Left column: main pipeline content ── */}
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
 
       {/* ── Status bar ── */}
       <div className="sf-card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:16}}>
@@ -1575,6 +1671,11 @@ function RunningView({ liveState }) {
           </div>
         </div>
       )}
+
+      </div>{/* end left column */}
+
+      {/* ── Right column: live log console ── */}
+      <LiveConsole logs={logs} currentStage={currentStage} />
 
     </div>
   );
@@ -1866,6 +1967,7 @@ function App() {
   const [history, setHistory] = useState([]);
   const [toasts,  setToasts]  = useState([]);
   const [logs,    setLogs]    = useState([]);
+  const currentStageRef = useRef(null);   // tracks active stage for log tagging
   const [liveState, setLiveState] = useState({
     connected:false, pipelinePath:'', stages:[], stageState:{},
     stageInfo:{}, stageResults:{}, currentStage:null, currentNum:0,
@@ -1888,12 +1990,14 @@ function App() {
         setLiveState(s=>({...s,connected:true}));
       } else if (type==='pipeline_start') {
         const init={}; (msg.stages||[]).forEach(id=>{init[id]='pending';});
+        currentStageRef.current = null;
         setLiveState({connected:true,pipelinePath:msg.path||'',stages:msg.stages||[],
           stageState:init,stageInfo:{},stageResults:{},currentStage:null,
           currentNum:0,totalStages:msg.total||0,done:false,elapsed:0});
         setLogs([]);
         setView('live');
       } else if (type==='stage_start') {
+        currentStageRef.current = msg.stage;
         setLiveState(s=>({...s,currentStage:msg.stage,currentNum:msg.num||s.currentNum,
           stageState:{...s.stageState,[msg.stage]:'running'},
           stageInfo:{...s.stageInfo,[msg.stage]:msg.info||{}}}));
@@ -1914,10 +2018,11 @@ function App() {
         addToast(msg.success?`✓ Pipeline complete in ${msg.elapsed_s}s`:'✗ Pipeline failed',
                  msg.success?'success':'error');
       } else if (type==='log') {
-        setLogs(prev=>[...prev.slice(-299), {
-          msg: msg.msg || '',
+        setLogs(prev=>[...prev.slice(-499), {
+          msg:   msg.msg || msg.message || '',
           level: msg.level || 'INFO',
-          name: msg.name || '',
+          name:  msg.name || '',
+          stage: msg.stage || currentStageRef.current || '',
           t: new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}),
         }]);
       }
@@ -2029,7 +2134,7 @@ function App() {
           {view==='live' && (
             showIdle
               ? <IdleScreen connected={connected} onLaunch={()=>setView('live')} />
-              : <RunningView liveState={liveState} />
+              : <RunningView liveState={liveState} logs={logs} />
           )}
           {view==='dashboard' && <DashboardView history={history} connected={connected} onNavigate={setView} />}
           {view==='pipeline'  && <StagesView />}
