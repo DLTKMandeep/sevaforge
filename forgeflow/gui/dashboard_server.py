@@ -446,10 +446,44 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
         q = _bus.subscribe()
-        # Send initial heartbeat
+        # Send initial heartbeat then replay current pipeline state so a
+        # browser that loads after pipeline_start still sees the live view.
         try:
             self.wfile.write(b"data: {\"type\":\"connected\"}\n\n")
             self.wfile.flush()
+            # Replay state if pipeline is already running or done
+            inst = DashboardServer._instance
+            if inst:
+                s = inst._state
+                status = s.get("status", "idle")
+                if status in ("running", "done") and s.get("stages"):
+                    # Re-emit pipeline_start so the UI initialises stages
+                    replay = json.dumps({
+                        "type":   "pipeline_start",
+                        "path":   s.get("path", ""),
+                        "stages": s.get("stages", []),
+                        "total":  s.get("total", 0),
+                    })
+                    self.wfile.write(f"data: {replay}\n\n".encode())
+                    # Re-emit current stage if one is active
+                    if s.get("current_stage"):
+                        cs = json.dumps({
+                            "type":  "stage_start",
+                            "stage": s["current_stage"],
+                            "num":   s.get("current_num", 0),
+                            "total": s.get("total", 0),
+                            "info":  {},
+                        })
+                        self.wfile.write(f"data: {cs}\n\n".encode())
+                    # Re-emit pipeline_done if finished
+                    if status == "done":
+                        done_msg = json.dumps({
+                            "type":      "pipeline_done",
+                            "success":   s.get("success", False),
+                            "elapsed_s": s.get("elapsed_s", 0),
+                        })
+                        self.wfile.write(f"data: {done_msg}\n\n".encode())
+                    self.wfile.flush()
         except Exception:
             _bus.unsubscribe(q)
             return
@@ -555,6 +589,7 @@ class DashboardServer:
     def emit_stage_start(self, stage: str, num: int, total: int,
                          info: Dict[str, Any]) -> None:
         self._state["current_stage"] = stage
+        self._state["current_num"] = num
         _bus.emit("stage_start", {
             "stage": stage,
             "num":   num,
@@ -563,6 +598,7 @@ class DashboardServer:
         })
 
     def emit_stage_result(self, stage: str, result: Dict[str, Any]) -> None:
+        self._state["current_stage"] = None
         _bus.emit("stage_result", {
             "stage":  stage,
             "result": result,
