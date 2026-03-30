@@ -278,6 +278,16 @@ Examples:
     secrets_bootstrap = secrets_sub.add_parser("bootstrap", help="Run scripts/setup-github.sh to bootstrap all secrets with placeholders")
     secrets_bootstrap.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
 
+    # === dashboard (standalone GUI — pick folder in browser) ===
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Open the Sevaforge GUI in your browser — pick a project folder and launch the pipeline from there"
+    )
+    dashboard_parser.add_argument("--port", type=int, default=7860,
+                                  help="Port to serve the dashboard on (default: 7860)")
+    dashboard_parser.add_argument("--no-browser", action="store_true",
+                                  help="Start the server but don't auto-open a browser tab")
+
     # === run-all (full pipeline + bridge) ===
     runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
@@ -965,6 +975,38 @@ def main():
             print_success_banner("AUDIT COMPLETE: All stages passed")
             sys.exit(0)
         
+        elif args.command == "dashboard":
+            import time as _time
+            import traceback as _tb
+            cli_dir = Path(__file__).parent
+            forgeflow_root = cli_dir.parent
+            if str(forgeflow_root) not in sys.path:
+                sys.path.insert(0, str(forgeflow_root))
+            try:
+                from gui.dashboard_server import DashboardServer
+            except ImportError:
+                console.print("[bold red]❌  Could not import dashboard server.[/]")
+                console.print("[dim]Make sure you are running from inside the forgeflow/ directory.[/]")
+                sys.exit(1)
+
+            port       = getattr(args, "port", 7860)
+            no_browser = getattr(args, "no_browser", False)
+            ds = DashboardServer(port=port, open_browser=not no_browser)
+            ds.start()
+            url = f"http://localhost:{ds.port}"
+            console.print()
+            console.print(f"  [bold cyan]🌐  Sevaforge Dashboard → {url}[/]")
+            console.print()
+            console.print("  [dim]Paste your project path in the browser and click [bold]Run Pipeline[/bold].[/]")
+            console.print("  [dim]Press [bold]Ctrl+C[/bold] to stop the server.[/]")
+            console.print()
+            try:
+                while True:
+                    _time.sleep(1)
+            except KeyboardInterrupt:
+                console.print("\n  [yellow]Dashboard stopped.[/]")
+            sys.exit(0)
+
         elif args.command == "run-all":
             # Check if this is a Greenfield or Brownfield project
             if is_greenfield_directory(path):
