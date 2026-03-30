@@ -953,7 +953,7 @@ const GF_FRAMEWORKS = {
   Ruby:       ['Rails','Sinatra','None'],
   PHP:        ['Laravel','Symfony','None'],
 };
-const GF_CLOUDS   = ['AWS','GCP','Azure','DigitalOcean','Oracle Cloud','Hetzner','None / Self-hosted'];
+const GF_CLOUDS   = ['AWS','GCP','Azure','DigitalOcean','Oracle Cloud','Hetzner'];
 const GF_DBS      = ['PostgreSQL','MySQL','MongoDB','Redis','DynamoDB','Cassandra','CockroachDB','SQLite','None'];
 const GF_CI       = ['GitHub Actions','GitLab CI','CircleCI','Jenkins','Azure DevOps','Bitbucket Pipelines','TeamCity','Buildkite','None'];
 const GF_CD       = ['ArgoCD','Flux CD','Spinnaker','GitHub Actions (deploy)','GitLab CD','AWS CodeDeploy','Azure DevOps','Helm + kubectl','None'];
@@ -972,7 +972,7 @@ function IdleScreen({ connected, onLaunch }) {
   const [gfAppType,   setGfAppType]  = useState(GF_APP_TYPES[0]);
   const [gfLang,      setGfLang]     = useState('Python');
   const [gfFramework, setGfFw]       = useState('FastAPI');
-  const [gfCloud,     setGfCloud]    = useState('AWS');
+  const [gfClouds,    setGfClouds]   = useState(['AWS']);
   const [gfDb,        setGfDb]       = useState('PostgreSQL');
   const [gfCi,        setGfCi]       = useState('GitHub Actions');
   const [gfCd,        setGfCd]       = useState('ArgoCD');
@@ -988,7 +988,7 @@ function IdleScreen({ connected, onLaunch }) {
   };
 
   const canLaunchBF  = chosenPath.trim() && !launching;
-  const canLaunchGF  = gfName.trim() && gfParent.trim() && !launching;
+  const canLaunchGF  = gfName.trim() && gfParent.trim() && gfClouds.length>0 && !launching;
 
   const handleLaunch = async () => {
     setLaunching(true); setLaunchErr('');
@@ -1000,7 +1000,7 @@ function IdleScreen({ connected, onLaunch }) {
           greenfield:   true,
           parent_path:  gfParent.trim(),
           project_name: gfName.trim(),
-          config: { app_type:gfAppType, language:gfLang, framework:gfFramework, cloud:gfCloud, database:gfDb, ci:gfCi, cd:gfCd },
+          config: { app_type:gfAppType, language:gfLang, framework:gfFramework, clouds:gfClouds, database:gfDb, ci:gfCi, cd:gfCd },
         };
       } else {
         const p = chosenPath.trim();
@@ -1207,10 +1207,36 @@ function IdleScreen({ connected, onLaunch }) {
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Cloud Provider</label>
-                <select value={gfCloud} onChange={e=>setGfCloud(e.target.value)} style={selStyle}>
-                  {GF_CLOUDS.map(c=><option key={c}>{c}</option>)}
-                </select>
+                <label style={labelStyle}>Cloud Providers <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'rgba(255,255,255,.3)',fontSize:'10px'}}>(pick any)</span></label>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+                  {GF_CLOUDS.map(c=>{
+                    const checked = gfClouds.includes(c);
+                    const toggle  = () => setGfClouds(prev =>
+                      prev.includes(c) ? prev.filter(x=>x!==c) : [...prev, c]
+                    );
+                    return (
+                      <label key={c} onClick={toggle} style={{
+                        display:'flex',alignItems:'center',gap:7,
+                        padding:'6px 9px',borderRadius:6,cursor:'pointer',
+                        border:`1px solid ${checked?'rgba(99,102,241,.5)':'var(--border)'}`,
+                        background: checked?'rgba(99,102,241,.12)':'var(--surface2)',
+                        transition:'all .12s',userSelect:'none',
+                      }}>
+                        <span style={{
+                          width:14,height:14,borderRadius:3,flexShrink:0,
+                          border:`1.5px solid ${checked?'#6366f1':'var(--border)'}`,
+                          background: checked?'#6366f1':'transparent',
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:'9px',color:'#fff',fontWeight:800,
+                        }}>{checked?'✓':''}</span>
+                        <span style={{fontSize:'11.5px',color:'var(--text)',fontWeight: checked?600:400}}>{c}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {gfClouds.length===0 && (
+                  <div style={{marginTop:5,fontSize:'10.5px',color:'var(--warn)'}}>⚠ Select at least one cloud</div>
+                )}
               </div>
             </div>
 
@@ -1247,7 +1273,7 @@ function IdleScreen({ connected, onLaunch }) {
                 display:'flex',flexWrap:'wrap',gap:6,padding:'10px 12px',
                 background:'rgba(99,102,241,.07)',borderRadius:8,border:'1px solid rgba(99,102,241,.2)',
               }}>
-                {[gfAppType,gfLang,gfFramework,gfCloud,gfDb,gfCi,gfCd]
+                {[gfAppType,gfLang,gfFramework,...gfClouds,gfDb,gfCi,gfCd]
                   .filter(v=>v&&v!=='None'&&v!=='None / Self-hosted')
                   .map(v=>(
                   <span key={v} style={{
