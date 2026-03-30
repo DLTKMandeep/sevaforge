@@ -248,6 +248,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_state()
         elif path == "/api/running":
             self._json({"running": _running})
+        elif path == "/api/ls":
+            self._handle_ls()
         elif path == "/health":
             self._json({"ok": True})
         else:
@@ -309,13 +311,46 @@ class _Handler(BaseHTTPRequestHandler):
 
         self._json({"started": True, "path": repo_path})
 
-    # ── /api/browse — open native OS folder picker, return chosen path ────
+    # ── /api/browse — open native OS folder picker (kept for compatibility) ─
     def _handle_browse(self):
         path = _pick_folder_native()
         if path:
             self._json({"path": path})
         else:
             self._json({"path": None, "cancelled": True})
+
+    # ── /api/ls — list subdirectories of a path (cross-platform browser) ──
+    def _handle_ls(self):
+        import os as _os
+        from urllib.parse import urlparse as _up, parse_qs as _pqs
+        qs   = _pqs(_up(self.path).query)
+        raw  = qs.get("path", ["~"])[0]
+        path = _os.path.expanduser(raw)
+        path = _os.path.abspath(path)
+
+        if not _os.path.isdir(path):
+            self._json({"error": "Not a directory"}, 400)
+            return
+
+        try:
+            entries = []
+            for name in sorted(_os.listdir(path), key=str.lower):
+                if name.startswith("."):
+                    continue          # skip hidden
+                full = _os.path.join(path, name)
+                if _os.path.isdir(full):
+                    entries.append({"name": name, "path": full})
+
+            # Parent directory (None when already at filesystem root)
+            parent = _os.path.dirname(path)
+            if parent == path:        # reached the root
+                parent = None
+
+            self._json({"path": path, "parent": parent, "entries": entries})
+        except PermissionError:
+            self._json({"error": "Permission denied"}, 403)
+        except Exception as exc:
+            self._json({"error": str(exc)}, 500)
 
     # ── File serving ──────────────────────────────────────────────────────
 

@@ -526,80 +526,220 @@ function SevaForgeWordmark({ size = 32, showTagline = true }) {
   );
 }
 
-// ── Folder picker ─────────────────────────────────────────────────────────────
-function FolderPicker({ onPathSelected }) {
-  const [path,   setPath]   = useState('');
-  const [status, setStatus] = useState('idle'); // idle|browsing|typing|error|ok
-  const [errMsg, setErrMsg] = useState('');
+// ── Built-in folder browser (cross-platform, no OS dialog needed) ─────────────
+function FolderBrowserModal({ onSelect, onCancel }) {
+  const [cwd,     setCwd]     = useState(null);
+  const [parent,  setParent]  = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errMsg,  setErrMsg]  = useState('');
 
-  const browse = async () => {
-    setStatus('browsing'); setErrMsg('');
+  const nav = async (path) => {
+    setLoading(true); setErrMsg('');
     try {
-      const res  = await fetch('/api/browse', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+      const res  = await fetch(`/api/ls?path=${encodeURIComponent(path)}`);
       const data = await res.json();
-      if (data.path && !data.path.startsWith('ERROR:')) {
-        setPath(data.path); setStatus('typing'); onPathSelected(data.path);
-      } else if (data.cancelled) {
-        setStatus('idle');
-      } else {
-        setErrMsg('Could not open folder picker. Please type your path below.');
-        setStatus('error');
-      }
-    } catch(e) {
-      setErrMsg(`Could not reach server: ${e.message}`);
-      setStatus('error');
-    }
+      if (data.error) { setErrMsg(data.error); setLoading(false); return; }
+      setCwd(data.path); setParent(data.parent); setEntries(data.entries);
+    } catch(e) { setErrMsg(`Server error: ${e.message}`); }
+    setLoading(false);
+  };
+
+  useEffect(() => { nav('~'); }, []);
+
+  // Split cwd into breadcrumb parts
+  const parts = cwd ? cwd.split('/').filter(Boolean) : [];
+
+  return (
+    <div style={{
+      position:'fixed',inset:0,background:'rgba(15,23,42,.55)',
+      display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,
+      backdropFilter:'blur(3px)',
+    }}>
+      <div style={{
+        background:'var(--card)',borderRadius:14,width:560,maxHeight:'78vh',
+        display:'flex',flexDirection:'column',
+        boxShadow:'0 24px 64px rgba(15,23,42,.28),0 4px 16px rgba(15,23,42,.12)',
+        border:'1px solid var(--border)',overflow:'hidden',
+      }}>
+
+        {/* Header */}
+        <div style={{
+          padding:'16px 20px',borderBottom:'1px solid var(--border)',
+          display:'flex',alignItems:'center',gap:12,background:'#fafbfd',
+        }}>
+          <span style={{fontSize:'1.3rem'}}>📁</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:'14px',color:'var(--text)',marginBottom:3}}>
+              Select Project Folder
+            </div>
+            {/* Breadcrumb */}
+            <div style={{display:'flex',alignItems:'center',gap:3,flexWrap:'wrap'}}>
+              <span style={{
+                fontSize:'10.5px',color:'var(--orange)',cursor:'pointer',fontWeight:600,
+              }} onClick={()=>nav('/')}>
+                /
+              </span>
+              {parts.map((part,i)=>{
+                const fullPath = '/' + parts.slice(0,i+1).join('/');
+                const isLast   = i===parts.length-1;
+                return (
+                  <React.Fragment key={fullPath}>
+                    <span style={{fontSize:'10px',color:'var(--light)'}}>›</span>
+                    <span
+                      onClick={()=>!isLast && nav(fullPath)}
+                      style={{
+                        fontSize:'10.5px',fontWeight:isLast?700:500,
+                        color:isLast?'var(--text)':'var(--orange)',
+                        cursor:isLast?'default':'pointer',
+                        maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+                      }}>{part}</span>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+          <button onClick={onCancel} style={{
+            background:'none',border:'none',cursor:'pointer',fontSize:'18px',
+            color:'var(--light)',lineHeight:1,padding:'4px',
+          }}>✕</button>
+        </div>
+
+        {/* Directory listing */}
+        <div style={{flex:1,overflowY:'auto',padding:'8px 10px'}}>
+          {/* Up one level */}
+          {parent && (
+            <div onClick={()=>nav(parent)} style={{
+              display:'flex',alignItems:'center',gap:10,padding:'8px 12px',
+              borderRadius:7,cursor:'pointer',marginBottom:2,
+              color:'var(--muted)',fontSize:'13px',fontWeight:500,
+              transition:'background .1s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--bg2)'}
+            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <span style={{fontSize:'1rem'}}>↑</span>
+              <span>.. (up one level)</span>
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
+              <span className="spin" style={{display:'inline-block',marginRight:8}}>⟳</span>Loading…
+            </div>
+          )}
+
+          {/* Error */}
+          {errMsg && !loading && (
+            <div style={{padding:'16px',color:'var(--err)',fontSize:'12.5px',textAlign:'center'}}>
+              ⚠ {errMsg}
+            </div>
+          )}
+
+          {/* Entries */}
+          {!loading && entries.map(e=>(
+            <div key={e.path}
+              style={{
+                display:'flex',alignItems:'center',gap:10,padding:'8px 12px',
+                borderRadius:7,cursor:'pointer',marginBottom:1,
+                transition:'background .1s',
+              }}
+              onMouseEnter={ev=>ev.currentTarget.style.background='var(--bg2)'}
+              onMouseLeave={ev=>ev.currentTarget.style.background='transparent'}
+              onClick={()=>nav(e.path)}
+            >
+              <span style={{fontSize:'1rem',flexShrink:0}}>📁</span>
+              <span style={{flex:1,fontSize:'13px',color:'var(--text)',fontWeight:500,
+                            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {e.name}
+              </span>
+              <span style={{fontSize:'11px',color:'var(--light)',flexShrink:0}}>›</span>
+            </div>
+          ))}
+
+          {!loading && !errMsg && entries.length===0 && (
+            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'12.5px'}}>
+              No subfolders here
+            </div>
+          )}
+        </div>
+
+        {/* Footer — current path + confirm */}
+        <div style={{
+          padding:'14px 20px',borderTop:'1px solid var(--border)',
+          background:'#fafbfd',display:'flex',alignItems:'center',gap:10,
+        }}>
+          <div style={{
+            flex:1,fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',
+            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+            background:'var(--bg2)',border:'1px solid var(--border)',
+            padding:'6px 10px',borderRadius:6,
+          }}>
+            {cwd || '…'}
+          </div>
+          <button className="btn-primary" onClick={()=>cwd && onSelect(cwd)}
+                  disabled={!cwd} style={{flexShrink:0,padding:'8px 18px',fontSize:'13px'}}>
+            ✓ Select this folder
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Folder picker (shows browser modal) ───────────────────────────────────────
+function FolderPicker({ onPathSelected }) {
+  const [path,      setPath]      = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [errMsg,    setErrMsg]    = useState('');
+
+  const handleSelect = (p) => {
+    setPath(p); setShowModal(false); setErrMsg(''); onPathSelected(p);
   };
 
   return (
     <div style={{maxWidth:560, margin:'0 auto'}}>
-      {/* Browse button */}
-      <div className={`folder-drop-zone ${path?'has-path':''}`} onClick={browse}
-           style={{marginBottom:14}}>
-        {status==='browsing' ? (
-          <>
-            <div className="folder-icon spin">⏳</div>
-            <div style={{fontSize:'13px',color:'var(--muted)',fontWeight:500}}>Opening folder picker…</div>
-          </>
-        ) : path ? (
+      {/* Browser modal */}
+      {showModal && (
+        <FolderBrowserModal onSelect={handleSelect} onCancel={()=>setShowModal(false)} />
+      )}
+
+      {/* Click zone */}
+      <div className={`folder-drop-zone ${path?'has-path':''}`}
+           onClick={()=>setShowModal(true)} style={{marginBottom:14}}>
+        {path ? (
           <>
             <div style={{fontSize:'2rem',marginBottom:8}}>📁</div>
             <div style={{fontSize:'12.5px',fontWeight:700,color:'var(--orange)',marginBottom:4}}>Folder selected</div>
             <div style={{fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
-            <div style={{fontSize:'11px',color:'var(--light)',marginTop:8}}>Click to change folder</div>
+            <div style={{fontSize:'11px',color:'var(--light)',marginTop:8}}>Click to change</div>
           </>
         ) : (
           <>
             <div className="folder-icon">📂</div>
             <div style={{fontSize:'14px',fontWeight:600,color:'var(--text)',marginBottom:6}}>
-              Click to select your project folder
+              Browse and select your project folder
             </div>
-            <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:6}}>Opens your native Mac folder picker</div>
-            <div style={{
-              fontSize:'11px',color:'var(--orange)',background:'var(--orange-lt)',
-              border:'1px solid var(--orange-br)',borderRadius:6,padding:'5px 12px',
-              display:'inline-block',fontWeight:600,
-            }}>
-              💡 Single-click your project folder, then click Open
+            <div style={{fontSize:'12px',color:'var(--muted)'}}>
+              Opens a built-in folder browser — works on Mac, Windows, and Linux
             </div>
           </>
         )}
       </div>
 
-      {/* Manual input */}
+      {/* Manual input fallback */}
       <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:700,marginBottom:6,letterSpacing:'0.06em'}}>
         OR ENTER PATH MANUALLY
       </div>
-      <div style={{display:'flex',gap:8,marginBottom:10}}>
-        <input
-          type="text"
-          value={path}
-          onChange={e=>{ setPath(e.target.value); setStatus('typing'); setErrMsg(''); onPathSelected(e.target.value); }}
-          placeholder="~/your-ai-project  or  /Users/you/project"
-          className={`sf-input ${status==='error'?'err':''}`}
-        />
-      </div>
-      {status==='error' && (
+      <input
+        type="text"
+        value={path}
+        onChange={e=>{ setPath(e.target.value); setErrMsg(''); onPathSelected(e.target.value); }}
+        placeholder="~/your-ai-project  or  /Users/you/project"
+        className={`sf-input ${errMsg?'err':''}`}
+        style={{width:'100%',marginBottom:10}}
+      />
+      {errMsg && (
         <div style={{color:'var(--err)',fontSize:'12px',display:'flex',alignItems:'center',gap:5}}>
           <span>⚠</span> {errMsg}
         </div>
