@@ -77,6 +77,118 @@ POST_MERGE_STAGES = [
 ]
 
 
+# Dry-run preview results — what each stage *would* produce without writing files
+DRY_RUN_PREVIEWS: Dict[str, Dict[str, Any]] = {
+    "discover": {
+        "status": "success",
+        "summary": "[DRY RUN] Would scan directory tree, detect language/framework, and write tech-stack manifest to staging/.",
+        "findings": [
+            "Would detect language, runtime version, and web framework",
+            "Would map declared dependencies and entry point",
+            "Would identify exposed port and environment variable requirements",
+            "Would write staging/discover_report.md",
+        ],
+    },
+    "normalize": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate .gitignore, README.md scaffold, and code-style configs.",
+        "findings": [
+            "Would write a language-specific .gitignore",
+            "Would scaffold README.md with project overview",
+            "Would add .editorconfig for consistent formatting",
+            "Would update pyproject.toml / package.json lint settings",
+        ],
+    },
+    "docs": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate ARCHITECTURE.md, THREAT_MODEL.md, ERD, and API reference docs.",
+        "findings": [
+            "Would write ARCHITECTURE.md with C4 component diagram (Mermaid)",
+            "Would produce THREAT_MODEL.md with STRIDE risk table",
+            "Would generate ERD from detected DB schema",
+            "Would produce API reference from route handlers",
+        ],
+    },
+    "iac": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate Terraform modules, Dockerfile, and docker-compose.yml.",
+        "findings": [
+            "Would write main.tf, variables.tf, outputs.tf",
+            "Would create network, cluster, storage, and IAM Terraform modules",
+            "Would build a multi-stage Dockerfile",
+            "Would write docker-compose.yml for local development",
+        ],
+    },
+    "cd": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate ArgoCD manifests, Kustomize overlays, and GitHub Actions deployment workflows.",
+        "findings": [
+            "Would scaffold ArgoCD Application + AppProject manifests",
+            "Would write Kustomize base and dev / staging / prod overlays",
+            "Would generate GitHub Actions infra.yml, bootstrap.yml, and deploy.yml",
+        ],
+    },
+    "ci": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate GitHub Actions CI workflows, GitLab CI, and Dependabot config.",
+        "findings": [
+            "Would write ci.yml (lint + unit tests)",
+            "Would add security.yml (Trivy + Snyk scan)",
+            "Would generate release.yml (build + push container image)",
+            "Would add Dependabot auto-update config",
+        ],
+    },
+    "e2e": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate Playwright E2E test suite with auth, navigation, form, and API specs.",
+        "findings": [
+            "Would scaffold playwright.config.ts",
+            "Would write auth flow spec (login / logout)",
+            "Would add navigation, form submission, and API health-check specs",
+            "Would generate e2e.yml GitHub Actions workflow",
+        ],
+    },
+    "review": {
+        "status": "success",
+        "summary": "[DRY RUN] Would run AI code review — analysing complexity, duplication, and error handling.",
+        "findings": [
+            "Would analyse cyclomatic complexity per function",
+            "Would detect code duplication and dead code",
+            "Would check error handling and naming conventions",
+            "Would write a prioritised code-quality improvement report",
+        ],
+    },
+    "test": {
+        "status": "success",
+        "summary": "[DRY RUN] Would discover and run the full test suite, measuring coverage.",
+        "findings": [
+            "Would detect test runner and all test files",
+            "Would measure line and branch coverage",
+            "Would report failing tests with stack traces",
+        ],
+    },
+    "scan": {
+        "status": "success",
+        "summary": "[DRY RUN] Would run SAST, CVE dependency scan, and secrets detection.",
+        "findings": [
+            "Would run SAST pass on all source files",
+            "Would scan the dependency tree for known CVEs",
+            "Would detect hardcoded secrets and tokens",
+            "Would generate SARIF report with severity-classified findings",
+        ],
+    },
+    "bridge": {
+        "status": "success",
+        "summary": "[DRY RUN] Would commit all generated files and push to a GitHub repository.",
+        "findings": [
+            "Would stage and commit all files from staging/",
+            "Would create a GitHub repo if one doesn't exist yet",
+            "Would push to origin and open a pull request",
+        ],
+    },
+}
+
+
 class MissionControl:
     """
     Mission Control - CLI backend that delegates to MCPOrchestrator.
@@ -263,7 +375,9 @@ class MissionControl:
         }
         return self.execute("bridge", params)
     
-    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False, private: bool = False) -> Dict[str, Any]:
+    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False,
+               private: bool = False, dry_run: bool = False,
+               selected_stages: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Run full 11-stage pipeline:
         DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE
@@ -276,6 +390,12 @@ class MissionControl:
             include_post_merge: Whether to run deploy + monitor after bridge
             greenfield: If True, generation agents overwrite existing files (new project).
                         If False (default), existing files are preserved (brownfield).
+            private: Create a private GitHub repository (bridge stage).
+            dry_run: If True, simulate each stage without writing any files.
+                     The GUI shows "Preview" pills and a DRY RUN banner.
+            selected_stages: List of stage IDs to actually execute.
+                             Any stage not in the list is skipped (shown as grey in GUI).
+                             When None, all stages are run.
 
         If any stage fails, the pipeline stops and reports the failure.
         """
@@ -294,15 +414,18 @@ class MissionControl:
         ]
 
         total = len(stages)
-        print_pipeline_header("RUN-ALL PIPELINE", self.mode)
+        mode_label = "DRY RUN PIPELINE" if dry_run else "RUN-ALL PIPELINE"
+        print_pipeline_header(mode_label, self.mode)
         console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE[/]")
+        if dry_run:
+            console.print("  [bold yellow]⚠  DRY RUN MODE — no files will be written[/]")
         console.print()
 
         dash = get_dashboard()
 
-        # Emit pipeline_start to all connected browsers
+        # Emit pipeline_start to all connected browsers (include dry_run flag so UI renders preview mode)
         if dash:
-            dash.emit_pipeline_start(path, [s[0] for s in stages])
+            dash.emit_pipeline_start(path, [s[0] for s in stages], dry_run=dry_run)
 
         # Statuses that count as "already done / nothing to do" — treat as success
         PASS_STATUSES = {"success", "warning", "skipped", "done", "already_done",
@@ -315,9 +438,28 @@ class MissionControl:
             if dash:
                 dash.emit_log(stage, msg)
 
+        # Dry-run: use a short pause so the GUI hourglass is visible but still fast
+        DRY_RUN_PAUSE_S = 3
+
         results: List[tuple] = []
         for idx, (stage_name, stage_fn) in enumerate(stages, 1):
-            # Display stage start with number context
+
+            # ── Stage filtering: skip stages not in selected_stages list ──────────
+            if selected_stages is not None and stage_name not in selected_stages:
+                skip_result = {
+                    "status":   "skipped",
+                    "summary":  "Stage not selected for this run.",
+                    "findings": [],
+                    "dry_run":  dry_run,
+                }
+                if dash:
+                    dash.emit_stage_start(stage_name, num=idx, total=total, info={})
+                    _log(f"⊘  Stage {idx}/{total} — {stage_name.upper()} skipped (not selected)", stage_name)
+                    dash.emit_stage_result(stage_name, skip_result)
+                results.append((stage_name, skip_result))
+                continue
+
+            # ── Display stage start with number context ───────────────────────────
             print_stage_start(stage_name, path, stage_num=idx, total=total)
 
             # Emit stage_start to browser — include purpose/outputs info
@@ -329,7 +471,8 @@ class MissionControl:
                     "agent":      info.get("agent", ""),
                     "mcp_server": info.get("mcp_server", ""),
                 })
-                _log(f"▶  Stage {idx}/{total} — {stage_name.upper()} starting", stage_name)
+                prefix = "🔬 [DRY RUN]" if dry_run else "▶ "
+                _log(f"{prefix} Stage {idx}/{total} — {stage_name.upper()} starting", stage_name)
                 stage_info = STAGE_MAPPING.get(stage_name, {})
                 if stage_info.get("purpose"):
                     _log(f"   Purpose : {stage_info['purpose']}", stage_name)
@@ -338,7 +481,36 @@ class MissionControl:
                 if stage_info.get("agent"):
                     _log(f"   Agent   : {stage_info['agent']}", stage_name)
 
-            # Execute stage
+            # ── Dry run: simulate execution without touching the filesystem ───────
+            if dry_run:
+                preview = dict(DRY_RUN_PREVIEWS.get(stage_name, {
+                    "status":   "success",
+                    "summary":  f"[DRY RUN] {stage_name} would execute.",
+                    "findings": [],
+                }))
+                preview["dry_run"] = True
+
+                _log(f"   🔬 Simulating {stage_name} (no files written)…", stage_name)
+                time.sleep(DRY_RUN_PAUSE_S)
+
+                results.append((stage_name, preview))
+                print_stage_result(stage_name, preview)
+
+                if dash:
+                    dash.emit_stage_result(stage_name, {
+                        "status":   "preview",   # special status for dry-run UI
+                        "summary":  preview["summary"],
+                        "findings": preview.get("findings", []),
+                        "dry_run":  True,
+                    })
+                    _log(f"◈  {stage_name.upper()} preview — {preview['summary'][:100]}", stage_name)
+                    for finding in preview.get("findings", [])[:8]:
+                        _log(f"   · {finding[:140]}", stage_name)
+                    if idx < total:
+                        time.sleep(DRY_RUN_PAUSE_S)
+                continue   # skip normal execution path
+
+            # ── Normal execution ──────────────────────────────────────────────────
             _log(f"   Running agent… (this may take a while)", stage_name)
             result = stage_fn()
 
@@ -387,7 +559,7 @@ class MissionControl:
                     _log(f"   ⏳ Pausing {STAGE_PAUSE_S}s before next stage…", stage_name)
                     time.sleep(STAGE_PAUSE_S)
 
-            if result.get("status") not in {"success", "warning"}:
+            if result.get("status") not in {"success", "warning", "skipped"}:
                 # Pipeline truly failed
                 print_pipeline_summary(results, success=False)
                 print_error_banner("Pipeline failed", stage_name)
@@ -404,23 +576,34 @@ class MissionControl:
                     "completed_stages": [r[0] for r in results[:-1]]
                 }
 
-        # All 11 stages (including bridge/GitHub push) completed
+        # All stages completed (dry run or real)
         print_pipeline_summary(results, success=True)
-        print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
-        _log("🎉  All 11 stages complete — pipeline finished successfully!", "bridge")
-        _log("    Infrastructure, CI/CD, docs, tests, and security scan generated.", "bridge")
-        _log("    Code pushed to GitHub — check your PR.", "bridge")
+        if dry_run:
+            print_success_banner("DRY RUN COMPLETE: All selected stages previewed — no files written.")
+            _log("🔬  Dry run complete — all selected stages previewed!", "bridge")
+            _log("    No files were written. Run without Dry Run to apply changes.", "bridge")
+        else:
+            print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
+            _log("🎉  All 11 stages complete — pipeline finished successfully!", "bridge")
+            _log("    Infrastructure, CI/CD, docs, tests, and security scan generated.", "bridge")
+            _log("    Code pushed to GitHub — check your PR.", "bridge")
 
-        if include_post_merge and prompt_post_merge():
+        if not dry_run and include_post_merge and prompt_post_merge():
             return self._run_post_merge_stages(path, results)
 
         if dash:
-            dash.emit_pipeline_done(success=True, summary="Full pipeline completed + pushed to GitHub")
+            summary_msg = ("Dry run complete — previewed all selected stages, no files written."
+                           if dry_run
+                           else "Full pipeline completed + pushed to GitHub")
+            dash.emit_pipeline_done(success=True, summary=summary_msg)
         return {
             "status": "success",
             "mission": "run-all",
             "deployment_mode": self.mode,
-            "summary": "Full pipeline completed successfully — code pushed to GitHub",
+            "dry_run": dry_run,
+            "summary": ("Dry run previewed all selected stages — no files modified."
+                        if dry_run
+                        else "Full pipeline completed successfully — code pushed to GitHub"),
             "stages": [r[0] for r in results],
         }
     

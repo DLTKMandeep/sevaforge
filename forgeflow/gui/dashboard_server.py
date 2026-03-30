@@ -260,6 +260,8 @@ def _spawn_pipeline(
     greenfield: bool = False,
     greenfield_config: Optional[Dict[str, Any]] = None,
     private: bool = False,
+    dry_run: bool = False,
+    selected_stages: Optional[List[str]] = None,
 ) -> None:
     """
     Run MissionControl.run_all() in a daemon thread.
@@ -309,7 +311,8 @@ def _spawn_pipeline(
                 )
 
             mc = MissionControl()
-            mc.run_all(path=path, greenfield=greenfield, private=private)
+            mc.run_all(path=path, greenfield=greenfield, private=private,
+                       dry_run=dry_run, selected_stages=selected_stages)
         except Exception as exc:
             _bus.emit("log", {"stage": "server", "message": f"Pipeline error: {exc}"})
             _bus.emit("pipeline_done", {"success": False, "elapsed_s": 0,
@@ -396,6 +399,15 @@ class _Handler(BaseHTTPRequestHandler):
             self._json({"cleared": True})
             return
 
+        if parsed_path == "/api/reset":
+            # Reset server-side pipeline state back to idle so SSE replays
+            # don't re-trigger the RunningView after the user clicks "Run Another Pipeline".
+            inst = DashboardServer._instance
+            if inst:
+                inst._state = {"mode": "live", "status": "idle"}
+            self._json({"reset": True})
+            return
+
         if parsed_path != "/api/run":
             self.send_response(404)
             self.end_headers()
@@ -413,6 +425,10 @@ class _Handler(BaseHTTPRequestHandler):
         greenfield        = bool(payload.get("greenfield", False))
         greenfield_config = payload.get("config") or {}
         private_repo      = bool(payload.get("private", False))
+        dry_run           = bool(payload.get("dry_run", False))
+        # selected_stages: list of stage IDs to run; None means run all
+        _sel = payload.get("selected_stages")
+        selected_stages: Optional[List[str]] = list(_sel) if isinstance(_sel, list) and _sel else None
 
         if greenfield:
             # Greenfield: caller supplies parent_path + project_name.
@@ -454,6 +470,8 @@ class _Handler(BaseHTTPRequestHandler):
                 greenfield=greenfield,
                 greenfield_config=greenfield_config if greenfield else None,
                 private=private_repo,
+                dry_run=dry_run,
+                selected_stages=selected_stages,
             )
         finally:
             _run_lock.release()
@@ -551,10 +569,11 @@ class _Handler(BaseHTTPRequestHandler):
                 if status in ("running", "done") and s.get("stages"):
                     # Re-emit pipeline_start so the UI initialises stages
                     replay = json.dumps({
-                        "type":   "pipeline_start",
-                        "path":   s.get("path", ""),
-                        "stages": s.get("stages", []),
-                        "total":  s.get("total", 0),
+                        "type":    "pipeline_start",
+                        "path":    s.get("path", ""),
+                        "stages":  s.get("stages", []),
+                        "total":   s.get("total", 0),
+                        "dry_run": s.get("dry_run", False),
                     })
                     self.wfile.write(f"data: {replay}\n\n".encode())
                     # Re-emit current stage if one is active
@@ -669,13 +688,14 @@ class DashboardServer:
 
     # ── Event emitters ────────────────────────────────────────────────────
 
-    def emit_pipeline_start(self, path: str, stages: List[str]) -> None:
+    def emit_pipeline_start(self, path: str, stages: List[str], dry_run: bool = False) -> None:
         self._state.update({"status": "running", "path": path, "stages": stages,
-                             "total": len(stages), "current_stage": None})
+                             "total": len(stages), "current_stage": None, "dry_run": dry_run})
         _bus.emit("pipeline_start", {
-            "path":   path,
-            "stages": stages,
-            "total":  len(stages),
+            "path":     path,
+            "stages":   stages,
+            "total":    len(stages),
+            "dry_run":  dry_run,
         })
 
     def emit_stage_start(self, stage: str, num: int, total: int,

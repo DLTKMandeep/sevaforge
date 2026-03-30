@@ -184,10 +184,12 @@
       padding: 3px 9px; border-radius: 20px;
       font-size: 11px; font-weight: 600; white-space: nowrap;
     }
-    .pill-running { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-    .pill-done    { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
-    .pill-error   { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-br); }
-    .pill-pending { background: var(--bg2); color: var(--light); border: 1px solid var(--border); }
+    .pill-running  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .pill-done     { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
+    .pill-error    { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-br); }
+    .pill-pending  { background: var(--bg2); color: var(--light); border: 1px solid var(--border); }
+    .pill-preview  { background: rgba(124,58,237,.1); color: #7c3aed; border: 1px solid rgba(124,58,237,.3); }
+    .pill-skipped  { background: var(--bg2); color: var(--muted); border: 1px solid var(--border); font-style: italic; }
 
     /* ─── Pipeline node graph ─────────────────────────────────────────── */
     .pipeline-canvas {
@@ -959,6 +961,9 @@ const GF_CI       = ['GitHub Actions','GitLab CI','CircleCI','Jenkins','Azure De
 const GF_CD       = ['ArgoCD','Flux CD','Spinnaker','GitHub Actions (deploy)','GitLab CD','AWS CodeDeploy','Azure DevOps','Helm + kubectl','None'];
 
 // ── Idle / launch screen ──────────────────────────────────────────────────────
+// Ordered list of stage IDs that appear in the 11-stage pipeline (used by the dry-run stage selector)
+const PIPELINE_STAGE_IDS = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','bridge'];
+
 function IdleScreen({ connected, onLaunch }) {
   // mode: 'brownfield' | 'greenfield'
   const [mode,        setMode]       = useState('brownfield');
@@ -978,9 +983,17 @@ function IdleScreen({ connected, onLaunch }) {
   const [gfCd,        setGfCd]       = useState('ArgoCD');
   const [gfParentErr,      setGfParentErr]     = useState('');
   const [showParentPicker, setShowParentPicker] = useState(false);
-  const [privateRepo,  setPrivateRepo]  = useState(true);
-  const [launching,    setLaunching]    = useState(false);
-  const [launchErr,    setLaunchErr]    = useState('');
+  const [privateRepo,    setPrivateRepo]    = useState(true);
+  const [dryRun,         setDryRun]         = useState(false);
+  // selectedStages: which of the 11 stages to include in dry run (all by default)
+  const [selectedStages, setSelectedStages] = useState(PIPELINE_STAGE_IDS.slice());
+  const [launching,      setLaunching]      = useState(false);
+  const [launchErr,      setLaunchErr]      = useState('');
+
+  const toggleStage = (id) =>
+    setSelectedStages(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
 
   // When language changes, reset framework to first option for that lang
   const handleLangChange = (lang) => {
@@ -988,8 +1001,9 @@ function IdleScreen({ connected, onLaunch }) {
     setGfFw((GF_FRAMEWORKS[lang] || ['None'])[0]);
   };
 
-  const canLaunchBF  = chosenPath.trim() && !launching;
-  const canLaunchGF  = gfName.trim() && gfParent.trim() && gfClouds.length>0 && !launching;
+  const dryRunOk    = !dryRun || selectedStages.length > 0;
+  const canLaunchBF = chosenPath.trim() && !launching && dryRunOk;
+  const canLaunchGF = gfName.trim() && gfParent.trim() && gfClouds.length>0 && !launching && dryRunOk;
 
   const handleLaunch = async () => {
     setLaunching(true); setLaunchErr('');
@@ -1009,6 +1023,11 @@ function IdleScreen({ connected, onLaunch }) {
         body = { path: p };
       }
       body.private = privateRepo;
+      body.dry_run = dryRun;
+      // Only send selected_stages when dry run is on and the selection is a subset
+      if (dryRun && selectedStages.length < PIPELINE_STAGE_IDS.length) {
+        body.selected_stages = selectedStages;
+      }
       const res  = await fetch('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setLaunchErr(data.error || `Error ${res.status}`); setLaunching(false); return; }
@@ -1385,6 +1404,103 @@ function IdleScreen({ connected, onLaunch }) {
               }}/>
             </div>
           </div>
+          {/* ── Dry Run toggle ── */}
+          <div style={{
+            marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',
+          }}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:'13px'}}>🔬</span>
+              <div>
+                <div style={{fontSize:'12.5px',fontWeight:600,color:dryRun?'#7c3aed':'var(--text)'}}>
+                  {dryRun ? 'Dry Run — Preview mode' : 'Dry Run mode'}
+                </div>
+                <div style={{fontSize:'10.5px',color:'var(--muted)'}}>
+                  {dryRun ? 'Agents simulate work — no files will be written' : 'Preview what each agent would do without writing files'}
+                </div>
+              </div>
+            </div>
+            <div onClick={()=>{setDryRun(d=>!d); if(!dryRun) setSelectedStages(PIPELINE_STAGE_IDS.slice());}} style={{
+              width:44,height:24,borderRadius:12,cursor:'pointer',
+              background: dryRun ? '#7c3aed' : '#cbd5e1',
+              position:'relative',transition:'background .2s',flexShrink:0,
+            }}>
+              <div style={{
+                position:'absolute',top:3,
+                left: dryRun ? 23 : 3,
+                width:18,height:18,borderRadius:'50%',
+                background:'#fff',transition:'left .2s',
+                boxShadow:'0 1px 4px rgba(0,0,0,.25)',
+              }}/>
+            </div>
+          </div>
+
+          {/* ── Stage selector (only shown when dry run is on) ── */}
+          {dryRun && (
+            <div style={{
+              marginTop:10,padding:'12px 14px',
+              background:'rgba(124,58,237,.05)',
+              border:'1px solid rgba(124,58,237,.2)',
+              borderRadius:8,
+            }}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                <div style={{fontSize:'11px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em'}}>
+                  🔬 Choose stages to preview
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>setSelectedStages(PIPELINE_STAGE_IDS.slice())} style={{
+                    fontSize:'10px',fontWeight:600,color:'#7c3aed',background:'none',border:'none',
+                    cursor:'pointer',padding:'2px 6px',borderRadius:4,
+                    textDecoration:selectedStages.length===PIPELINE_STAGE_IDS.length?'none':'underline',
+                  }}>All</button>
+                  <button onClick={()=>setSelectedStages([])} style={{
+                    fontSize:'10px',fontWeight:600,color:'var(--muted)',background:'none',border:'none',
+                    cursor:'pointer',padding:'2px 6px',borderRadius:4,
+                    textDecoration:selectedStages.length===0?'none':'underline',
+                  }}>None</button>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:5}}>
+                {PIPELINE_STAGE_IDS.map(id => {
+                  const info = STAGE_INFO_FULL.find(s=>s.id===id)||{emoji:'◈',label:id};
+                  const on   = selectedStages.includes(id);
+                  return (
+                    <div key={id} onClick={()=>toggleStage(id)} style={{
+                      display:'flex',alignItems:'center',gap:5,
+                      padding:'6px 9px',borderRadius:6,cursor:'pointer',
+                      border: on ? '1.5px solid rgba(124,58,237,.5)' : '1.5px solid var(--border)',
+                      background: on ? 'rgba(124,58,237,.08)' : 'var(--bg2)',
+                      transition:'all .12s',
+                    }}>
+                      <span style={{
+                        width:14,height:14,borderRadius:3,flexShrink:0,
+                        background: on ? '#7c3aed' : 'transparent',
+                        border: on ? '1.5px solid #7c3aed' : '1.5px solid #cbd5e1',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:'9px',color:'#fff',fontWeight:800,
+                        transition:'all .12s',
+                      }}>{on?'✓':''}</span>
+                      <span style={{fontSize:'9.5px'}}>{info.emoji}</span>
+                      <span style={{fontSize:'11px',fontWeight:600,color:on?'#7c3aed':'var(--text2)',lineHeight:1.2}}>
+                        {info.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {selectedStages.length === 0 && (
+                <div style={{marginTop:8,fontSize:'11px',color:'var(--err)',fontWeight:500}}>
+                  ⚠ Select at least one stage to preview.
+                </div>
+              )}
+              {selectedStages.length > 0 && selectedStages.length < PIPELINE_STAGE_IDS.length && (
+                <div style={{marginTop:8,fontSize:'11px',color:'var(--muted)'}}>
+                  {selectedStages.length} of {PIPELINE_STAGE_IDS.length} stages selected — others will be skipped.
+                </div>
+              )}
+            </div>
+          )}
+
           {launchErr && (
             <div style={{color:'var(--err)',fontSize:'12px',marginTop:12,display:'flex',alignItems:'center',gap:5}}>
               <span>⚠</span> {launchErr}
@@ -1555,29 +1671,34 @@ function LiveConsole({ logs, currentStage }) {
 // ── Running / pipeline live view ──────────────────────────────────────────────
 function RunningView({ liveState, logs, onReset }) {
   const { pipelinePath, stages, stageState, stageInfo, stageResults,
-          currentStage, currentNum, totalStages, done, elapsed } = liveState;
+          currentStage, currentNum, totalStages, done, elapsed, dryRun } = liveState;
 
   const stageEmoji = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).emoji || '▸';
   const stageLabel = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).label || id;
 
   const allFinished = done && !currentStage;
   const hasFailed   = Object.values(stageState).some(s=>s==='error');
-  const passedCount = Object.values(stageState).filter(s=>s==='success').length;
+  // For progress counting: preview and success both count as "passed"
+  const passedCount = Object.values(stageState).filter(s=>s==='success'||s==='preview').length;
+  const skippedCount= Object.values(stageState).filter(s=>s==='skipped').length;
   const pct         = totalStages ? Math.round(passedCount / totalStages * 100) : 0;
 
   const nodeClass = id => {
     if (id===currentStage) return 'pipeline-node running runner-glow';
     const s = stageState[id];
-    if (s==='success') return 'pipeline-node done';
-    if (s==='error')   return 'pipeline-node error';
+    if (s==='success' || s==='preview') return 'pipeline-node done';
+    if (s==='error')                    return 'pipeline-node error';
+    if (s==='skipped')                  return 'pipeline-node pending';
     return 'pipeline-node pending';
   };
 
   const nodeStatus = id => {
-    if (id===currentStage) return { cls:'pill pill-running', text:'Running' };
+    if (id===currentStage) return { cls:'pill pill-running', text: dryRun ? '🔬 Simulating' : 'Running' };
     const s = stageState[id];
+    if (s==='preview') return { cls:'pill pill-preview', text:'Preview' };
     if (s==='success') return { cls:'pill pill-done',    text:'Done' };
     if (s==='error')   return { cls:'pill pill-error',   text:'Error' };
+    if (s==='skipped') return { cls:'pill pill-skipped', text:'Skipped' };
     return { cls:'pill pill-pending', text:'Queued' };
   };
 
@@ -1587,15 +1708,41 @@ function RunningView({ liveState, logs, onReset }) {
       {/* ── Left column: main pipeline content ── */}
       <div style={{display:'flex',flexDirection:'column',gap:16}}>
 
+      {/* ── DRY RUN banner (shown above status bar when in dry run mode) ── */}
+      {dryRun && (
+        <div style={{
+          display:'flex',alignItems:'center',gap:10,
+          padding:'10px 16px',borderRadius:8,
+          background:'rgba(124,58,237,.08)',border:'1px solid rgba(124,58,237,.25)',
+        }}>
+          <span style={{fontSize:'18px'}}>🔬</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:'12.5px',fontWeight:700,color:'#7c3aed'}}>
+              DRY RUN — Preview Mode
+            </div>
+            <div style={{fontSize:'11px',color:'var(--muted)'}}>
+              Agents are simulating work — no files will be written to disk. Results show what each stage <em>would</em> produce.
+            </div>
+          </div>
+          {skippedCount > 0 && (
+            <span className="pill pill-skipped">
+              {skippedCount} skipped
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ── Status bar ── */}
       <div className="sf-card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:16}}>
         <SevaForgeLogo size={40} spinning={!!currentStage && !allFinished} />
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:3,letterSpacing:'-0.2px'}}>
             {allFinished
-              ? (hasFailed ? '⚠ Pipeline completed with errors' : '🎉 All stages complete!')
+              ? (hasFailed
+                  ? '⚠ Pipeline completed with errors'
+                  : dryRun ? '🔬 Dry run complete — preview finished!' : '🎉 All stages complete!')
               : currentStage
-                ? <>Running <span style={{color:'var(--orange)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
+                ? <>{dryRun?'🔬 Simulating':'Running'} <span style={{color: dryRun?'#7c3aed':'var(--orange)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
                 : 'Pipeline starting…'}
           </div>
           <div style={{fontFamily:'monospace',fontSize:'11px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -1603,9 +1750,10 @@ function RunningView({ liveState, logs, onReset }) {
           </div>
         </div>
         <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
+          {dryRun && <span className="pill pill-preview">🔬 Dry Run</span>}
           {totalStages>0 && (
-            <span className={`pill ${allFinished?(hasFailed?'pill-error':'pill-done'):'pill-running'}`}>
-              {allFinished?(hasFailed?'✗ Failed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages} stages`}
+            <span className={`pill ${allFinished?(hasFailed?'pill-error': dryRun?'pill-preview':'pill-done'):'pill-running'}`}>
+              {allFinished?(hasFailed?'✗ Failed': dryRun?'◈ Previewed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages} stages`}
             </span>
           )}
           {elapsed>0 && <span className="pill pill-pending">{elapsed}s</span>}
@@ -1688,23 +1836,34 @@ function RunningView({ liveState, logs, onReset }) {
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
             {Object.entries(stageResults).map(([id,result])=>{
-              const ok   = result.status==='success';
+              const st      = result.status;
+              const ok      = st==='success';
+              const preview = st==='preview';
+              const skipped = st==='skipped';
               const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{};
+              const rowCls = ok||preview ? 'ok' : skipped ? '' : 'fail';
+              const rowBg  = preview ? 'rgba(124,58,237,.07)' : skipped ? 'var(--bg2)' : undefined;
+              const rowBdr = preview ? '1px solid rgba(124,58,237,.2)' : skipped ? '1px solid var(--border)' : undefined;
+              const textColor = ok ? '#065f46' : preview ? '#6d28d9' : skipped ? 'var(--muted)' : '#991b1b';
+              const subColor  = ok ? '#047857' : preview ? '#7c3aed' : skipped ? 'var(--light)' : '#b91c1c';
+              const iconColor = ok ? 'var(--ok)' : preview ? '#7c3aed' : skipped ? 'var(--light)' : 'var(--err)';
+              const icon      = ok ? '✓' : preview ? '◈' : skipped ? '⊘' : '✗';
               return (
-                <div key={id} className={`stage-result-row ${ok?'ok':'fail'}`}>
+                <div key={id} className={`stage-result-row ${rowCls}`}
+                     style={rowBg?{background:rowBg,border:rowBdr}:{}}>
                   <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
                   <div style={{minWidth:0,flex:1}}>
-                    <div style={{fontSize:'12px',fontWeight:700,color:ok?'#065f46':'#991b1b'}}>
+                    <div style={{fontSize:'12px',fontWeight:700,color:textColor}}>
                       {meta.label||id}
                     </div>
                     {result.summary && (
-                      <div style={{fontSize:'10.5px',color:ok?'#047857':'#b91c1c',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <div style={{fontSize:'10.5px',color:subColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {result.summary.slice(0,72)}
                       </div>
                     )}
                   </div>
-                  <span style={{fontSize:'13px',fontWeight:700,color:ok?'var(--ok)':'var(--err)',flexShrink:0}}>
-                    {ok?'✓':'✗'}
+                  <span style={{fontSize:'13px',fontWeight:700,color:iconColor,flexShrink:0}}>
+                    {icon}
                   </span>
                 </div>
               );
@@ -1715,15 +1874,29 @@ function RunningView({ liveState, logs, onReset }) {
 
       {/* ── Victory screen ── */}
       {allFinished && !hasFailed && (
-        <div className="victory-card victory-pop">
-          <div className="victory-header">
+        <div className="victory-pop" style={{
+          background: dryRun
+            ? 'linear-gradient(145deg,rgba(124,58,237,.06) 0%,rgba(139,92,246,.04) 100%)'
+            : 'linear-gradient(145deg, #ecfdf5 0%, #f0fdf4 100%)',
+          border: dryRun ? '1.5px solid rgba(124,58,237,.3)' : '1.5px solid var(--ok-br)',
+          borderRadius:14, overflow:'hidden',
+        }}>
+          <div style={{
+            background: dryRun
+              ? 'linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%)'
+              : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+            padding:'24px 28px', display:'flex', alignItems:'center', gap:18,
+          }}>
             <SevaForgeLogo size={48} />
             <div style={{flex:1}}>
               <div style={{fontSize:'22px',fontWeight:900,color:'#fff',letterSpacing:'-0.6px',marginBottom:4}}>
-                🎉 Your AI app is cloud-ready!
+                {dryRun ? '🔬 Dry run complete — preview ready!' : '🎉 Your AI app is cloud-ready!'}
               </div>
               <div style={{fontSize:'13px',color:'rgba(255,255,255,.8)'}}>
-                All {totalStages} stages completed in <strong style={{color:'#fff'}}>{elapsed}s</strong>
+                {dryRun
+                  ? `${stages.filter(id=>stageState[id]==='preview').length} stage${stages.filter(id=>stageState[id]==='preview').length!==1?'s':''} previewed in ${elapsed}s — no files written`
+                  : <>All {totalStages} stages completed in <strong style={{color:'#fff'}}>{elapsed}s</strong></>
+                }
               </div>
             </div>
             <div style={{
@@ -1735,46 +1908,83 @@ function RunningView({ liveState, logs, onReset }) {
             </div>
           </div>
           <div style={{padding:'22px 24px'}}>
-            <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
-              What Sevaforge built for you
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
-              {[
-                {emoji:'🏗️', title:'Cloud Infrastructure',   detail:'Terraform, VPC, Kubernetes, Docker'},
-                {emoji:'🚀', title:'Deployment Pipelines',   detail:'ArgoCD, Kustomize, dev/staging/prod'},
-                {emoji:'⚙️', title:'CI/CD Workflows',        detail:'GitHub Actions, security gate, releases'},
-                {emoji:'📚', title:'Documentation',          detail:'Architecture, threat model, API docs'},
-                {emoji:'🧪', title:'E2E Test Suite',         detail:'Playwright specs for all user flows'},
-                {emoji:'🔒', title:'Security Report',        detail:'SAST, CVE scan, secrets detection'},
-                {emoji:'🌉', title:'GitHub Push',            detail:'All files committed, PR opened'},
-                {emoji:'📋', title:'Runbooks & SLOs',        detail:'Grafana, Prometheus, alert rules'},
-              ].map(({emoji,title,detail})=>(
-                <div key={title} style={{display:'flex',gap:10,padding:'9px 13px',borderRadius:8,
-                                         background:'rgba(255,255,255,.65)',border:'1px solid var(--ok-br)'}}>
-                  <span style={{fontSize:'1.05rem',flexShrink:0}}>{emoji}</span>
-                  <div>
-                    <div style={{fontSize:'11.5px',fontWeight:700,color:'#065f46',marginBottom:1}}>{title}</div>
-                    <div style={{fontSize:'10.5px',color:'#047857'}}>{detail}</div>
+            {dryRun ? (
+              /* ── Dry run success body ── */
+              <>
+                <div style={{fontSize:'10.5px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
+                  What Sevaforge would generate for you
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
+                  {stages.filter(id=>stageState[id]==='preview').map(id=>{
+                    const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{emoji:'◈',label:id,outputs:'—'};
+                    const res  = stageResults[id]||{};
+                    return (
+                      <div key={id} style={{display:'flex',gap:10,padding:'9px 13px',borderRadius:8,
+                                            background:'rgba(124,58,237,.07)',border:'1px solid rgba(124,58,237,.2)'}}>
+                        <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji}</span>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontSize:'11.5px',fontWeight:700,color:'#6d28d9',marginBottom:1}}>{meta.label}</div>
+                          <div style={{fontSize:'10px',color:'#7c3aed',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{meta.outputs||'—'}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{
+                  padding:'12px 14px',borderRadius:8,
+                  background:'rgba(124,58,237,.07)',border:'1px solid rgba(124,58,237,.2)',
+                  fontSize:'12px',color:'#6d28d9',lineHeight:1.6,
+                }}>
+                  <strong>Ready to apply?</strong> Disable Dry Run mode and click Launch to actually run the pipeline and write all generated files.
+                </div>
+              </>
+            ) : (
+              /* ── Real pipeline success body ── */
+              <>
+                <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
+                  What Sevaforge built for you
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
+                  {[
+                    {emoji:'🏗️', title:'Cloud Infrastructure',   detail:'Terraform, VPC, Kubernetes, Docker'},
+                    {emoji:'🚀', title:'Deployment Pipelines',   detail:'ArgoCD, Kustomize, dev/staging/prod'},
+                    {emoji:'⚙️', title:'CI/CD Workflows',        detail:'GitHub Actions, security gate, releases'},
+                    {emoji:'📚', title:'Documentation',          detail:'Architecture, threat model, API docs'},
+                    {emoji:'🧪', title:'E2E Test Suite',         detail:'Playwright specs for all user flows'},
+                    {emoji:'🔒', title:'Security Report',        detail:'SAST, CVE scan, secrets detection'},
+                    {emoji:'🌉', title:'GitHub Push',            detail:'All files committed, PR opened'},
+                    {emoji:'📋', title:'Runbooks & SLOs',        detail:'Grafana, Prometheus, alert rules'},
+                  ].map(({emoji,title,detail})=>(
+                    <div key={title} style={{display:'flex',gap:10,padding:'9px 13px',borderRadius:8,
+                                             background:'rgba(255,255,255,.65)',border:'1px solid var(--ok-br)'}}>
+                      <span style={{fontSize:'1.05rem',flexShrink:0}}>{emoji}</span>
+                      <div>
+                        <div style={{fontSize:'11.5px',fontWeight:700,color:'#065f46',marginBottom:1}}>{title}</div>
+                        <div style={{fontSize:'10.5px',color:'#047857'}}>{detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:10}}>
+                  <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
+                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next step</div>
+                    <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>gh pr view --web</code>
+                  </div>
+                  <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
+                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Deploy to cloud</div>
+                    <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>forgeflow deploy</code>
                   </div>
                 </div>
-              ))}
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
-                <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next step</div>
-                <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>gh pr view --web</code>
-              </div>
-              <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
-                <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Deploy to cloud</div>
-                <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>forgeflow deploy</code>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Back to home */}
-            <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(255,255,255,.15)',display:'flex',justifyContent:'center'}}>
+            <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${dryRun?'rgba(124,58,237,.15)':'rgba(255,255,255,.15)'}`,display:'flex',justifyContent:'center'}}>
               <button onClick={onReset} style={{
-                padding:'10px 28px',borderRadius:8,border:'1.5px solid rgba(255,255,255,.4)',
-                background:'rgba(255,255,255,.15)',color:'#fff',cursor:'pointer',
+                padding:'10px 28px',borderRadius:8,
+                border: dryRun ? '1.5px solid rgba(124,58,237,.4)' : '1.5px solid rgba(255,255,255,.4)',
+                background: dryRun ? 'rgba(124,58,237,.15)' : 'rgba(255,255,255,.15)',
+                color:'#fff',cursor:'pointer',
                 fontSize:'13px',fontWeight:600,letterSpacing:'-0.1px',
                 display:'flex',alignItems:'center',gap:8,
               }}>
@@ -2182,7 +2392,7 @@ function App() {
   const [liveState, setLiveState] = useState({
     connected:false, pipelinePath:'', stages:[], stageState:{},
     stageInfo:{}, stageResults:{}, currentStage:null, currentNum:0,
-    totalStages:0, done:false, elapsed:0,
+    totalStages:0, done:false, elapsed:0, dryRun:false,
   });
 
   const addToast = useCallback((msg,type='info')=>{
@@ -2204,7 +2414,7 @@ function App() {
         currentStageRef.current = null;
         setLiveState({connected:true,pipelinePath:msg.path||'',stages:msg.stages||[],
           stageState:init,stageInfo:{},stageResults:{},currentStage:null,
-          currentNum:0,totalStages:msg.total||0,done:false,elapsed:0});
+          currentNum:0,totalStages:msg.total||0,done:false,elapsed:0,dryRun:!!msg.dry_run});
         setLogs([]);
         setView('live');
       } else if (type==='stage_start') {
@@ -2213,10 +2423,15 @@ function App() {
           stageState:{...s.stageState,[msg.stage]:'running'},
           stageInfo:{...s.stageInfo,[msg.stage]:msg.info||{}}}));
       } else if (type==='stage_result') {
-        const ok=(msg.result||{}).status==='success';
+        const rs=(msg.result||{}).status;
+        // Map backend status → UI state key
+        const uiState = rs==='preview'  ? 'preview'
+                      : rs==='skipped'  ? 'skipped'
+                      : rs==='success'||rs==='warning' ? 'success'
+                      : 'error';
         setLiveState(s=>({...s,
           currentStage:s.currentStage===msg.stage?null:s.currentStage,
-          stageState:{...s.stageState,[msg.stage]:ok?'success':'error'},
+          stageState:{...s.stageState,[msg.stage]:uiState},
           stageResults:{...s.stageResults,[msg.stage]:msg.result||{}}}));
       } else if (type==='pipeline_done') {
         setLiveState(s=>{
@@ -2246,10 +2461,12 @@ function App() {
 
   // Reset back to idle screen (clears pipeline state, keeps connection + history)
   const handleReset = useCallback(()=>{
+    // Clear server-side pipeline state so SSE replays don't re-trigger RunningView
+    fetch('/api/reset', {method:'POST'}).catch(()=>{});
     setLiveState(s=>({
       connected: s.connected, pipelinePath:'', stages:[], stageState:{},
       stageInfo:{}, stageResults:{}, currentStage:null, currentNum:0,
-      totalStages:0, done:false, elapsed:0,
+      totalStages:0, done:false, elapsed:0, dryRun:false,
     }));
     setLogs([]);
   },[]);
