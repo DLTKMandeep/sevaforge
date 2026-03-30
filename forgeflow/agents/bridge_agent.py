@@ -154,23 +154,51 @@ class BridgeAgent(BaseAgent):
         if commit_result:
             return commit_result  # hard error from commit step
 
-        # Set upstream if needed and push
+        # First attempt — normal push
         ok, out = self._run(repo_path, ['git', 'push', '-u', 'origin', branch])
-        if not ok:
-            # Try force-push only if the error is about non-fast-forward
-            if 'rejected' in out.lower() and 'fetch first' in out.lower():
-                return self._error(
-                    f"Push rejected (remote has diverged). "
-                    f"Pull first or use force push manually: git push --force origin {branch}",
-                )
-            return self._error(f"git push failed: {out}")
+        if ok:
+            return self.create_result(
+                status='success',
+                summary=f"Pushed branch '{branch}' to origin",
+                data={'branch': branch, 'output': out},
+                findings=[f"✅ Pushed '{branch}' to origin"]
+            )
 
-        return self.create_result(
-            status='success',
-            summary=f"Pushed branch '{branch}' to origin",
-            data={'branch': branch, 'output': out},
-            findings=[f"✅ Pushed '{branch}' to origin"]
-        )
+        # Push rejected because remote has diverged — try pull --rebase then push
+        is_diverged = any(k in out.lower() for k in ('rejected', 'fetch first', 'non-fast-forward', 'diverged'))
+        if is_diverged:
+            self.log("Push rejected (diverged). Attempting git pull --rebase …")
+            pull_ok, pull_out = self._run(repo_path, ['git', 'pull', '--rebase', 'origin', branch])
+            if pull_ok:
+                # Retry push after successful rebase
+                ok2, out2 = self._run(repo_path, ['git', 'push', '-u', 'origin', branch])
+                if ok2:
+                    return self.create_result(
+                        status='success',
+                        summary=f"Pulled (rebase) + pushed branch '{branch}'",
+                        data={'branch': branch},
+                        findings=[
+                            f"✅ Rebased on top of remote '{branch}'",
+                            f"✅ Pushed '{branch}' to origin",
+                        ]
+                    )
+
+            # Rebase had conflicts or push still failed — fall back to force-with-lease
+            self.log("Rebase push failed. Falling back to --force-with-lease …")
+            ok3, out3 = self._run(repo_path, ['git', 'push', '--force-with-lease', '-u', 'origin', branch])
+            if ok3:
+                return self.create_result(
+                    status='warning',
+                    summary=f"Force-pushed '{branch}' (remote was diverged — local wins)",
+                    data={'branch': branch},
+                    findings=[
+                        f"⚠️  Remote '{branch}' had diverged; used --force-with-lease",
+                        f"✅ Pushed '{branch}' to origin",
+                    ]
+                )
+            return self._error(f"All push strategies failed: {out3}")
+
+        return self._error(f"git push failed: {out}")
 
     def _op_pr(self, repo_path, branch, base_branch, pr_title, pr_body, **kw) -> Dict:
         """Create a pull request from current branch into base_branch."""

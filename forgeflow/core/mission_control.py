@@ -308,7 +308,7 @@ class MissionControl:
         PASS_STATUSES = {"success", "warning", "skipped", "done", "already_done",
                          "already_complete", "no_changes", "nothing_to_do"}
         # Pause between stages when GUI is watching so the hourglass has time to display
-        STAGE_PAUSE_S = 30
+        STAGE_PAUSE_S = 15
 
         results: List[tuple] = []
         for idx, (stage_name, stage_fn) in enumerate(stages, 1):
@@ -352,7 +352,7 @@ class MissionControl:
                     "findings": result.get("findings", []),
                 })
 
-                # ── 30-second spotlight pause so the GUI hourglass is visible ──
+                # ── 15-second spotlight pause so the GUI hourglass is visible ──
                 if idx < total:
                     console.print(f"  [dim]⏳ Waiting {STAGE_PAUSE_S}s before next stage…[/]")
                     time.sleep(STAGE_PAUSE_S)

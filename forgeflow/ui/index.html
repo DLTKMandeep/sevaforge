@@ -12,7 +12,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy:      #0f172a;
+      --navy:      #1a1038;
       --navy-md:   #1e293b;
       --navy-lt:   #334155;
       --orange:    #f97316;
@@ -94,7 +94,7 @@
     .sf-nav-item {
       display: flex; align-items: center; gap: 9px;
       padding: 8px 10px; border-radius: 6px; cursor: pointer;
-      font-size: 13px; font-weight: 500; color: rgba(255,255,255,.48);
+      font-size: 15px; font-weight: 500; color: rgba(255,255,255,.48);
       transition: all .12s ease; border: none; background: transparent;
       width: 100%; text-align: left; position: relative;
     }
@@ -315,6 +315,42 @@
     .fade-in     { animation: fadeIn .25s ease both; }
     .victory-pop { animation: victoryPop .45s cubic-bezier(.34,1.56,.64,1) both; }
     .runner-glow { animation: runnerGlow 2s ease-in-out infinite; }
+
+    /* ─── Live Console ────────────────────────────────────────────────────── */
+    .live-console {
+      background: #0d1117; border-radius: 10px; overflow: hidden;
+      border: 1px solid #30363d;
+      box-shadow: 0 4px 20px rgba(0,0,0,.25), 0 1px 4px rgba(0,0,0,.15);
+      font-family: 'SFMono-Regular','Menlo','Consolas','Liberation Mono',monospace;
+    }
+    .live-console-header {
+      background: #161b22; padding: 9px 14px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid #30363d;
+    }
+    .console-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .console-title {
+      font-size: 11.5px; font-weight: 600; color: #8b949e;
+      font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.03em;
+    }
+    .console-count {
+      margin-left: auto; font-size: 10px; color: #484f58;
+      font-family: 'Inter', system-ui, sans-serif; font-weight: 500;
+    }
+    .live-console-body {
+      height: 220px; overflow-y: auto; padding: 10px 14px;
+    }
+    .live-console-body::-webkit-scrollbar { width: 4px; }
+    .live-console-body::-webkit-scrollbar-track { background: transparent; }
+    .live-console-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+    .console-line {
+      font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+      animation: consoleFade .2s ease both;
+    }
+    .console-line .ts   { color: #484f58; user-select: none; margin-right: 8px; }
+    .console-line .name { color: #58a6ff; margin-right: 6px; font-weight: 600; }
+    .console-empty { color: #484f58; font-size: 11.5px; padding: 20px 0; text-align: center; }
+    @keyframes consoleFade { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
 
     /* ─── Scrollbar ───────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -748,6 +784,53 @@ function FolderPicker({ onPathSelected }) {
   );
 }
 
+// ── Live Console ──────────────────────────────────────────────────────────────
+function LiveConsole({ logs = [] }) {
+  const bodyRef = useRef(null);
+
+  // Auto-scroll to bottom whenever a new log line arrives
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [logs]);
+
+  const levelColor = (lvl = '') => {
+    const l = lvl.toUpperCase();
+    if (l === 'ERROR'    || l === 'CRITICAL') return '#f85149';
+    if (l === 'WARNING'  || l === 'WARN')     return '#e3b341';
+    if (l === 'DEBUG')                         return '#6e7681';
+    return '#3fb950'; // INFO and everything else
+  };
+
+  return (
+    <div className="live-console">
+      {/* macOS-style header */}
+      <div className="live-console-header">
+        <span className="console-dot" style={{background:'#ff5f57'}} />
+        <span className="console-dot" style={{background:'#febc2e'}} />
+        <span className="console-dot" style={{background:'#28c840'}} />
+        <span className="console-title">⚡ Live Agent Console</span>
+        <span className="console-count">{logs.length} lines</span>
+      </div>
+
+      {/* Log lines */}
+      <div className="live-console-body" ref={bodyRef}>
+        {logs.length === 0 ? (
+          <div className="console-empty">Waiting for agent output…</div>
+        ) : (
+          logs.map((line, i) => (
+            <div key={i} className="console-line" style={{color: levelColor(line.level)}}>
+              <span className="ts">{line.t}</span>
+              {line.name && <span className="name">[{line.name.split('.').pop()}]</span>}
+              {line.msg}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Idle / launch screen ──────────────────────────────────────────────────────
 function IdleScreen({ connected, onLaunch }) {
   const [chosenPath, setChosenPath] = useState('');
@@ -904,7 +987,7 @@ function IdleScreen({ connected, onLaunch }) {
 }
 
 // ── Running / pipeline live view ──────────────────────────────────────────────
-function RunningView({ liveState }) {
+function RunningView({ liveState, logs = [] }) {
   const { pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed } = liveState;
 
@@ -1187,6 +1270,15 @@ function RunningView({ liveState }) {
           </div>
         </div>
       )}
+
+      {/* ── Live agent console ── */}
+      <div>
+        <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,
+                     textTransform:'uppercase',letterSpacing:'0.07em'}}>
+          Agent Console
+        </div>
+        <LiveConsole logs={logs} />
+      </div>
     </div>
   );
 }
@@ -1476,6 +1568,7 @@ function App() {
   const [view,    setView]    = useState('live');
   const [history, setHistory] = useState([]);
   const [toasts,  setToasts]  = useState([]);
+  const [logs,    setLogs]    = useState([]);
   const [liveState, setLiveState] = useState({
     connected:false, pipelinePath:'', stages:[], stageState:{},
     stageInfo:{}, stageResults:{}, currentStage:null, currentNum:0,
@@ -1501,6 +1594,7 @@ function App() {
         setLiveState({connected:true,pipelinePath:msg.path||'',stages:msg.stages||[],
           stageState:init,stageInfo:{},stageResults:{},currentStage:null,
           currentNum:0,totalStages:msg.total||0,done:false,elapsed:0});
+        setLogs([]);
         setView('live');
       } else if (type==='stage_start') {
         setLiveState(s=>({...s,currentStage:msg.stage,currentNum:msg.num||s.currentNum,
@@ -1522,6 +1616,13 @@ function App() {
         });
         addToast(msg.success?`✓ Pipeline complete in ${msg.elapsed_s}s`:'✗ Pipeline failed',
                  msg.success?'success':'error');
+      } else if (type==='log') {
+        setLogs(prev=>[...prev.slice(-299), {
+          msg: msg.msg || '',
+          level: msg.level || 'INFO',
+          name: msg.name || '',
+          t: new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+        }]);
       }
     };
     es.onerror=()=>setLiveState(s=>({...s,connected:false}));
@@ -1631,7 +1732,7 @@ function App() {
           {view==='live' && (
             showIdle
               ? <IdleScreen connected={connected} onLaunch={()=>setView('live')} />
-              : <RunningView liveState={liveState} />
+              : <RunningView liveState={liveState} logs={logs} />
           )}
           {view==='dashboard' && <DashboardView history={history} connected={connected} onNavigate={setView} />}
           {view==='pipeline'  && <StagesView />}

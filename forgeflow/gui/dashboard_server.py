@@ -18,7 +18,9 @@ SSE Event Types:
 from __future__ import annotations
 
 import json
+import logging
 import queue
+import re
 import socket
 import threading
 import time
@@ -77,6 +79,61 @@ class _EventBus:
 
 
 _bus = _EventBus()
+
+
+# ---------------------------------------------------------------------------
+# SSE log handler — captures Python logging and forwards to the browser console
+# ---------------------------------------------------------------------------
+
+class _SSELogHandler(logging.Handler):
+    """
+    Attach to the root Python logger once at startup.
+    Every INFO+ record from forgeflow agents/MCP servers is forwarded
+    to connected browsers via _bus so the LiveConsole widget can display it.
+    """
+    # Logger name prefixes we care about (everything else is ignored)
+    _INCLUDE = (
+        'forgeflow', 'discovery', 'normalize', 'iac', 'ci', 'cd', 'e2e',
+        'review', 'test', 'scan', 'bridge', 'mission', 'agent', 'mcp',
+        'documentation', 'security', 'generation', 'scaffolding',
+    )
+    # Noisy internal libraries to skip
+    _EXCLUDE = ('werkzeug', 'urllib3', 'httpx', 'asyncio', 'charset', 'filelock')
+
+    _ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+    _RICH_RE = re.compile(r'\[/?[^\]\s][^\]]*\]')
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.INFO)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            name_lower = record.name.lower()
+            if any(name_lower.startswith(x) for x in self._EXCLUDE):
+                return
+            # Only forward records that look like forgeflow output
+            # (but also accept root-logger records which have name 'root')
+            if name_lower != 'root' and not any(x in name_lower for x in self._INCLUDE):
+                return
+            msg = record.getMessage()
+            msg = self._ANSI_RE.sub('', msg)   # strip ANSI colour codes
+            msg = self._RICH_RE.sub('', msg)   # strip Rich markup tags
+            msg = msg.strip()
+            if not msg:
+                return
+            _bus.emit("log", {
+                "msg":   msg,
+                "level": record.levelname,   # INFO | WARNING | ERROR
+                "name":  record.name,
+            })
+        except Exception:
+            pass
+
+
+# Attach once — safe to call multiple times (noop if already present)
+_sse_handler = _SSELogHandler()
+if not any(isinstance(h, _SSELogHandler) for h in logging.root.handlers):
+    logging.root.addHandler(_sse_handler)
 
 
 def _pick_folder_native() -> Optional[str]:
