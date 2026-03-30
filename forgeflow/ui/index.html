@@ -862,6 +862,22 @@ const AAW_STEPS = {
   bridge:    ['Authenticating with GitHub…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…'],
 };
 
+// ── Sparkline mini bar chart ──────────────────────────────────────────────────
+function Sparkline({ color='#2563eb', active=false, done=false }) {
+  const bars = React.useMemo(()=>Array.from({length:8},()=>0.15+Math.random()*0.85),[]);
+  return (
+    <div style={{display:'flex',alignItems:'flex-end',gap:2,height:30,flexShrink:0}}>
+      {bars.map((h,i)=>(
+        <div key={i} style={{
+          width:5, height:`${h*100}%`, borderRadius:2,
+          background: done ? '#059669' : active && i>=6 ? color : color+'55',
+          transition:'height .4s',
+        }}/>
+      ))}
+    </div>
+  );
+}
+
 function AgentAtWorkBanner({ currentStage, currentNum = 0, totalStages = 0 }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [stepVis, setStepVis] = useState(true);
@@ -1050,78 +1066,51 @@ function IdleScreen({ connected, onLaunch }) {
   return (
     <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,height:'100%',alignItems:'start'}}>
 
-      {/* ═══ LEFT COLUMN: Setup steps ═══ */}
+      {/* ═══ LEFT COLUMN — Source ═══ */}
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
-      {/* ── Step 1: Project Mode ── */}
-      <div className="sf-card">
-        <div className="sf-card-header">
-          <span style={{
-            background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
-            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
-          }}>1</span>
-          Choose project type
-        </div>
-        <div className="sf-card-body">
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-            {/* Brownfield card */}
-            <div onClick={()=>{setMode('brownfield');setLaunchErr('');}}
-                 style={{
-                   cursor:'pointer',padding:'12px 14px',borderRadius:8,transition:'all .15s',
-                   border: mode==='brownfield' ? '2px solid var(--blue)' : '2px solid var(--border)',
-                   background: mode==='brownfield' ? 'var(--blue-lt)' : 'var(--surface2)',
-                 }}>
-              <div style={{fontSize:18,marginBottom:4}}>📂</div>
-              <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginBottom:2}}>Existing Project</div>
-              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.4}}>
-                Add infrastructure, CI/CD, tests, and docs to your codebase.
-              </div>
-              {mode==='brownfield' && <div style={{marginTop:6,fontSize:'15px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
-            </div>
-            {/* Greenfield card */}
-            <div onClick={()=>{setMode('greenfield');setLaunchErr('');}}
-                 style={{
-                   cursor:'pointer',padding:'12px 14px',borderRadius:8,transition:'all .15s',
-                   border: mode==='greenfield' ? '2px solid #6366f1' : '2px solid var(--border)',
-                   background: mode==='greenfield' ? 'rgba(99,102,241,.08)' : 'var(--surface2)',
-                 }}>
-              <div style={{fontSize:18,marginBottom:4}}>🌱</div>
-              <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginBottom:2}}>New Project</div>
-              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.4}}>
-                Scaffold a full project structure then run the entire pipeline.
-              </div>
-              {mode==='greenfield' && <div style={{marginTop:6,fontSize:'15px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
-            </div>
+      {/* Source header */}
+      <div className="sf-card" style={{padding:'16px 18px',borderBottom:'none'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+          <div style={{
+            width:42,height:42,borderRadius:10,flexShrink:0,
+            background:'linear-gradient(135deg,#0f172a,#1e293b)',
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.35rem',
+            border:'1px solid rgba(255,255,255,.08)',
+          }}>📂</div>
+          <div>
+            <div style={{fontSize:'15px',fontWeight:700,color:'var(--text)',lineHeight:1.1}}>Source</div>
+            <div style={{fontSize:'12px',color:'var(--muted)',marginTop:2}}>Your codebase to transform</div>
+          </div>
+          {/* Mode tabs */}
+          <div style={{marginLeft:'auto',display:'flex',background:'var(--bg2)',borderRadius:8,padding:3,gap:2}}>
+            {[['brownfield','📂 Existing'],['greenfield','🌱 New']].map(([m,label])=>(
+              <button key={m} onClick={()=>{setMode(m);setLaunchErr('');}} style={{
+                padding:'5px 12px',borderRadius:6,border:'none',cursor:'pointer',
+                fontSize:'12px',fontWeight:600,transition:'all .15s',fontFamily:'inherit',
+                background:mode===m?'#fff':' transparent',
+                color:mode===m?'var(--text)':'var(--muted)',
+                boxShadow:mode===m?'0 1px 3px rgba(0,0,0,.1)':undefined,
+              }}>{label}</button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* ── Step 2a: Brownfield folder picker ── */}
+      {/* ── Brownfield: folder picker ── */}
       {mode === 'brownfield' && (
         <div className="sf-card">
-          <div className="sf-card-header">
-            <span style={{
-              background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
-              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
-            }}>2</span>
-            Select your project folder
-          </div>
+          <div className="sf-card-header">📁 Select project folder</div>
           <div className="sf-card-body">
             <FolderPicker onPathSelected={setChosenPath} />
           </div>
         </div>
       )}
 
-      {/* ── Step 2b: Greenfield wizard ── */}
+      {/* ── Greenfield: project wizard ── */}
       {mode === 'greenfield' && (
         <div className="sf-card">
-          <div className="sf-card-header">
-            <span style={{
-              background:'#6366f1',color:'#fff',width:18,height:18,borderRadius:'50%',
-              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
-            }}>2</span>
-            Configure your new project
-          </div>
+          <div className="sf-card-header">🌱 Configure new project</div>
           <div className="sf-card-body" style={{display:'flex',flexDirection:'column',gap:14}}>
 
             {/* Folder browser modal for parent dir */}
@@ -1281,275 +1270,292 @@ function IdleScreen({ connected, onLaunch }) {
 
       </div>
 
-      {/* ═══ RIGHT COLUMN: Hero + Launch ═══ */}
+      {/* ═══ RIGHT COLUMN: Destination + Launch ═══ */}
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
-        {/* ── Hero banner ── */}
-        <div className="idle-hero">
-          <div style={{position:'relative',zIndex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:11,marginBottom:14}}>
-              <SevaForgeLogo size={38} />
-              <div>
-                <div style={{fontSize:22,fontWeight:900,color:'#fff',letterSpacing:'-0.6px',lineHeight:1}}>
-                  Sevaforge
-                </div>
-                <div style={{
-                  fontSize:9,fontWeight:700,color:'var(--blue3)',letterSpacing:'0.12em',
-                  textTransform:'uppercase',marginTop:3,
-                  display:'inline-flex',alignItems:'center',gap:5,
-                  background:'rgba(37,99,235,.15)',border:'1px solid rgba(96,165,250,.25)',
-                  padding:'2px 8px',borderRadius:4,
-                }}>
-                  ● AIDDaaS
-                </div>
-              </div>
+        {/* ── Destination header card ── */}
+        <div className="sf-card" style={{padding:'16px 18px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{
+              width:42,height:42,borderRadius:10,flexShrink:0,
+              background:'linear-gradient(135deg,#1d4ed8,#0ea5e9)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,
+              boxShadow:'0 4px 12px rgba(37,99,235,.3)',
+            }}>☁️</div>
+            <div>
+              <div style={{fontSize:'15px',fontWeight:700,color:'var(--text)'}}>Destination</div>
+              <div style={{fontSize:'12px',color:'var(--muted)',marginTop:1}}>GitHub repository + cloud platform</div>
             </div>
-            <div style={{fontSize:13.5,fontWeight:400,color:'rgba(255,255,255,.65)',lineHeight:1.5,maxWidth:420}}>
-              AI Dev to Delivery as a Service — automatically build infrastructure,
-              CI/CD, tests, docs, and security for any codebase in one command.
+            <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+              <span style={{
+                width:7,height:7,borderRadius:'50%',display:'inline-block',
+                background:connected?'var(--ok)':'#94a3b8',
+                boxShadow:connected?'0 0 6px var(--ok)':'none',
+              }}/>
+              <span style={{fontSize:'12px',color:'var(--muted)'}}>
+                {connected ? 'Ready' : 'Connecting…'}
+              </span>
             </div>
-            <div style={{display:'flex',gap:7,marginTop:13,flexWrap:'wrap'}}>
-              {['11 Stages','AWS · GCP · Azure','ArgoCD','Playwright E2E','Zero config'].map(t=>(
-                <span key={t} style={{
-                  fontSize:10.5,fontWeight:600,color:'rgba(255,255,255,.55)',
-                  background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.1)',
-                  padding:'3px 9px',borderRadius:20,
-                }}>{t}</span>
-              ))}
-            </div>
+          </div>
+
+          {/* Output chips */}
+          <div style={{display:'flex',gap:6,marginTop:12,flexWrap:'wrap'}}>
+            {[
+              {icon:'🐙', label:'GitHub', color:'#1f2937'},
+              {icon:'🏗️', label:'Terraform IaC', color:'#5c4ee5'},
+              {icon:'🚀', label:'ArgoCD', color:'#e8580a'},
+              {icon:'⚙️', label:'CI/CD', color:'#2563eb'},
+              {icon:'🔒', label:'Security SARIF', color:'#059669'},
+              {icon:'📊', label:'Observability', color:'#7c3aed'},
+            ].map(({icon,label,color})=>(
+              <span key={label} style={{
+                display:'inline-flex',alignItems:'center',gap:4,
+                fontSize:'11.5px',fontWeight:600,
+                padding:'3px 9px',borderRadius:20,
+                background:'var(--bg2)',color:'var(--text2)',
+                border:'1px solid var(--border)',
+              }}>{icon} {label}</span>
+            ))}
           </div>
         </div>
 
-      {/* ── Step 3: Launch ── */}
-      <div className="sf-card">
-        <div className="sf-card-header">
-          <span style={{
-            background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--blue)':'#cbd5e1',
-            color:'#fff',width:18,height:18,borderRadius:'50%',
-            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
-          }}>3</span>
-          Launch the full pipeline
-        </div>
-        <div className="sf-card-body">
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
-            <div style={{flex:1,minWidth:200}}>
-              <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:4}}>
-                {mode==='greenfield'
-                  ? 'Scaffold + run all 11 stages on your new project'
-                  : '11 stages run automatically, end to end'}
-              </div>
-              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.45,fontFamily:'monospace'}}>
-                {mode==='greenfield'
-                  ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'
-                  : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'}
-              </div>
-              {mode==='brownfield' && chosenPath && (
-                <div style={{
-                  marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
-                  fontFamily:'monospace',fontSize:'15.5px',color:'var(--blue)',
-                  background:'var(--blue-lt)',padding:'5px 11px',borderRadius:6,
-                  border:'1px solid var(--blue-br)',maxWidth:'100%',overflow:'hidden',
-                  textOverflow:'ellipsis',whiteSpace:'nowrap',
-                }}>
-                  📁 {chosenPath}
-                </div>
-              )}
-              {mode==='greenfield' && gfName && gfParent && (
-                <div style={{
-                  marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
-                  fontFamily:'monospace',fontSize:'15.5px',color:'#6366f1',
-                  background:'rgba(99,102,241,.08)',padding:'5px 11px',borderRadius:6,
-                  border:'1px solid rgba(99,102,241,.25)',maxWidth:'100%',overflow:'hidden',
-                  textOverflow:'ellipsis',whiteSpace:'nowrap',
-                }}>
-                  🌱 {gfParent.replace(/\/$/,'')}/{gfName}
-                </div>
-              )}
+        {/* ── Launch card ── */}
+        <div className="sf-card">
+          <div className="sf-card-header" style={{borderBottom:'1px solid var(--border)',paddingBottom:10}}>
+            <span style={{
+              background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--blue)':'#cbd5e1',
+              color:'#fff',width:18,height:18,borderRadius:'50%',
+              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
+            }}>3</span>
+            Launch pipeline
+          </div>
+          <div className="sf-card-body" style={{paddingTop:14}}>
+
+            {/* Pipeline route preview */}
+            <div style={{
+              fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',
+              lineHeight:1.6,marginBottom:12,
+              padding:'8px 12px',background:'var(--bg2)',borderRadius:7,
+              border:'1px solid var(--border)',
+            }}>
+              {mode==='greenfield'
+                ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'
+                : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'}
             </div>
+
+            {/* Active path badge */}
+            {mode==='brownfield' && chosenPath && (
+              <div style={{
+                marginBottom:12,display:'inline-flex',alignItems:'center',gap:6,
+                fontFamily:'monospace',fontSize:'13px',color:'var(--blue)',
+                background:'var(--blue-lt)',padding:'5px 11px',borderRadius:6,
+                border:'1px solid var(--blue-br)',maxWidth:'100%',overflow:'hidden',
+                textOverflow:'ellipsis',whiteSpace:'nowrap',
+              }}>
+                📁 {chosenPath}
+              </div>
+            )}
+            {mode==='greenfield' && gfName && gfParent && (
+              <div style={{
+                marginBottom:12,display:'inline-flex',alignItems:'center',gap:6,
+                fontFamily:'monospace',fontSize:'13px',color:'#6366f1',
+                background:'rgba(99,102,241,.08)',padding:'5px 11px',borderRadius:6,
+                border:'1px solid rgba(99,102,241,.25)',maxWidth:'100%',overflow:'hidden',
+                textOverflow:'ellipsis',whiteSpace:'nowrap',
+              }}>
+                🌱 {gfParent.replace(/\/$/,'')}/{gfName}
+              </div>
+            )}
+
+            {/* CTA Launch button */}
             <button className="btn-primary" onClick={handleLaunch}
                     disabled={mode==='brownfield'?!canLaunchBF:!canLaunchGF}
                     style={{
-                      flexShrink:0,padding:'10px 22px',fontSize:'15.5px',
-                      background: mode==='greenfield' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : undefined,
-                      boxShadow:  mode==='greenfield' ? '0 4px 18px rgba(99,102,241,.35)' : undefined,
+                      width:'100%',padding:'12px 22px',fontSize:'15.5px',fontWeight:700,
+                      background: mode==='greenfield'
+                        ? 'linear-gradient(135deg,#6366f1,#4f46e5)'
+                        : 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+                      boxShadow: mode==='greenfield'
+                        ? '0 4px 18px rgba(99,102,241,.35)'
+                        : '0 4px 18px rgba(37,99,235,.3)',
+                      borderRadius:9,letterSpacing:'.01em',
                     }}>
               {launching
                 ? <><span className="spin">⟳</span> Starting…</>
-                : mode==='greenfield' ? '🌱  Scaffold & Run' : '▶  Run Pipeline'}
+                : mode==='greenfield' ? '🌱  Scaffold & Run All Stages' : '▶  Run Pipeline'}
             </button>
-          </div>
-          {/* GitHub visibility toggle */}
-          <div style={{
-            marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)',
-            display:'flex',alignItems:'center',justifyContent:'space-between',
-          }}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:'15px'}}>{privateRepo?'🔒':'🌐'}</span>
-              <div>
-                <div style={{fontSize:'15.5px',fontWeight:600,color:'var(--text)'}}>
-                  {privateRepo ? 'Private repository' : 'Public repository'}
-                </div>
-                <div style={{fontSize:'15.5px',color:'var(--muted)'}}>
-                  {privateRepo ? 'Only you and collaborators can see it' : 'Anyone on the internet can see this'}
-                </div>
-              </div>
-            </div>
-            {/* Toggle switch */}
-            <div onClick={()=>setPrivateRepo(p=>!p)} style={{
-              width:44,height:24,borderRadius:12,cursor:'pointer',
-              background: privateRepo ? '#6366f1' : '#cbd5e1',
-              position:'relative',transition:'background .2s',flexShrink:0,
-            }}>
-              <div style={{
-                position:'absolute',top:3,
-                left: privateRepo ? 23 : 3,
-                width:18,height:18,borderRadius:'50%',
-                background:'#fff',transition:'left .2s',
-                boxShadow:'0 1px 4px rgba(0,0,0,.25)',
-              }}/>
-            </div>
-          </div>
-          {/* ── Dry Run toggle ── */}
-          <div style={{
-            marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)',
-            display:'flex',alignItems:'center',justifyContent:'space-between',
-          }}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:'15px'}}>🔬</span>
-              <div>
-                <div style={{fontSize:'15.5px',fontWeight:600,color:dryRun?'#7c3aed':'var(--text)'}}>
-                  {dryRun ? 'Dry Run — Preview mode' : 'Dry Run mode'}
-                </div>
-                <div style={{fontSize:'15.5px',color:'var(--muted)'}}>
-                  {dryRun ? 'Agents simulate work — no files will be written' : 'Preview what each agent would do without writing files'}
-                </div>
-              </div>
-            </div>
-            <div onClick={()=>{setDryRun(d=>!d); if(!dryRun) setSelectedStages(PIPELINE_STAGE_IDS.slice());}} style={{
-              width:44,height:24,borderRadius:12,cursor:'pointer',
-              background: dryRun ? '#7c3aed' : '#cbd5e1',
-              position:'relative',transition:'background .2s',flexShrink:0,
-            }}>
-              <div style={{
-                position:'absolute',top:3,
-                left: dryRun ? 23 : 3,
-                width:18,height:18,borderRadius:'50%',
-                background:'#fff',transition:'left .2s',
-                boxShadow:'0 1px 4px rgba(0,0,0,.25)',
-              }}/>
-            </div>
-          </div>
 
-          {/* ── Stage selector (only shown when dry run is on) ── */}
-          {dryRun && (
+            {launchErr && (
+              <div style={{color:'var(--err)',fontSize:'13.5px',marginTop:8,display:'flex',alignItems:'center',gap:5}}>
+                <span>⚠</span> {launchErr}
+              </div>
+            )}
+
+            {/* Settings divider */}
             <div style={{
-              marginTop:10,padding:'12px 14px',
-              background:'rgba(124,58,237,.05)',
-              border:'1px solid rgba(124,58,237,.2)',
-              borderRadius:8,
+              marginTop:14,borderTop:'1px solid var(--border)',
+              paddingTop:12,display:'flex',flexDirection:'column',gap:0,
             }}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                <div style={{fontSize:'15px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em'}}>
-                  🔬 Choose stages to preview
-                </div>
-                <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>setSelectedStages(PIPELINE_STAGE_IDS.slice())} style={{
-                    fontSize:'15px',fontWeight:600,color:'#7c3aed',background:'none',border:'none',
-                    cursor:'pointer',padding:'2px 6px',borderRadius:4,
-                    textDecoration:selectedStages.length===PIPELINE_STAGE_IDS.length?'none':'underline',
-                  }}>All</button>
-                  <button onClick={()=>setSelectedStages([])} style={{
-                    fontSize:'15px',fontWeight:600,color:'var(--muted)',background:'none',border:'none',
-                    cursor:'pointer',padding:'2px 6px',borderRadius:4,
-                    textDecoration:selectedStages.length===0?'none':'underline',
-                  }}>None</button>
-                </div>
+              <div style={{fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.09em',marginBottom:8}}>
+                Pipeline options
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:5}}>
-                {PIPELINE_STAGE_IDS.map(id => {
-                  const info = STAGE_INFO_FULL.find(s=>s.id===id)||{emoji:'◈',label:id};
-                  const on   = selectedStages.includes(id);
-                  return (
-                    <div key={id} onClick={()=>toggleStage(id)} style={{
-                      display:'flex',alignItems:'center',gap:5,
-                      padding:'6px 9px',borderRadius:6,cursor:'pointer',
-                      border: on ? '1.5px solid rgba(124,58,237,.5)' : '1.5px solid var(--border)',
-                      background: on ? 'rgba(124,58,237,.08)' : 'var(--bg2)',
-                      transition:'all .12s',
-                    }}>
-                      <span style={{
-                        width:14,height:14,borderRadius:3,flexShrink:0,
-                        background: on ? '#7c3aed' : 'transparent',
-                        border: on ? '1.5px solid #7c3aed' : '1.5px solid #cbd5e1',
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:'15px',color:'#fff',fontWeight:800,
-                        transition:'all .12s',
-                      }}>{on?'✓':''}</span>
-                      <span style={{fontSize:'15.5px'}}>{info.emoji}</span>
-                      <span style={{fontSize:'15px',fontWeight:600,color:on?'#7c3aed':'var(--text2)',lineHeight:1.2}}>
-                        {info.label}
-                      </span>
+
+              {/* GitHub visibility toggle row */}
+              <div style={{
+                display:'flex',alignItems:'center',justifyContent:'space-between',
+                padding:'8px 0',borderBottom:'1px solid var(--border)',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:'16px'}}>{privateRepo?'🔒':'🌐'}</span>
+                  <div>
+                    <div style={{fontSize:'13.5px',fontWeight:600,color:'var(--text)'}}>
+                      {privateRepo ? 'Private repository' : 'Public repository'}
                     </div>
-                  );
-                })}
-              </div>
-              {selectedStages.length === 0 && (
-                <div style={{marginTop:8,fontSize:'15px',color:'var(--err)',fontWeight:500}}>
-                  ⚠ Select at least one stage to preview.
+                    <div style={{fontSize:'11.5px',color:'var(--muted)'}}>
+                      {privateRepo ? 'Only you and collaborators can access' : 'Anyone on GitHub can see this'}
+                    </div>
+                  </div>
                 </div>
-              )}
-              {selectedStages.length > 0 && selectedStages.length < PIPELINE_STAGE_IDS.length && (
-                <div style={{marginTop:8,fontSize:'15px',color:'var(--muted)'}}>
-                  {selectedStages.length} of {PIPELINE_STAGE_IDS.length} stages selected — others will be skipped.
+                <div onClick={()=>setPrivateRepo(p=>!p)} style={{
+                  width:40,height:22,borderRadius:11,cursor:'pointer',
+                  background: privateRepo ? '#6366f1' : '#cbd5e1',
+                  position:'relative',transition:'background .2s',flexShrink:0,
+                }}>
+                  <div style={{
+                    position:'absolute',top:3,
+                    left: privateRepo ? 21 : 3,
+                    width:16,height:16,borderRadius:'50%',
+                    background:'#fff',transition:'left .2s',
+                    boxShadow:'0 1px 4px rgba(0,0,0,.25)',
+                  }}/>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
 
-          {launchErr && (
-            <div style={{color:'var(--err)',fontSize:'15px',marginTop:12,display:'flex',alignItems:'center',gap:5}}>
-              <span>⚠</span> {launchErr}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Feature grid ── */}
-      <div className="sf-card">
-        <div className="sf-card-header">What Sevaforge generates for you</div>
-        <div style={{padding:'16px 18px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {[
-            {emoji:'🏗️', label:'Terraform + Docker',    sub:'VPC, EKS/GKE/AKS, multi-stage Dockerfile'},
-            {emoji:'🚀', label:'ArgoCD + Kustomize',    sub:'dev / staging / prod overlays, auto-rollback'},
-            {emoji:'⚙️', label:'GitHub Actions CI/CD',  sub:'Security → Tests → Build → Release pipeline'},
-            {emoji:'📚', label:'Full Documentation',     sub:'Architecture diagram, threat model, API docs'},
-            {emoji:'🧪', label:'Playwright E2E Tests',   sub:'Auth, navigation, form and API test specs'},
-            {emoji:'🔒', label:'Security Scan Report',   sub:'SAST, CVE check, secrets detection, SARIF'},
-            {emoji:'🌉', label:'GitHub Repository Push', sub:'All files committed, PR opened for review'},
-            {emoji:'📊', label:'Prometheus + Grafana',   sub:'Dashboards, alerts, SLOs, runbook links'},
-          ].map(({emoji,label,sub})=>(
-            <div key={label} className="feature-item">
-              <span className="feature-icon">{emoji}</span>
-              <div>
-                <div className="feature-label">{label}</div>
-                <div className="feature-sub">{sub}</div>
+              {/* Dry Run toggle row */}
+              <div style={{
+                display:'flex',alignItems:'center',justifyContent:'space-between',
+                padding:'8px 0',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:'16px'}}>🔬</span>
+                  <div>
+                    <div style={{fontSize:'13.5px',fontWeight:600,color:dryRun?'#7c3aed':'var(--text)'}}>
+                      {dryRun ? 'Dry Run — Preview mode' : 'Dry Run mode'}
+                    </div>
+                    <div style={{fontSize:'11.5px',color:'var(--muted)'}}>
+                      {dryRun ? 'Agents simulate — no files written' : 'Preview what each agent would do'}
+                    </div>
+                  </div>
+                </div>
+                <div onClick={()=>{setDryRun(d=>!d); if(!dryRun) setSelectedStages(PIPELINE_STAGE_IDS.slice());}} style={{
+                  width:40,height:22,borderRadius:11,cursor:'pointer',
+                  background: dryRun ? '#7c3aed' : '#cbd5e1',
+                  position:'relative',transition:'background .2s',flexShrink:0,
+                }}>
+                  <div style={{
+                    position:'absolute',top:3,
+                    left: dryRun ? 21 : 3,
+                    width:16,height:16,borderRadius:'50%',
+                    background:'#fff',transition:'left .2s',
+                    boxShadow:'0 1px 4px rgba(0,0,0,.25)',
+                  }}/>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Connection indicator */}
-      <div style={{marginTop:4,display:'flex',alignItems:'center',gap:7,justifyContent:'center'}}>
-        <span style={{
-          width:7,height:7,borderRadius:'50%',
-          background:connected?'var(--ok)':'#94a3b8',
-          boxShadow:connected?'0 0 6px var(--ok)':'none',display:'inline-block',
-        }}/>
-        <span style={{fontSize:'15.5px',color:'var(--muted)'}}>
-          {connected ? 'Dashboard server connected — ready to run' : 'Connecting to dashboard server…'}
-        </span>
-      </div>
+            {/* ── Stage selector (dry run only) ── */}
+            {dryRun && (
+              <div style={{
+                marginTop:8,padding:'11px 13px',
+                background:'rgba(124,58,237,.05)',
+                border:'1px solid rgba(124,58,237,.2)',
+                borderRadius:8,
+              }}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:9}}>
+                  <div style={{fontSize:'12px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em'}}>
+                    🔬 Choose stages to preview
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <button onClick={()=>setSelectedStages(PIPELINE_STAGE_IDS.slice())} style={{
+                      fontSize:'12px',fontWeight:600,color:'#7c3aed',background:'none',border:'none',
+                      cursor:'pointer',padding:'2px 6px',borderRadius:4,
+                      textDecoration:selectedStages.length===PIPELINE_STAGE_IDS.length?'none':'underline',
+                    }}>All</button>
+                    <button onClick={()=>setSelectedStages([])} style={{
+                      fontSize:'12px',fontWeight:600,color:'var(--muted)',background:'none',border:'none',
+                      cursor:'pointer',padding:'2px 6px',borderRadius:4,
+                      textDecoration:selectedStages.length===0?'none':'underline',
+                    }}>None</button>
+                  </div>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4}}>
+                  {PIPELINE_STAGE_IDS.map(id => {
+                    const info = STAGE_INFO_FULL.find(s=>s.id===id)||{emoji:'◈',label:id};
+                    const on   = selectedStages.includes(id);
+                    return (
+                      <div key={id} onClick={()=>toggleStage(id)} style={{
+                        display:'flex',alignItems:'center',gap:4,
+                        padding:'5px 8px',borderRadius:6,cursor:'pointer',
+                        border: on ? '1.5px solid rgba(124,58,237,.5)' : '1.5px solid var(--border)',
+                        background: on ? 'rgba(124,58,237,.08)' : 'var(--bg2)',
+                        transition:'all .12s',
+                      }}>
+                        <span style={{
+                          width:13,height:13,borderRadius:3,flexShrink:0,
+                          background: on ? '#7c3aed' : 'transparent',
+                          border: on ? '1.5px solid #7c3aed' : '1.5px solid #cbd5e1',
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:'11px',color:'#fff',fontWeight:800,
+                          transition:'all .12s',
+                        }}>{on?'✓':''}</span>
+                        <span style={{fontSize:'13px'}}>{info.emoji}</span>
+                        <span style={{fontSize:'12px',fontWeight:600,color:on?'#7c3aed':'var(--text2)',lineHeight:1.2}}>
+                          {info.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {selectedStages.length === 0 && (
+                  <div style={{marginTop:7,fontSize:'12px',color:'var(--err)',fontWeight:500}}>
+                    ⚠ Select at least one stage to preview.
+                  </div>
+                )}
+                {selectedStages.length > 0 && selectedStages.length < PIPELINE_STAGE_IDS.length && (
+                  <div style={{marginTop:7,fontSize:'12px',color:'var(--muted)'}}>
+                    {selectedStages.length} of {PIPELINE_STAGE_IDS.length} stages selected — others will be skipped.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── What you get — compact output grid ── */}
+        <div className="sf-card">
+          <div className="sf-card-header">What Sevaforge generates</div>
+          <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+            {[
+              {emoji:'🏗️', label:'Terraform + Docker'},
+              {emoji:'🚀', label:'ArgoCD + Kustomize'},
+              {emoji:'⚙️', label:'GitHub Actions CI/CD'},
+              {emoji:'📚', label:'Full Documentation'},
+              {emoji:'🧪', label:'Playwright E2E Tests'},
+              {emoji:'🔒', label:'Security SARIF Report'},
+              {emoji:'🌉', label:'GitHub Repo Push'},
+              {emoji:'📊', label:'Prometheus + Grafana'},
+            ].map(({emoji,label})=>(
+              <div key={label} style={{
+                display:'flex',alignItems:'center',gap:7,
+                padding:'5px 7px',borderRadius:6,
+                background:'var(--bg2)',border:'1px solid var(--border)',
+              }}>
+                <span style={{fontSize:'14px',flexShrink:0}}>{emoji}</span>
+                <span style={{fontSize:'12px',fontWeight:600,color:'var(--text2)',lineHeight:1.3}}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
       </div>
     </div>
@@ -1709,173 +1715,237 @@ function RunningView({ liveState, logs, onReset }) {
     return { cls:'pill pill-pending', text:'Queued' };
   };
 
+  const projectName = pipelinePath
+    ? (pipelinePath.split('/').filter(Boolean).pop() || pipelinePath)
+    : 'your-project';
+
+  const statusInfo = allFinished
+    ? (hasFailed ? {cls:'pill-error',text:'FAILED'} : dryRun ? {cls:'pill-preview',text:'PREVIEW'} : {cls:'pill-done',text:'COMPLETE'})
+    : {cls:'pill-running', text: dryRun ? 'DRY RUN' : 'RUNNING'};
+
+  const stColors = {
+    'pill-running':'#2563eb','pill-done':'#059669','pill-error':'#dc2626',
+    'pill-preview':'#7c3aed','pill-skipped':'#94a3b8','pill-pending':'#94a3b8',
+  };
+
   return (
-    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,alignItems:'start'}}>
+    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:16,height:'100%',alignItems:'start'}}>
 
-      {/* ── Left column: main pipeline content ── */}
-      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      {/* ═══ LEFT COLUMN ═══ */}
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-      {/* ── DRY RUN banner (shown above status bar when in dry run mode) ── */}
-      {dryRun && (
-        <div style={{
-          display:'flex',alignItems:'center',gap:10,
-          padding:'10px 16px',borderRadius:8,
-          background:'rgba(124,58,237,.08)',border:'1px solid rgba(124,58,237,.25)',
-        }}>
-          <span style={{fontSize:'18px'}}>🔬</span>
-          <div style={{flex:1}}>
-            <div style={{fontSize:'15.5px',fontWeight:700,color:'#7c3aed'}}>
-              DRY RUN — Preview Mode
+      {/* ── Pipeline header: source → pipeline → destination ── */}
+      <div className="sf-card" style={{padding:'18px 22px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:0}}>
+          {/* Source */}
+          <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+            <div style={{
+              width:46,height:46,borderRadius:10,flexShrink:0,
+              background:'linear-gradient(135deg,#0f172a,#1e293b)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',
+              border:'1px solid rgba(255,255,255,.08)',
+            }}>📂</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',lineHeight:1.2,
+                           maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {projectName}
+              </div>
+              <div style={{fontSize:'12px',color:'var(--muted)',marginTop:2}}>
+                Local codebase · {totalStages} stages
+              </div>
             </div>
-            <div style={{fontSize:'15px',color:'var(--muted)'}}>
-              Agents are simulating work — no files will be written to disk. Results show what each stage <em>would</em> produce.
+          </div>
+          {/* Track */}
+          <div style={{flex:1,display:'flex',alignItems:'center',padding:'0 14px',minWidth:0}}>
+            <div style={{flex:1,height:2,background:'linear-gradient(90deg,var(--border),var(--blue-br))',borderRadius:1}}/>
+            <div style={{
+              background:'var(--blue-lt)',border:'1px solid var(--blue-br)',
+              borderRadius:20,padding:'4px 12px',margin:'0 8px',flexShrink:0,
+              fontSize:'11px',fontWeight:700,color:'var(--blue)',letterSpacing:'0.05em',
+            }}>FORGEFLOW</div>
+            <div style={{flex:1,height:2,background:'linear-gradient(90deg,var(--blue-br),var(--border))',borderRadius:1}}/>
+          </div>
+          {/* Destination */}
+          <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0}}>
+            <div style={{
+              width:46,height:46,borderRadius:10,flexShrink:0,
+              background:'linear-gradient(135deg,#1e3a8a,#2563eb)',
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.4rem',
+              border:'1px solid rgba(96,165,250,.2)',
+            }}>☁️</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',lineHeight:1.2}}>
+                GitHub + Cloud
+              </div>
+              <div style={{fontSize:'12px',color:'var(--muted)',marginTop:2}}>
+                AWS · GCP · Azure · ArgoCD
+              </div>
             </div>
           </div>
-          {skippedCount > 0 && (
-            <span className="pill pill-skipped">
-              {skippedCount} skipped
+          {/* Status + controls */}
+          <div style={{display:'flex',alignItems:'center',gap:8,marginLeft:18,flexShrink:0}}>
+            <span className={`pill ${statusInfo.cls}`}
+                  style={{fontSize:'12px',fontWeight:700,letterSpacing:'0.04em',padding:'5px 13px'}}>
+              {!allFinished && <span style={{
+                display:'inline-block',width:7,height:7,borderRadius:'50%',
+                background:'currentColor',marginRight:5,verticalAlign:'middle',
+                animation:'pulse 1.4s ease-in-out infinite',
+              }}/>}
+              {statusInfo.text}
             </span>
-          )}
-        </div>
-      )}
-
-      {/* ── Status bar ── */}
-      <div className="sf-card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:16}}>
-        <SevaForgeLogo size={40} spinning={!!currentStage && !allFinished} />
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:3,letterSpacing:'-0.2px'}}>
-            {allFinished
-              ? (hasFailed
-                  ? '⚠ Pipeline completed with errors'
-                  : dryRun ? '🔬 Dry run complete — preview finished!' : '🎉 All stages complete!')
-              : currentStage
-                ? <>{dryRun?'🔬 Simulating':'Running'} <span style={{color: dryRun?'#7c3aed':'var(--blue)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
-                : 'Pipeline starting…'}
+            {elapsed>0 && <span style={{fontSize:'13px',color:'var(--muted)',fontWeight:600,flexShrink:0}}>{elapsed}s</span>}
+            {allFinished && (
+              <button onClick={onReset} className="btn-secondary"
+                      style={{padding:'7px 16px',fontSize:'13px'}}>← New Run</button>
+            )}
           </div>
-          <div style={{fontFamily:'monospace',fontSize:'15px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-            {pipelinePath || '—'}
-          </div>
-        </div>
-        <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
-          {dryRun && <span className="pill pill-preview">🔬 Dry Run</span>}
-          {totalStages>0 && (
-            <span className={`pill ${allFinished?(hasFailed?'pill-error': dryRun?'pill-preview':'pill-done'):'pill-running'}`}>
-              {allFinished?(hasFailed?'✗ Failed': dryRun?'◈ Previewed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages} stages`}
-            </span>
-          )}
-          {elapsed>0 && <span className="pill pill-pending">{elapsed}s</span>}
         </div>
       </div>
 
-      {/* ── Progress ── */}
-      {totalStages>0 && (
+      {/* Dry run notice */}
+      {dryRun && (
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderRadius:8,
+                     background:'rgba(124,58,237,.07)',border:'1px solid rgba(124,58,237,.22)'}}>
+          <span>🔬</span>
+          <span style={{fontSize:'14px',fontWeight:700,color:'#7c3aed'}}>Preview Mode — </span>
+          <span style={{fontSize:'13px',color:'var(--muted)'}}>Agents simulate work · no files written to disk</span>
+          {skippedCount > 0 && <span className="pill pill-skipped" style={{marginLeft:'auto'}}>{skippedCount} skipped</span>}
+        </div>
+      )}
+
+      {/* ── Pipeline Activity — 4-phase stats with sparklines ── */}
+      {stages.length > 0 && (
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',
+                     background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
+          {[
+            {label:'Analyse', stageIds:['discover','normalize','docs'], color:'#6366f1'},
+            {label:'Build',   stageIds:['iac','cd','ci'],               color:'#2563eb'},
+            {label:'Quality', stageIds:['e2e','review','test'],         color:'#059669'},
+            {label:'Ship',    stageIds:['scan','bridge'],               color:'#0ea5e9'},
+          ].map(({label,stageIds,color},gi)=>{
+            const ph  = stageIds.filter(id=>stages.includes(id));
+            const dn  = ph.filter(id=>stageState[id]==='success'||stageState[id]==='preview').length;
+            const act = ph.some(id=>id===currentStage);
+            const fl  = ph.some(id=>stageState[id]==='error');
+            const complete = dn===ph.length && ph.length>0 && !fl;
+            return (
+              <div key={label} style={{padding:'16px 18px',
+                                       borderRight:gi<3?'1px solid var(--border)':undefined}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                  <div style={{fontSize:'12px',fontWeight:700,color:'var(--muted)',
+                               textTransform:'uppercase',letterSpacing:'0.08em'}}>{label}</div>
+                  {gi<3 && <span style={{fontSize:'14px',color:'var(--border)'}}>→</span>}
+                </div>
+                <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontSize:'26px',fontWeight:800,lineHeight:1,letterSpacing:'-1px',marginBottom:4,
+                                 color:fl?'var(--err)':complete?'var(--ok)':act?color:'var(--light)'}}>
+                      {dn}<span style={{fontSize:'15px',color:'var(--light)',fontWeight:400}}>/{ph.length}</span>
+                    </div>
+                    <div style={{fontSize:'12px',color:'var(--muted)'}}>
+                      {fl?'failed':act?'in progress':complete?'complete':'queued'}
+                    </div>
+                  </div>
+                  <Sparkline color={fl?'#dc2626':complete?'#059669':color} active={act} done={complete} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Progress bar */}
+      {totalStages > 0 && (
         <div>
-          <div className="sf-progress-track">
+          <div className="sf-progress-track" style={{height:6}}>
             <div className="sf-progress-fill" style={{width:`${pct}%`}} />
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:'15px',color:'var(--muted)'}}>
-            <span>{pct}% complete</span>
-            <span>{passedCount} of {totalStages} stages passed</span>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:5,
+                       fontSize:'13px',color:'var(--muted)'}}>
+            <span>{pct}% · {passedCount} of {totalStages} stages passed</span>
+            {elapsed>0 && <span>{elapsed}s elapsed</span>}
           </div>
         </div>
       )}
 
-      {/* ── Pipeline node graph ── */}
-      {stages.length>0 && (
-        <div>
-          <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
-            Pipeline Flow
+      {/* ── Stage activity table ── */}
+      {stages.length > 0 && (
+        <div className="sf-card" style={{overflow:'hidden'}}>
+          {/* Header */}
+          <div style={{display:'grid',gridTemplateColumns:'36px 1fr 150px 80px 110px',
+                       padding:'10px 18px',borderBottom:'1px solid var(--border)',
+                       background:'#fafbfc',gap:12,alignItems:'center',
+                       fontSize:'12px',fontWeight:700,color:'var(--muted)',
+                       textTransform:'uppercase',letterSpacing:'0.07em'}}>
+            <div/>
+            <div>Stage</div>
+            <div>Outputs</div>
+            <div style={{textAlign:'center'}}>Progress</div>
+            <div style={{textAlign:'right'}}>Status</div>
           </div>
-          <div className="pipeline-canvas">
-            <div style={{display:'flex',alignItems:'center',gap:0,minWidth:'max-content'}}>
-              {stages.map((id,i)=>{
-                const ns = nodeStatus(id);
-                return (
-                  <React.Fragment key={id}>
-                    <div className={nodeClass(id)}>
-                      <span className="node-num">{i+1}</span>
-                      <div style={{fontSize:'1.2rem',marginBottom:5,lineHeight:1}}>{stageEmoji(id)}</div>
-                      <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--text2)',marginBottom:6,
-                                   whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                        {stageLabel(id)}
-                      </div>
-                      <span className={ns.cls} style={{fontSize:'15.5px',padding:'2px 7px'}}>
-                        {id===currentStage && (
-                          <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',
-                                                          background:'currentColor',marginRight:4,verticalAlign:'middle'}} />
-                        )}
-                        {ns.text}
-                      </span>
-                    </div>
-                    {i<stages.length-1 && (
-                      <div className="pipeline-arrow">
-                        <svg width="20" height="10" viewBox="0 0 20 10">
-                          <line x1="0" y1="5" x2="13" y2="5"
-                                stroke={stageState[id]==='success'?'var(--ok)':'#cbd5e1'} strokeWidth="1.5"/>
-                          <polyline points="10,2 17,5 10,8"
-                                    stroke={stageState[id]==='success'?'var(--ok)':'#cbd5e1'}
-                                    strokeWidth="1.5" fill="none"/>
-                        </svg>
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Agent at Work Banner ── */}
-      {!allFinished && stages.length > 0 && (
-        <AgentAtWorkBanner
-          currentStage={currentStage}
-          currentNum={currentNum}
-          totalStages={totalStages}
-        />
-      )}
-
-      {/* ── Stage results grid ── */}
-      {Object.entries(stageResults).length>0 && (
-        <div>
-          <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
-            Completed Stages
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-            {Object.entries(stageResults).map(([id,result])=>{
-              const st      = result.status;
-              const ok      = st==='success';
-              const preview = st==='preview';
-              const skipped = st==='skipped';
-              const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{};
-              const rowCls = ok||preview ? 'ok' : skipped ? '' : 'fail';
-              const rowBg  = preview ? 'rgba(124,58,237,.07)' : skipped ? 'var(--bg2)' : undefined;
-              const rowBdr = preview ? '1px solid rgba(124,58,237,.2)' : skipped ? '1px solid var(--border)' : undefined;
-              const textColor = ok ? '#065f46' : preview ? '#6d28d9' : skipped ? 'var(--muted)' : '#991b1b';
-              const subColor  = ok ? '#047857' : preview ? '#7c3aed' : skipped ? 'var(--light)' : '#b91c1c';
-              const iconColor = ok ? 'var(--ok)' : preview ? '#7c3aed' : skipped ? 'var(--light)' : 'var(--err)';
-              const icon      = ok ? '✓' : preview ? '◈' : skipped ? '⊘' : '✗';
-              return (
-                <div key={id} className={`stage-result-row ${rowCls}`}
-                     style={rowBg?{background:rowBg,border:rowBdr}:{}}>
-                  <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
-                  <div style={{minWidth:0,flex:1}}>
-                    <div style={{fontSize:'15px',fontWeight:700,color:textColor}}>
-                      {meta.label||id}
-                    </div>
-                    {result.summary && (
-                      <div style={{fontSize:'15.5px',color:subColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        {result.summary.slice(0,72)}
-                      </div>
-                    )}
+          {stages.map((id,i)=>{
+            const ns   = nodeStatus(id);
+            const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{emoji:'▸',label:id,outputs:'—'};
+            const res  = stageResults[id];
+            const isRun = id===currentStage;
+            const isDn  = stageState[id]==='success'||stageState[id]==='preview';
+            const isFl  = stageState[id]==='error';
+            const tc    = stColors[ns.cls.replace('pill ','')] || 'var(--muted)';
+            return (
+              <div key={id} style={{
+                display:'grid',gridTemplateColumns:'36px 1fr 150px 80px 110px',
+                padding:'12px 18px',gap:12,alignItems:'center',
+                borderBottom:i<stages.length-1?'1px solid var(--border-lt)':undefined,
+                background:isRun?'#eff6ff':isFl?'var(--err-bg)':undefined,
+                transition:'background .25s',
+              }}>
+                <div style={{fontSize:'12px',color:'var(--light)',fontWeight:600,textAlign:'center'}}>{i+1}</div>
+                <div style={{minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:res?.summary||isRun?3:0}}>
+                    <span style={{fontSize:'1rem',flexShrink:0}}>{meta.emoji}</span>
+                    <span style={{fontWeight:600,fontSize:'14px',
+                                  color:isRun?'var(--blue)':isFl?'var(--err)':'var(--text)',
+                                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {meta.label}
+                    </span>
                   </div>
-                  <span style={{fontSize:'15px',fontWeight:700,color:iconColor,flexShrink:0}}>
-                    {icon}
+                  {res?.summary && (
+                    <div style={{fontSize:'12px',color:'var(--muted)',paddingLeft:27,
+                                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {res.summary.slice(0,65)}
+                    </div>
+                  )}
+                  {isRun && !res?.summary && (
+                    <div style={{paddingLeft:27}}>
+                      <ActivityTicker stageId={id} running={true} />
+                    </div>
+                  )}
+                </div>
+                <div style={{fontSize:'12px',color:'var(--muted)',
+                             overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  {isDn ? (meta.outputs||'—') : '—'}
+                </div>
+                <div style={{padding:'0 4px'}}>
+                  <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                    <div style={{
+                      height:'100%',borderRadius:3,transition:'width 1s ease',
+                      background:isDn?'var(--ok)':isFl?'var(--err)':isRun?'var(--blue)':'transparent',
+                      width:isDn||isFl?'100%':isRun?'55%':'0%',
+                    }}/>
+                  </div>
+                </div>
+                <div style={{textAlign:'right',display:'flex',alignItems:'center',justifyContent:'flex-end',gap:5}}>
+                  {isRun && <span style={{
+                    width:7,height:7,borderRadius:'50%',background:'var(--blue)',flexShrink:0,
+                    display:'inline-block',animation:'pulse 1.4s ease-in-out infinite',
+                  }}/>}
+                  <span style={{fontSize:'13px',fontWeight:700,color:tc}}>
+                    {ns.text.toUpperCase()}
                   </span>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -2032,9 +2102,9 @@ function RunningView({ liveState, logs, onReset }) {
         </div>
       )}
 
-      </div>{/* end left column */}
+      </div>{/* end LEFT COLUMN */}
 
-      {/* ── Right column: live log console ── */}
+      {/* ═══ RIGHT COLUMN: live log console ═══ */}
       <LiveConsole logs={logs} currentStage={currentStage} />
 
     </div>
