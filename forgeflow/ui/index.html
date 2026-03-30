@@ -2602,17 +2602,22 @@ function App() {
 
   // Sub-nav items per view
   const subNavItems = {
-    live:      [{id:'overview',label:'Overview',icon:'◉'},{id:'stages',label:'Stage Detail',icon:'⬡'},{id:'logs',label:'Activity Log',icon:'≡'},{id:'settings2',label:'Settings',icon:'⚙'}],
-    dashboard: [{id:'overview',label:'Overview',icon:'◉'},{id:'history2',label:'History',icon:'⊙'},{id:'health2',label:'Health',icon:'♡'}],
+    live:      [{id:'overview',label:'Overview',icon:'◉'},{id:'stages',label:'Stage Detail',icon:'⬡'},{id:'logs',label:'Activity Log',icon:'≡'},{id:'options',label:'Run Options',icon:'⚙'}],
+    dashboard: [{id:'overview',label:'Overview',icon:'◉'},{id:'recent',label:'Recent Runs',icon:'⊙'},{id:'system',label:'System Health',icon:'♡'}],
+    pipeline:  [{id:'overview',label:'All Stages',icon:'◉'},{id:'docs',label:'Documentation',icon:'≡'}],
+    history:   [{id:'overview',label:'Run History',icon:'⊙'},{id:'stats',label:'Statistics',icon:'◈'}],
+    health:    [{id:'overview',label:'Health Check',icon:'♡'},{id:'agents',label:'Agent Status',icon:'⬡'}],
+    settings:  [{id:'overview',label:'Configuration',icon:'⚙'},{id:'about',label:'About',icon:'◉'}],
   };
   const [subView, setSubView] = React.useState('overview');
 
   const iconNav = [
-    {id:'live',      symbol:'▶', label:'Pipelines'},
-    {id:'dashboard', symbol:'◈', label:'Activate'},
-    {id:'pipeline',  symbol:'⬡', label:'Transform'},
-    {id:'history',   symbol:'⊙', label:'Destinations'},
-    {id:'settings',  symbol:'⚙', label:'Docs'},
+    {id:'live',      symbol:'▶', label:'Pipeline'},
+    {id:'dashboard', symbol:'◈', label:'Dashboard'},
+    {id:'pipeline',  symbol:'⬡', label:'Stages'},
+    {id:'history',   symbol:'⊙', label:'History'},
+    {id:'health',    symbol:'♡', label:'Health'},
+    {id:'settings',  symbol:'⚙', label:'Settings'},
   ];
 
   const projectName = liveState.pipelinePath
