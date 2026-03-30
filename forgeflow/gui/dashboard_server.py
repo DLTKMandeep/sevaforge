@@ -262,14 +262,16 @@ def _spawn_pipeline(
                 import os as _os
                 _os.makedirs(path, exist_ok=True)
 
-            mc = MissionControl()
-            # Pass greenfield flag and config through to run_all.
-            # The call signature is run_all(path, include_post_merge=True, greenfield=False, config=None)
-            # We pass config as a keyword so older versions that don't have it still work.
-            kwargs: Dict[str, Any] = {"path": path, "greenfield": greenfield}
+            # Write wizard config to sevaforge.json so every agent can read
+            # project preferences (language, framework, cloud, CI, CD …).
             if greenfield_config:
-                kwargs["config"] = greenfield_config
-            mc.run_all(**kwargs)
+                config_path = Path(path) / "sevaforge.json"
+                config_path.write_text(
+                    json.dumps({"greenfield": greenfield, **greenfield_config}, indent=2)
+                )
+
+            mc = MissionControl()
+            mc.run_all(path=path, greenfield=greenfield)
         except Exception as exc:
             _bus.emit("log", {"stage": "server", "message": f"Pipeline error: {exc}"})
             _bus.emit("pipeline_done", {"success": False, "elapsed_s": 0,
