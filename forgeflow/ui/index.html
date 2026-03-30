@@ -4,208 +4,323 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sevaforge — AIDDaaS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.bunny.net">
+  <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800,900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy:    #1a2035;
-      --navy2:   #232b42;
-      --orange:  #f97316;
-      --orange2: #ea6c0a;
-      --bg:      #f0f2f7;
-      --card:    #ffffff;
-      --border:  #e5e7eb;
-      --text:    #111827;
-      --muted:   #6b7280;
-      --light:   #9ca3af;
-      --ok:      #10b981;
-      --ok-bg:   #ecfdf5;
-      --ok-br:   #a7f3d0;
-      --err:     #ef4444;
-      --err-bg:  #fef2f2;
-      --err-br:  #fecaca;
-      --warn:    #f59e0b;
+      --navy:      #0f172a;
+      --navy-md:   #1e293b;
+      --navy-lt:   #334155;
+      --orange:    #f97316;
+      --orange2:   #ea580c;
+      --orange-lt: #fff7ed;
+      --orange-br: #fed7aa;
+      --bg:        #f5f7fa;
+      --bg2:       #eef1f6;
+      --card:      #ffffff;
+      --border:    #e4e8ef;
+      --border-lt: #f0f3f8;
+      --text:      #0f172a;
+      --text2:     #334155;
+      --muted:     #64748b;
+      --light:     #94a3b8;
+      --ok:        #059669;
+      --ok-bg:     #ecfdf5;
+      --ok-br:     #6ee7b7;
+      --err:       #dc2626;
+      --err-bg:    #fef2f2;
+      --err-br:    #fca5a5;
+      --warn:      #d97706;
+      --purple:    #7c3aed;
     }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-           background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+    }
     #root { height: 100vh; display: flex; }
 
-    /* ── Sidebar ── */
+    /* ─── Sidebar ─────────────────────────────────────────────────────── */
     .sf-sidebar {
-      width: 220px; min-width: 220px; background: var(--navy);
+      width: 256px; min-width: 256px;
+      background: var(--navy);
       display: flex; flex-direction: column; height: 100vh;
+      border-right: 1px solid rgba(255,255,255,.04);
+      position: relative;
     }
+
+    /* Logo block */
     .sf-logo-block {
-      padding: 20px 18px 16px;
-      border-bottom: 1px solid rgba(255,255,255,.07);
+      padding: 18px 16px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
     }
-    .sf-logo-name {
-      font-size: 1.1rem; font-weight: 800; color: #fff;
-      letter-spacing: -0.3px; line-height: 1.2;
-    }
-    .sf-logo-tag {
-      font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,.35);
-      letter-spacing: 0.04em; margin-top: 2px; text-transform: uppercase;
-    }
-    .sf-nav { flex: 1; padding: 10px 10px; display: flex; flex-direction: column; gap: 2px; }
-    .sf-nav-item {
+    .sf-logo-row {
       display: flex; align-items: center; gap: 10px;
-      padding: 8px 10px; border-radius: 8px; cursor: pointer;
-      font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,.55);
-      transition: all .15s ease; border: none; background: transparent; width: 100%; text-align: left;
     }
-    .sf-nav-item:hover  { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
-    .sf-nav-item.active { background: rgba(249,115,22,.18); color: #fff;
-                          box-shadow: inset 3px 0 0 var(--orange); }
-    .sf-nav-icon { width: 18px; text-align: center; font-size: 0.95rem; flex-shrink: 0; }
+    .sf-logo-text { flex: 1; min-width: 0; }
+    .sf-logo-name {
+      font-size: 15.5px; font-weight: 800; color: #fff;
+      letter-spacing: -0.4px; line-height: 1.1;
+    }
+    .sf-logo-sub {
+      font-size: 9.5px; font-weight: 600; color: var(--orange);
+      letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px;
+    }
+    .sf-logo-divider { height: 1px; background: rgba(255,255,255,.06); margin: 12px 0 10px; }
+    .sf-logo-tagline {
+      font-size: 10.5px; color: rgba(255,255,255,.3); line-height: 1.45;
+      font-weight: 400; padding: 0 2px;
+    }
+    .sf-aidaas-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(249,115,22,.12); border: 1px solid rgba(249,115,22,.22);
+      color: var(--orange); padding: 3px 9px; border-radius: 20px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; margin-top: 8px;
+    }
+
+    /* Nav */
+    .sf-nav { flex: 1; padding: 10px 10px 6px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
+    .sf-nav-group-label {
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.22);
+      text-transform: uppercase; letter-spacing: 0.12em;
+      padding: 10px 8px 5px;
+    }
+    .sf-nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 500; color: rgba(255,255,255,.48);
+      transition: all .12s ease; border: none; background: transparent;
+      width: 100%; text-align: left; position: relative;
+    }
+    .sf-nav-item:hover  { background: rgba(255,255,255,.06); color: rgba(255,255,255,.88); }
+    .sf-nav-item.active { background: rgba(249,115,22,.13); color: #fff; font-weight: 600; }
+    .sf-nav-item.active::before {
+      content: ''; position: absolute; left: 0; top: 20%; height: 60%;
+      width: 2.5px; background: var(--orange); border-radius: 0 2px 2px 0;
+    }
+    .sf-nav-icon {
+      width: 16px; height: 16px; text-align: center; flex-shrink: 0;
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+      opacity: 0.6;
+    }
+    .sf-nav-item.active .sf-nav-icon, .sf-nav-item:hover .sf-nav-icon { opacity: 1; }
+    .sf-nav-badge {
+      margin-left: auto; width: 7px; height: 7px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Status bar */
     .sf-status-bar {
-      padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.07);
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.05);
       display: flex; align-items: center; gap: 8px;
     }
     .sf-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-    /* ── Main content ── */
+    /* ─── Main content ─────────────────────────────────────────────────── */
     .sf-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .sf-topbar {
       background: var(--card); border-bottom: 1px solid var(--border);
-      padding: 0 24px; height: 52px; display: flex; align-items: center;
-      gap: 8px; flex-shrink: 0;
+      padding: 0 28px; height: 52px; display: flex; align-items: center;
+      gap: 12px; flex-shrink: 0;
     }
-    .sf-breadcrumb { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .sf-breadcrumb {
+      font-size: 13px; color: var(--muted);
+      display: flex; align-items: center; gap: 8px; flex: 1;
+    }
     .sf-breadcrumb .current { color: var(--text); font-weight: 600; }
-    .sf-content { flex: 1; overflow-y: auto; padding: 24px; }
+    .sf-topbar-right { display: flex; align-items: center; gap: 10px; }
+    .sf-version-chip {
+      background: var(--bg2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 10.5px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px; letter-spacing: 0.03em;
+    }
+    .sf-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
 
-    /* ── Cards ── */
+    /* ─── Cards ───────────────────────────────────────────────────────── */
     .sf-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 1px 2px rgba(15,23,42,.02);
     }
     .sf-card-header {
-      padding: 14px 20px; border-bottom: 1px solid var(--border);
-      font-size: 0.8rem; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 12px 18px; border-bottom: 1px solid var(--border-lt);
+      font-size: 10.5px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
       display: flex; align-items: center; gap: 8px;
+      background: #fafbfd; border-radius: 10px 10px 0 0;
     }
-    .sf-card-body { padding: 20px; }
+    .sf-card-body { padding: 18px; }
 
-    /* ── Buttons ── */
+    /* ─── Buttons ─────────────────────────────────────────────────────── */
     .btn-primary {
       background: var(--orange); color: #fff; border: none;
-      padding: 9px 20px; border-radius: 8px; font-size: 0.85rem;
-      font-weight: 600; cursor: pointer; transition: background .15s;
-      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 20px; border-radius: 7px; font-size: 13.5px; font-weight: 600;
+      cursor: pointer; transition: all .15s; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 7px; letter-spacing: -0.1px;
+      box-shadow: 0 1px 2px rgba(234,88,12,.25), 0 2px 8px rgba(234,88,12,.15);
     }
-    .btn-primary:hover { background: var(--orange2); }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary:hover { background: var(--orange2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(234,88,12,.3); }
+    .btn-primary:active { transform: none; }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-secondary {
-      background: #fff; color: var(--text); border: 1px solid var(--border);
-      padding: 9px 18px; border-radius: 8px; font-size: 0.85rem;
-      font-weight: 500; cursor: pointer; transition: all .15s;
-      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--card); color: var(--text2);
+      border: 1px solid var(--border); padding: 8px 16px; border-radius: 7px;
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: all .12s;
+      display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
     }
-    .btn-secondary:hover { border-color: #d1d5db; background: #f9fafb; }
+    .btn-secondary:hover { border-color: #94a3b8; background: var(--bg2); }
 
-    /* ── Status pills ── */
-    .pill { display: inline-flex; align-items: center; gap: 5px;
-            padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
-    .pill-running { background: #fff7ed; color: var(--orange); border: 1px solid #fed7aa; }
+    /* ─── Pills/tags ──────────────────────────────────────────────────── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .pill-running { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
     .pill-done    { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
     .pill-error   { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-br); }
-    .pill-pending { background: #f9fafb; color: var(--light); border: 1px solid var(--border); }
-    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .pill-pending { background: var(--bg2); color: var(--light); border: 1px solid var(--border); }
 
-    /* ── Pipeline node canvas ── */
+    /* ─── Pipeline node graph ─────────────────────────────────────────── */
     .pipeline-canvas {
-      background: #f8f9fc; border: 1px solid var(--border);
-      border-radius: 12px; padding: 24px 20px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 22px 18px;
       overflow-x: auto; overflow-y: visible;
     }
     .pipeline-node {
-      width: 130px; flex-shrink: 0;
+      width: 136px; flex-shrink: 0;
       background: var(--card); border: 1.5px solid var(--border);
       border-radius: 10px; padding: 12px 10px 10px;
-      position: relative; transition: all .2s ease;
-      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      position: relative; transition: all .18s ease;
+      box-shadow: 0 1px 4px rgba(15,23,42,.06);
     }
     .pipeline-node.running {
       border-color: var(--orange); background: #fff7ed;
-      box-shadow: 0 0 0 3px rgba(249,115,22,.15), 0 2px 8px rgba(249,115,22,.12);
+      box-shadow: 0 0 0 3px rgba(249,115,22,.12), 0 4px 16px rgba(249,115,22,.12);
     }
-    .pipeline-node.done {
-      border-color: var(--ok); background: var(--ok-bg);
-    }
-    .pipeline-node.error {
-      border-color: var(--err); background: var(--err-bg);
-    }
-    .pipeline-node.pending { opacity: .55; }
-    .pipeline-arrow { display: flex; align-items: center; flex-shrink: 0; width: 24px; }
-    .node-num {
-      position: absolute; top: 5px; right: 7px;
-      font-size: 0.58rem; font-weight: 700; color: var(--light);
-    }
+    .pipeline-node.done  { border-color: var(--ok); background: var(--ok-bg); }
+    .pipeline-node.error { border-color: var(--err); background: var(--err-bg); }
+    .pipeline-node.pending { opacity: .45; }
+    .pipeline-arrow { display: flex; align-items: center; flex-shrink: 0; width: 20px; }
+    .node-num { position: absolute; top: 5px; right: 7px; font-size: 9px; font-weight: 700; color: var(--light); }
 
-    /* ── Progress bar ── */
-    .sf-progress-track {
-      height: 5px; background: #e5e7eb; border-radius: 4px; overflow: hidden;
-    }
-    .sf-progress-fill {
-      height: 100%; border-radius: 4px; transition: width 1s ease;
-      background: linear-gradient(90deg, var(--orange), var(--ok));
-    }
+    /* ─── Progress bar ────────────────────────────────────────────────── */
+    .sf-progress-track { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .sf-progress-fill  { height: 100%; border-radius: 4px; transition: width .8s ease; background: linear-gradient(90deg, var(--orange), var(--ok)); }
 
-    /* ── Folder picker ── */
+    /* ─── Folder picker ───────────────────────────────────────────────── */
     .folder-drop-zone {
-      border: 2px dashed #d1d5db; border-radius: 12px;
-      padding: 32px 24px; text-align: center; cursor: pointer;
-      transition: all .2s ease; background: #fafafa;
+      border: 2px dashed #cbd5e1; border-radius: 10px;
+      padding: 28px 24px; text-align: center; cursor: pointer;
+      transition: all .18s ease; background: var(--bg2);
     }
-    .folder-drop-zone:hover, .folder-drop-zone.has-path {
-      border-color: var(--orange); background: #fff7ed;
-    }
-    .folder-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .folder-drop-zone:hover, .folder-drop-zone.has-path { border-color: var(--orange); background: var(--orange-lt); }
+    .folder-icon { font-size: 2rem; margin-bottom: 10px; }
 
-    /* ── Animations ── */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { animation: spin .7s linear infinite; display: inline-block; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
-    .pulse { animation: pulse 1.4s ease-in-out infinite; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
-    .fade-in { animation: fadeIn .3s ease both; }
-    @keyframes victoryPop { 0%{transform:scale(.96);opacity:0} 100%{transform:scale(1);opacity:1} }
-    .victory-pop { animation: victoryPop .4s cubic-bezier(.34,1.56,.64,1) both; }
-
-    /* ── Ticker ── */
-    .ticker-wrap {
-      background: #fff7ed; border: 1px solid #fed7aa;
-      border-radius: 8px; padding: 10px 12px; margin-top: 10px;
+    /* ─── Idle hero banner ────────────────────────────────────────────── */
+    .idle-hero {
+      background: linear-gradient(140deg, #0f172a 0%, #1e293b 60%, #0f2942 100%);
+      border-radius: 14px; padding: 32px 36px; margin-bottom: 24px;
+      color: white; position: relative; overflow: hidden;
     }
-    .ticker-label { font-size: 0.62rem; font-weight: 700; color: var(--orange);
-                    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
-
-    /* ── Hourglass wrap ── */
-    .hg-wrap {
-      border-radius: 10px; overflow: hidden;
-      box-shadow: 0 0 0 1.5px rgba(249,115,22,.25), 0 4px 16px rgba(249,115,22,.1);
+    .idle-hero::before {
+      content: ''; position: absolute; top: -80px; right: -80px;
+      width: 280px; height: 280px;
+      background: radial-gradient(circle, rgba(249,115,22,.18) 0%, transparent 70%);
     }
+    .idle-hero::after {
+      content: ''; position: absolute; bottom: -60px; left: 0;
+      width: 320px; height: 200px;
+      background: radial-gradient(ellipse, rgba(249,115,22,.06) 0%, transparent 70%);
+    }
+
+    /* ─── Stat cards ──────────────────────────────────────────────────── */
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+    .stat-label { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 3px; letter-spacing: -1px; }
+    .stat-sub   { font-size: 11.5px; color: var(--muted); }
+
+    /* ─── Ticker ──────────────────────────────────────────────────────── */
+    .ticker-wrap { background: var(--orange-lt); border: 1px solid var(--orange-br); border-radius: 8px; padding: 10px 13px; margin-top: 10px; }
+    .ticker-label { font-size: 9.5px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+
+    /* ─── Hourglass ───────────────────────────────────────────────────── */
+    .hg-wrap { border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1.5px rgba(249,115,22,.2), 0 6px 20px rgba(249,115,22,.1); }
     .hg-wrap canvas { display: block; border-radius: 9px; }
 
-    /* ── Victory ── */
+    /* ─── Victory ─────────────────────────────────────────────────────── */
     .victory-card {
-      background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
-      border: 1.5px solid var(--ok-br); border-radius: 16px; overflow: hidden;
+      background: linear-gradient(145deg, #ecfdf5 0%, #f0fdf4 100%);
+      border: 1.5px solid var(--ok-br); border-radius: 14px; overflow: hidden;
     }
     .victory-header {
-      background: var(--ok); padding: 20px 24px;
-      display: flex; align-items: center; gap: 16px;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      padding: 24px 28px; display: flex; align-items: center; gap: 18px;
     }
 
-    /* ── Scrollbar ── */
+    /* ─── Page header ─────────────────────────────────────────────────── */
+    .page-title { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; margin-bottom: 4px; }
+    .page-sub   { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+    /* ─── Divider ─────────────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); margin: 6px 0; }
+
+    /* ─── Feature item ────────────────────────────────────────────────── */
+    .feature-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 11px 14px; border-radius: 8px;
+      background: var(--bg2); border: 1px solid var(--border);
+      transition: border-color .15s;
+    }
+    .feature-item:hover { border-color: #94a3b8; }
+    .feature-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .feature-label { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .feature-sub   { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+    /* ─── Input ───────────────────────────────────────────────────────── */
+    .sf-input {
+      flex: 1; padding: 9px 13px; border-radius: 7px;
+      font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+      font-size: 12.5px; border: 1.5px solid var(--border);
+      outline: none; background: var(--card); color: var(--text);
+      transition: border-color .15s;
+    }
+    .sf-input:focus { border-color: var(--orange); }
+    .sf-input.err   { border-color: var(--err); }
+
+    /* ─── Stage result row ────────────────────────────────────────────── */
+    .stage-result-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; border-radius: 8px;
+    }
+    .stage-result-row.ok   { background: var(--ok-bg); border: 1px solid var(--ok-br); }
+    .stage-result-row.fail { background: var(--err-bg); border: 1px solid var(--err-br); }
+
+    /* ─── Animations ──────────────────────────────────────────────────── */
+    @keyframes spin     { to   { transform: rotate(360deg); } }
+    @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.35} }
+    @keyframes fadeIn   { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+    @keyframes victoryPop { 0%{transform:scale(.93);opacity:0} 100%{transform:scale(1);opacity:1} }
+    @keyframes runnerGlow { 0%,100%{box-shadow:0 0 0 3px rgba(249,115,22,.12),0 4px 16px rgba(249,115,22,.12)} 50%{box-shadow:0 0 0 4px rgba(249,115,22,.22),0 6px 20px rgba(249,115,22,.2)} }
+    .spin        { animation: spin .7s linear infinite; display: inline-block; }
+    .pulse       { animation: pulse 1.6s ease-in-out infinite; }
+    .fade-in     { animation: fadeIn .25s ease both; }
+    .victory-pop { animation: victoryPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+    .runner-glow { animation: runnerGlow 2s ease-in-out infinite; }
+
+    /* ─── Scrollbar ───────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
 <body>
@@ -213,70 +328,58 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
-// ── Stage data ────────────────────────────────────────────────────────────────
+// ── Stage metadata ────────────────────────────────────────────────────────────
 const STAGE_INFO_FULL = [
   { id:'discover',  emoji:'🔍', label:'Discover',
     consumer:'Sevaforge reads your project for the first time — detecting language, framework, port, and all dependencies — so every later stage is tailored to your codebase.',
     outputs:'Tech stack · Entry points · Port · Dependency list',
-    steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies…','Detecting exposed port and environment variables…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
-
+    steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies…','Detecting exposed port and env vars…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
   { id:'normalize', emoji:'🔧', label:'Normalize',
     consumer:'Your project gets tidied up — a proper .gitignore so passwords never leak, a README, and consistent code-style settings so the whole team formats code the same way.',
     outputs:'.gitignore · README.md · pyproject.toml · .editorconfig',
     steps:['Reading detected tech stack…','Checking for missing .gitignore patterns…','Generating language-specific .gitignore…','Creating or updating README.md scaffold…','Writing pyproject.toml / package.json lint settings…','Adding .editorconfig for consistent formatting…','Verifying repo structure is CI-ready…'] },
-
-  { id:'docs', emoji:'📚', label:'Docs',
-    consumer:'Sevaforge writes your documentation automatically — an architecture diagram, a threat model, and a database diagram — without you writing a single word.',
+  { id:'docs',      emoji:'📚', label:'Documentation',
+    consumer:'Sevaforge writes your docs automatically — an architecture diagram, threat model, and database diagram — without you writing a single word.',
     outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram',
     steps:['Parsing source files for modules and services…','Building C4 component model…','Generating ARCHITECTURE.md with Mermaid diagram…','Running STRIDE threat-modelling pass…','Writing THREAT_MODEL.md with risk table…','Extracting DB schema for ERD…','Generating API reference from route handlers…'] },
-
-  { id:'iac', emoji:'🏗️', label:'Infrastructure',
-    consumer:'Sevaforge builds the cloud blueprint for your app — writing the Terraform files that tell AWS, GCP, or Azure exactly what servers to create, plus a Dockerfile.',
+  { id:'iac',       emoji:'🏗️', label:'Infrastructure',
+    consumer:'Sevaforge builds the cloud blueprint for your app — writing the Terraform files that tell AWS, GCP, or Azure what servers to create, plus a Dockerfile.',
     outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml',
     steps:['Reading cloud target from config (AWS / GCP / Azure)…','Scaffolding Terraform provider block…','Generating network module (VPC, subnets, SGs)…','Generating cluster module (EKS / GKE / AKS)…','Writing variables.tf and outputs.tf…','Building multi-stage Dockerfile…','Writing docker-compose.yml for local dev…'] },
-
-  { id:'cd', emoji:'🚀', label:'CD Pipeline',
+  { id:'cd',        emoji:'🚀', label:'CD Pipeline',
     consumer:'Sevaforge sets up your automated deployment pipeline — every time you merge code, it rolls out changes to dev, staging, then production with safety checks.',
     outputs:'deploy.yml · ArgoCD app · k8s manifests · Kustomize overlays',
     steps:['Scaffolding ArgoCD Application manifest…','Generating AppProject and RBAC rules…','Writing Kustomize base (deployment, service, configmap)…','Creating dev / staging / prod overlays…','Generating GitHub Actions infra.yml workflow…','Writing bootstrap.yml for ArgoCD install…','Generating deploy.yml pilot-to-prod pipeline…'] },
-
-  { id:'ci', emoji:'⚙️', label:'CI Pipelines',
+  { id:'ci',        emoji:'⚙️', label:'CI Pipelines',
     consumer:'Sevaforge wires up your quality gates — every code push automatically runs your tests, checks for security issues, and builds a fresh container image.',
-    outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml',
+    outputs:'ci.yml · release.yml · .gitlab-ci.yml · dependabot.yml',
     steps:['Detecting existing CI configs to avoid conflicts…','Writing ci.yml — lint + unit test job…','Adding security.yml — Trivy + Snyk scan job…','Writing release.yml — build + push container image…','Generating .gitlab-ci.yml equivalent…','Adding Dependabot auto-update config…','Linking jobs into dependency chain…'] },
-
-  { id:'e2e', emoji:'🧪', label:'E2E Tests',
+  { id:'e2e',       emoji:'🧪', label:'E2E Tests',
     consumer:'Sevaforge writes browser-level tests that check your app works from a real user\'s perspective — login, navigation, forms, API calls — running on every deployment.',
     outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml',
     steps:['Detecting API routes from source…','Scaffolding playwright.config.ts…','Generating auth flow spec (login / logout)…','Writing navigation and routing spec…','Generating form submission spec…','Adding API health-check spec…','Writing e2e.yml GitHub Actions workflow…'] },
-
-  { id:'review', emoji:'👁️', label:'Code Review',
-    consumer:'An AI engineer reads every line of your code — finding functions that are too complex, duplicated logic, dead code, and missing error handling — then writes a prioritised fix list.',
+  { id:'review',    emoji:'👁️', label:'Code Review',
+    consumer:'An AI engineer reads every line of your code — finding complex functions, duplicated logic, dead code, and missing error handling — then writes a prioritised fix list.',
     outputs:'Code quality report · Improvement suggestions · Findings list',
     steps:['Reading all source files into context…','Analysing cyclomatic complexity…','Detecting code duplication and dead code…','Checking naming conventions and style…','Reviewing error handling patterns…','Identifying performance bottlenecks…','Writing code quality report…'] },
-
-  { id:'test', emoji:'✅', label:'Test Suite',
+  { id:'test',      emoji:'✅', label:'Test Suite',
     consumer:'Sevaforge runs all your tests and measures coverage — giving you a clear pass/fail result, the exact names of any failures, and a coverage percentage.',
     outputs:'Test results · Coverage % · Failing test details',
     steps:['Discovering test files and test runner…','Installing test dependencies…','Running unit test suite…','Measuring line and branch coverage…','Collecting failing test names and stack traces…','Comparing coverage against threshold…','Writing test results report…'] },
-
-  { id:'scan', emoji:'🔒', label:'Security Scan',
+  { id:'scan',      emoji:'🔒', label:'Security Scan',
     consumer:'Sevaforge checks your project for security holes before hackers find them — scanning code, checking dependencies for CVEs, and hunting for leaked secrets.',
     outputs:'SARIF report · CVE list · Severity-classified findings',
     steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity…','Generating SARIF report…','Listing actionable remediation steps…'] },
-
-  { id:'bridge', emoji:'🌉', label:'Push to GitHub',
+  { id:'bridge',    emoji:'🌉', label:'Push to GitHub',
     consumer:'All generated files — infrastructure, pipelines, tests, docs, security configs — are committed and pushed to your GitHub repo so your team can immediately review and merge.',
     outputs:'GitHub repo · All generated files committed · PR link',
     steps:['Authenticating with GitHub…','Checking if remote repository exists…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…','Recording PR URL in pipeline report…'] },
-
-  { id:'deploy', emoji:'☁️', label:'Deploy',
+  { id:'deploy',    emoji:'☁️', label:'Deploy',
     consumer:'Your application is deployed to the cloud. Sevaforge applies the infrastructure, pushes your container, and starts it on Kubernetes — with automatic rollback if anything fails.',
     outputs:'Live URL · Health check · Rollback plan',
     steps:['Reading kubeconfig / cloud credentials…','Running terraform plan…','Applying infrastructure changes…','Pushing container image to registry…','Applying Kubernetes manifests…','Waiting for pods to reach Running state…','Verifying health check endpoint…'] },
-
-  { id:'monitor', emoji:'📊', label:'Monitoring',
-    consumer:'Sevaforge installs your observability stack — live dashboards showing response times and error rates, plus automatic alerts that page you the moment something goes wrong.',
+  { id:'monitor',   emoji:'📊', label:'Monitoring',
+    consumer:'Sevaforge installs your observability stack — live dashboards, plus automatic alerts that page you the moment something goes wrong.',
     outputs:'prometheus.yml · Grafana dashboards · alert rules · SLO config',
     steps:['Installing Prometheus stack via Helm…','Writing scrape config for app metrics…','Importing Grafana dashboard templates…','Configuring alert rules (error rate, latency, saturation)…','Defining SLO objectives and burn-rate alerts…','Writing runbook links into alerts…','Verifying metrics are flowing…'] },
 ];
@@ -284,9 +387,9 @@ const STAGE_INFO_FULL = [
 const VIEWS = [
   { id:'live',      label:'Run Pipeline', icon:'▶' },
   { id:'dashboard', label:'Dashboard',    icon:'◈' },
-  { id:'pipeline',  label:'Stages',       icon:'⬡' },
-  { id:'history',   label:'History',      icon:'◷' },
-  { id:'health',    label:'Health',       icon:'♥' },
+  { id:'pipeline',  label:'Pipeline Stages', icon:'⬡' },
+  { id:'history',   label:'History',      icon:'⊙' },
+  { id:'health',    label:'Health',       icon:'♡' },
   { id:'settings',  label:'Settings',     icon:'⚙' },
 ];
 
@@ -298,7 +401,7 @@ const timeSince = (ts) => {
   return new Date(ts).toLocaleTimeString();
 };
 
-// ── Hourglass canvas ──────────────────────────────────────────────────────────
+// ── Hourglass animation canvas ────────────────────────────────────────────────
 function HourGlass({ status = 'running', size = 140 }) {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -351,57 +454,93 @@ function ActivityTicker({ stageId, running }) {
   useEffect(() => {
     if (!running) return;
     setIdx(0); setVis(true);
-    const iv = setInterval(()=>{ setVis(false); setTimeout(()=>{ setIdx(i=>(i+1)%steps.length); setVis(true); },300); },4000);
+    const iv = setInterval(()=>{ setVis(false); setTimeout(()=>{ setIdx(i=>(i+1)%steps.length); setVis(true); },280); },4000);
     return ()=>clearInterval(iv);
   }, [stageId, running]);
   return (
     <div className="ticker-wrap">
       <div className="ticker-label">⚡ Live activity</div>
-      <div style={{fontSize:'0.8rem',color:'#92400e',lineHeight:1.5,opacity:vis?1:0,transition:'opacity .3s',minHeight:'1.3rem'}}>
+      <div style={{fontSize:'12px',color:'#92400e',lineHeight:1.55,opacity:vis?1:0,transition:'opacity .28s',minHeight:'1.3rem'}}>
         {steps[idx]}
       </div>
-      <div style={{display:'flex',gap:4,marginTop:6}}>
-        {steps.map((_,i)=><span key={i} style={{width:5,height:5,borderRadius:'50%',display:'inline-block',background:i===idx?'var(--orange)':'#fed7aa',transition:'background .3s'}} />)}
+      <div style={{display:'flex',gap:4,marginTop:7}}>
+        {steps.map((_,i)=><span key={i} style={{width:5,height:5,borderRadius:'50%',display:'inline-block',background:i===idx?'var(--orange)':'var(--orange-br)',transition:'background .3s'}} />)}
       </div>
     </div>
   );
 }
 
-// ── Sevaforge hex logo ────────────────────────────────────────────────────────
-function SevaForgeLogo({ size=36, spinning=false }) {
+// ── Sevaforge logo mark ───────────────────────────────────────────────────────
+// Enterprise-grade SVG: rounded-square app icon with a stylized flame/forge mark
+function SevaForgeLogo({ size = 34, spinning = false, variant = 'default' }) {
+  const id = `sfl_${size}`; // unique gradient ids per instance
   return (
-    <svg width={size} height={size} viewBox="0 0 56 56" fill="none"
-         style={spinning?{animation:'spin .8s linear infinite'}:{}}>
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none"
+         style={spinning ? {animation:'spin 0.85s linear infinite'} : {}}>
       <defs>
-        <linearGradient id="lg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#f97316"/><stop offset="100%" stopColor="#ea580c"/>
+        <linearGradient id={`${id}_bg`} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#1e293b"/>
+          <stop offset="100%" stopColor="#0f172a"/>
         </linearGradient>
+        <linearGradient id={`${id}_flame`} x1="20" y1="7" x2="20" y2="35" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fbbf24"/>
+          <stop offset="45%" stopColor="#f97316"/>
+          <stop offset="100%" stopColor="#ea580c"/>
+        </linearGradient>
+        <radialGradient id={`${id}_glow`} cx="50%" cy="30%" r="50%" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stopColor="rgba(249,115,22,.3)"/>
+          <stop offset="100%" stopColor="rgba(249,115,22,0)"/>
+        </radialGradient>
       </defs>
-      <polygon points="28,2 51,15 51,41 28,54 5,41 5,15"
-               stroke="url(#lg1)" strokeWidth="2" fill="rgba(249,115,22,.08)" strokeLinejoin="round"/>
-      <path d="M24 43C24 43 16 34 20 26C21.5 23 23.5 26 25 24C25 24 22 16 28 11C28 11 30 20 34.5 18C37.5 23 40 31 34 43Z"
-            fill="url(#lg1)"/>
-      <rect x="20" y="43" width="16" height="2.5" rx="1.25" fill="url(#lg1)" opacity=".6"/>
+      {/* Rounded square background */}
+      <rect width="40" height="40" rx="10" fill={`url(#${id}_bg)`}/>
+      {/* Glow inside */}
+      <rect width="40" height="40" rx="10" fill={`url(#${id}_glow)`}/>
+      {/* Forge flame mark – stylized teardrop flame that curves like a forge ember */}
+      <path d="M20 33C20 33 12.5 27.5 12.5 20.5C12.5 16 15.5 12.5 19.5 11.5C18.5 14.5 20 17 22 17C24.5 17 26 14.5 25 11.5C28.5 14 28.5 19 26.5 22.5C25 25 24.5 28 24 31C22.5 32.5 21 33 20 33Z"
+            fill={`url(#${id}_flame)`}/>
+      {/* Ember sparks top-right */}
+      <circle cx="27.5" cy="12" r="1.8" fill="#fbbf24" opacity="0.85"/>
+      <circle cx="30"   cy="9"  r="1.1" fill="#fb923c" opacity="0.5"/>
+      <circle cx="25.5" cy="8.5" r="0.75" fill="#fde68a" opacity="0.6"/>
     </svg>
   );
 }
 
-// ── Folder picker panel ───────────────────────────────────────────────────────
+// ── Sevaforge full wordmark (logo + text) ─────────────────────────────────────
+function SevaForgeWordmark({ size = 32, showTagline = true }) {
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:10}}>
+      <SevaForgeLogo size={size} />
+      <div>
+        <div style={{fontSize:15,fontWeight:800,color:'#fff',letterSpacing:'-0.4px',lineHeight:1.15}}>
+          Sevaforge
+        </div>
+        {showTagline && (
+          <div style={{fontSize:9.5,fontWeight:600,color:'var(--orange)',letterSpacing:'0.1em',textTransform:'uppercase',marginTop:1}}>
+            AIDDaaS
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Folder picker ─────────────────────────────────────────────────────────────
 function FolderPicker({ onPathSelected }) {
   const [path,   setPath]   = useState('');
   const [status, setStatus] = useState('idle'); // idle|browsing|typing|error|ok
   const [errMsg, setErrMsg] = useState('');
 
   const browse = async () => {
-    setStatus('browsing');
-    setErrMsg('');
+    setStatus('browsing'); setErrMsg('');
     try {
       const res  = await fetch('/api/browse', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
       const data = await res.json();
       if (data.path && !data.path.startsWith('ERROR:')) {
         setPath(data.path); setStatus('typing'); onPathSelected(data.path);
       } else if (data.cancelled) {
-        setStatus('idle'); // user pressed Cancel — stay quiet
+        setStatus('idle');
       } else {
         setErrMsg('Could not open folder picker. Please type your path below.');
         setStatus('error');
@@ -412,60 +551,52 @@ function FolderPicker({ onPathSelected }) {
     }
   };
 
-  const launch = async () => {
-    const p = path.trim();
-    if (!p) { setErrMsg('Please select or enter a folder path.'); setStatus('error'); return; }
-    setStatus('ok');
-    setErrMsg('');
-    onPathSelected(p);
-  };
-
   return (
-    <div style={{maxWidth:540, margin:'0 auto'}}>
-      {/* Drop zone / browse area */}
+    <div style={{maxWidth:560, margin:'0 auto'}}>
+      {/* Browse button */}
       <div className={`folder-drop-zone ${path?'has-path':''}`} onClick={browse}
-           style={{marginBottom:16}}>
+           style={{marginBottom:14}}>
         {status==='browsing' ? (
           <>
             <div className="folder-icon spin">⏳</div>
-            <div style={{fontSize:'0.9rem',color:'var(--muted)',fontWeight:500}}>Opening folder picker…</div>
+            <div style={{fontSize:'13px',color:'var(--muted)',fontWeight:500}}>Opening folder picker…</div>
           </>
         ) : path ? (
           <>
             <div style={{fontSize:'2rem',marginBottom:8}}>📁</div>
-            <div style={{fontSize:'0.85rem',fontWeight:700,color:'var(--orange)',marginBottom:4}}>Folder selected</div>
-            <div style={{fontFamily:'monospace',fontSize:'0.78rem',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
-            <div style={{fontSize:'0.72rem',color:'var(--light)',marginTop:8}}>Click to change folder</div>
+            <div style={{fontSize:'12.5px',fontWeight:700,color:'var(--orange)',marginBottom:4}}>Folder selected</div>
+            <div style={{fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
+            <div style={{fontSize:'11px',color:'var(--light)',marginTop:8}}>Click to change folder</div>
           </>
         ) : (
           <>
             <div className="folder-icon">📂</div>
-            <div style={{fontSize:'0.95rem',fontWeight:600,color:'var(--text)',marginBottom:6}}>Click to select your project folder</div>
-            <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Opens your Mac folder picker — no terminal needed</div>
+            <div style={{fontSize:'14px',fontWeight:600,color:'var(--text)',marginBottom:6}}>
+              Click to select your project folder
+            </div>
+            <div style={{fontSize:'12px',color:'var(--muted)'}}>Opens your native Mac folder picker — no terminal needed</div>
           </>
         )}
       </div>
 
-      {/* Manual path input */}
-      <div style={{marginBottom:4,fontSize:'0.72rem',color:'var(--muted)',fontWeight:600}}>
-        OR TYPE PATH DIRECTLY
+      {/* Manual input */}
+      <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:700,marginBottom:6,letterSpacing:'0.06em'}}>
+        OR ENTER PATH MANUALLY
       </div>
-      <div style={{display:'flex',gap:8,marginBottom:12}}>
+      <div style={{display:'flex',gap:8,marginBottom:10}}>
         <input
           type="text"
           value={path}
           onChange={e=>{ setPath(e.target.value); setStatus('typing'); setErrMsg(''); onPathSelected(e.target.value); }}
-          onKeyDown={e=>e.key==='Enter' && launch()}
           placeholder="~/your-ai-project  or  /Users/you/project"
-          style={{
-            flex:1, padding:'9px 12px', borderRadius:8, fontFamily:'monospace',
-            fontSize:'0.82rem', border:`1px solid ${status==='error'?'var(--err)':'var(--border)'}`,
-            outline:'none', background:'#fff', color:'var(--text)',
-          }}
+          className={`sf-input ${status==='error'?'err':''}`}
         />
       </div>
-
-      {status==='error' && <div style={{color:'var(--err)',fontSize:'0.78rem',marginBottom:10}}>⚠ {errMsg}</div>}
+      {status==='error' && (
+        <div style={{color:'var(--err)',fontSize:'12px',display:'flex',alignItems:'center',gap:5}}>
+          <span>⚠</span> {errMsg}
+        </div>
+      )}
     </div>
   );
 }
@@ -489,22 +620,51 @@ function IdleScreen({ connected, onLaunch }) {
   };
 
   return (
-    <div style={{maxWidth:680, margin:'0 auto', padding:'40px 0'}}>
-      {/* Page header */}
-      <div style={{marginBottom:32}}>
-        <h1 style={{fontSize:'1.65rem',fontWeight:800,color:'var(--text)',letterSpacing:'-0.5px',marginBottom:6}}>
-          New Pipeline Run
-        </h1>
-        <p style={{color:'var(--muted)',fontSize:'0.9rem',lineHeight:1.6}}>
-          Select your AI project folder and Sevaforge will automatically run all 11 stages —
-          from code analysis through infrastructure, CI/CD, security, and GitHub push.
-        </p>
+    <div style={{maxWidth:700, margin:'0 auto'}} className="fade-in">
+
+      {/* ── Hero banner ── */}
+      <div className="idle-hero">
+        <div style={{position:'relative',zIndex:1}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+            <SevaForgeLogo size={44} />
+            <div>
+              <div style={{fontSize:26,fontWeight:900,color:'#fff',letterSpacing:'-0.8px',lineHeight:1}}>
+                Sevaforge
+              </div>
+              <div style={{
+                fontSize:9.5,fontWeight:700,color:'var(--orange)',letterSpacing:'0.12em',
+                textTransform:'uppercase',marginTop:3,
+                display:'inline-flex',alignItems:'center',gap:5,
+                background:'rgba(249,115,22,.12)',border:'1px solid rgba(249,115,22,.2)',
+                padding:'2px 8px',borderRadius:4,
+              }}>
+                ● AIDDaaS
+              </div>
+            </div>
+          </div>
+          <div style={{fontSize:15.5,fontWeight:400,color:'rgba(255,255,255,.65)',lineHeight:1.55,maxWidth:480}}>
+            AI Dev to Delivery as a Service — automatically build infrastructure,
+            CI/CD, tests, docs, and security for any codebase in one command.
+          </div>
+          <div style={{display:'flex',gap:10,marginTop:18,flexWrap:'wrap'}}>
+            {['11 Automated Stages','AWS · GCP · Azure','ArgoCD + Kustomize','Playwright E2E','Zero config'].map(t=>(
+              <span key={t} style={{
+                fontSize:11.5,fontWeight:600,color:'rgba(255,255,255,.55)',
+                background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',
+                padding:'4px 11px',borderRadius:20,
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Step 1 — Select folder */}
-      <div className="sf-card" style={{marginBottom:16}}>
+      {/* ── Step 1: Select folder ── */}
+      <div className="sf-card" style={{marginBottom:14}}>
         <div className="sf-card-header">
-          <span style={{background:'var(--orange)',color:'#fff',width:20,height:20,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,flexShrink:0}}>1</span>
+          <span style={{
+            background:'var(--orange)',color:'#fff',width:18,height:18,borderRadius:'50%',
+            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+          }}>1</span>
           Select your project folder
         </div>
         <div className="sf-card-body">
@@ -512,71 +672,83 @@ function IdleScreen({ connected, onLaunch }) {
         </div>
       </div>
 
-      {/* Step 2 — Launch */}
-      <div className="sf-card" style={{marginBottom:24}}>
+      {/* ── Step 2: Launch ── */}
+      <div className="sf-card" style={{marginBottom:22}}>
         <div className="sf-card-header">
-          <span style={{background: chosenPath ? 'var(--orange)' : '#d1d5db',color:'#fff',width:20,height:20,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,flexShrink:0}}>2</span>
-          Run the full pipeline
+          <span style={{
+            background:chosenPath?'var(--orange)':'#cbd5e1',color:'#fff',width:18,height:18,borderRadius:'50%',
+            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+          }}>2</span>
+          Launch the full pipeline
         </div>
         <div className="sf-card-body">
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
-            <div>
-              <div style={{fontWeight:600,fontSize:'0.88rem',color:'var(--text)',marginBottom:4}}>
-                11 automated stages will run in sequence
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
+            <div style={{flex:1,minWidth:240}}>
+              <div style={{fontWeight:700,fontSize:'13.5px',color:'var(--text)',marginBottom:5}}>
+                11 stages will run automatically, end to end
               </div>
-              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>
-                Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub Push
+              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.5}}>
+                Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub
               </div>
               {chosenPath && (
-                <div style={{marginTop:8,fontFamily:'monospace',fontSize:'0.75rem',color:'var(--orange)',
-                             background:'#fff7ed',padding:'4px 10px',borderRadius:6,display:'inline-block'}}>
+                <div style={{
+                  marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
+                  fontFamily:'monospace',fontSize:'11.5px',color:'var(--orange)',
+                  background:'var(--orange-lt)',padding:'5px 11px',borderRadius:6,
+                  border:'1px solid var(--orange-br)',maxWidth:'100%',overflow:'hidden',
+                  textOverflow:'ellipsis',whiteSpace:'nowrap',
+                }}>
                   📁 {chosenPath}
                 </div>
               )}
             </div>
             <button className="btn-primary" onClick={handleLaunch}
                     disabled={!chosenPath || launching}
-                    style={{flexShrink:0, padding:'11px 28px', fontSize:'0.9rem'}}>
+                    style={{flexShrink:0,padding:'11px 28px',fontSize:'14px'}}>
               {launching ? <><span className="spin">⟳</span> Starting…</> : '▶  Run Pipeline'}
             </button>
           </div>
-          {launchErr && <div style={{color:'var(--err)',fontSize:'0.78rem',marginTop:10}}>⚠ {launchErr}</div>}
+          {launchErr && (
+            <div style={{color:'var(--err)',fontSize:'12px',marginTop:12,display:'flex',alignItems:'center',gap:5}}>
+              <span>⚠</span> {launchErr}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* What's included */}
+      {/* ── Feature grid ── */}
       <div className="sf-card">
         <div className="sf-card-header">What Sevaforge generates for you</div>
-        <div style={{padding:'16px 20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
-            {[
-              {emoji:'🏗️', label:'Terraform + Docker',    sub:'VPC, EKS/GKE/AKS, multi-stage Dockerfile'},
-              {emoji:'🚀', label:'ArgoCD + Kustomize',    sub:'dev / staging / prod overlays, auto-rollback'},
-              {emoji:'⚙️', label:'GitHub Actions CI/CD',  sub:'Security → Tests → Build → Release pipeline'},
-              {emoji:'📚', label:'Full Documentation',     sub:'Architecture diagram, threat model, API docs'},
-              {emoji:'🧪', label:'Playwright E2E Tests',   sub:'Auth, navigation, form and API test specs'},
-              {emoji:'🔒', label:'Security Scan Report',   sub:'SAST, CVE check, secrets detection, SARIF'},
-              {emoji:'🌉', label:'GitHub Repository Push', sub:'All files committed, PR opened for review'},
-              {emoji:'📊', label:'Prometheus + Grafana',   sub:'Dashboards, alerts, SLOs, runbook links'},
-            ].map(({emoji,label,sub})=>(
-              <div key={label} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'10px 12px',
-                                       borderRadius:8,background:'#f9fafb',border:'1px solid var(--border)'}}>
-                <span style={{fontSize:'1.2rem',flexShrink:0}}>{emoji}</span>
-                <div>
-                  <div style={{fontSize:'0.8rem',fontWeight:700,color:'var(--text)',marginBottom:2}}>{label}</div>
-                  <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{sub}</div>
-                </div>
+        <div style={{padding:'16px 18px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          {[
+            {emoji:'🏗️', label:'Terraform + Docker',    sub:'VPC, EKS/GKE/AKS, multi-stage Dockerfile'},
+            {emoji:'🚀', label:'ArgoCD + Kustomize',    sub:'dev / staging / prod overlays, auto-rollback'},
+            {emoji:'⚙️', label:'GitHub Actions CI/CD',  sub:'Security → Tests → Build → Release pipeline'},
+            {emoji:'📚', label:'Full Documentation',     sub:'Architecture diagram, threat model, API docs'},
+            {emoji:'🧪', label:'Playwright E2E Tests',   sub:'Auth, navigation, form and API test specs'},
+            {emoji:'🔒', label:'Security Scan Report',   sub:'SAST, CVE check, secrets detection, SARIF'},
+            {emoji:'🌉', label:'GitHub Repository Push', sub:'All files committed, PR opened for review'},
+            {emoji:'📊', label:'Prometheus + Grafana',   sub:'Dashboards, alerts, SLOs, runbook links'},
+          ].map(({emoji,label,sub})=>(
+            <div key={label} className="feature-item">
+              <span className="feature-icon">{emoji}</span>
+              <div>
+                <div className="feature-label">{label}</div>
+                <div className="feature-sub">{sub}</div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Connection status */}
-      <div style={{marginTop:20,display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
-        <span style={{width:7,height:7,borderRadius:'50%',background:connected?'var(--ok)':'#d1d5db',
-                       boxShadow:connected?'0 0 6px var(--ok)':'none',display:'inline-block'}}/>
-        <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>
+      {/* Connection indicator */}
+      <div style={{marginTop:18,display:'flex',alignItems:'center',gap:7,justifyContent:'center'}}>
+        <span style={{
+          width:7,height:7,borderRadius:'50%',
+          background:connected?'var(--ok)':'#94a3b8',
+          boxShadow:connected?'0 0 6px var(--ok)':'none',display:'inline-block',
+        }}/>
+        <span style={{fontSize:'11.5px',color:'var(--muted)'}}>
           {connected ? 'Dashboard server connected — ready to run' : 'Connecting to dashboard server…'}
         </span>
       </div>
@@ -584,7 +756,7 @@ function IdleScreen({ connected, onLaunch }) {
   );
 }
 
-// ── Pipeline running view ─────────────────────────────────────────────────────
+// ── Running / pipeline live view ──────────────────────────────────────────────
 function RunningView({ liveState }) {
   const { pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed } = liveState;
@@ -607,7 +779,7 @@ function RunningView({ liveState }) {
   };
 
   const nodeClass = id => {
-    if (id === currentStage) return 'pipeline-node running';
+    if (id===currentStage) return 'pipeline-node running runner-glow';
     const s = stageState[id];
     if (s==='success') return 'pipeline-node done';
     if (s==='error')   return 'pipeline-node error';
@@ -615,58 +787,58 @@ function RunningView({ liveState }) {
   };
 
   const nodeStatus = id => {
-    if (id===currentStage) return { cls:'pill pill-running', dot:true, text:'Running' };
+    if (id===currentStage) return { cls:'pill pill-running', text:'Running' };
     const s = stageState[id];
-    if (s==='success') return { cls:'pill pill-done',    dot:false, text:'Done' };
-    if (s==='error')   return { cls:'pill pill-error',   dot:false, text:'Error' };
-    return { cls:'pill pill-pending', dot:false, text:'Waiting' };
+    if (s==='success') return { cls:'pill pill-done',    text:'Done' };
+    if (s==='error')   return { cls:'pill pill-error',   text:'Error' };
+    return { cls:'pill pill-pending', text:'Queued' };
   };
 
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
 
-      {/* ── Run status bar ── */}
-      <div className="sf-card" style={{padding:'14px 20px',display:'flex',alignItems:'center',gap:16}}>
-        <SevaForgeLogo size={36} spinning={!!currentStage && !allFinished} />
+      {/* ── Status bar ── */}
+      <div className="sf-card" style={{padding:'16px 20px',display:'flex',alignItems:'center',gap:16}}>
+        <SevaForgeLogo size={40} spinning={!!currentStage && !allFinished} />
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:700,fontSize:'0.95rem',color:'var(--text)',marginBottom:2}}>
+          <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:3,letterSpacing:'-0.2px'}}>
             {allFinished
-              ? (hasFailed ? '⚠ Pipeline completed with errors' : '🎉 Pipeline complete!')
+              ? (hasFailed ? '⚠ Pipeline completed with errors' : '🎉 All stages complete!')
               : currentStage
-                ? `Running — ${stageLabel(currentStage)}`
+                ? <>Running <span style={{color:'var(--orange)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
                 : 'Pipeline starting…'}
           </div>
-          <div style={{fontFamily:'monospace',fontSize:'0.72rem',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <div style={{fontFamily:'monospace',fontSize:'11px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {pipelinePath || '—'}
           </div>
         </div>
-        <div style={{display:'flex',gap:8,flexShrink:0}}>
+        <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
           {totalStages>0 && (
             <span className={`pill ${allFinished?(hasFailed?'pill-error':'pill-done'):'pill-running'}`}>
-              {allFinished?(hasFailed?'✗ Failed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages}`}
+              {allFinished?(hasFailed?'✗ Failed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages} stages`}
             </span>
           )}
           {elapsed>0 && <span className="pill pill-pending">{elapsed}s</span>}
         </div>
       </div>
 
-      {/* ── Progress bar ── */}
+      {/* ── Progress ── */}
       {totalStages>0 && (
         <div>
           <div className="sf-progress-track">
             <div className="sf-progress-fill" style={{width:`${pct}%`}} />
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:'0.68rem',color:'var(--muted)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:'11px',color:'var(--muted)'}}>
             <span>{pct}% complete</span>
             <span>{passedCount} of {totalStages} stages passed</span>
           </div>
         </div>
       )}
 
-      {/* ── Pipeline canvas — node graph ── */}
+      {/* ── Pipeline node graph ── */}
       {stages.length>0 && (
         <div>
-          <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+          <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
             Pipeline Flow
           </div>
           <div className="pipeline-canvas">
@@ -677,23 +849,26 @@ function RunningView({ liveState }) {
                   <React.Fragment key={id}>
                     <div className={nodeClass(id)}>
                       <span className="node-num">{i+1}</span>
-                      <div style={{fontSize:'1.3rem',marginBottom:5,lineHeight:1}}>{stageEmoji(id)}</div>
-                      <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--text)',marginBottom:7,
+                      <div style={{fontSize:'1.2rem',marginBottom:5,lineHeight:1}}>{stageEmoji(id)}</div>
+                      <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--text2)',marginBottom:6,
                                    whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                         {stageLabel(id)}
                       </div>
-                      <span className={ns.cls} style={{fontSize:'0.6rem',padding:'2px 7px'}}>
-                        {id===currentStage && <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'var(--orange)',marginRight:4,verticalAlign:'middle'}} />}
+                      <span className={ns.cls} style={{fontSize:'9.5px',padding:'2px 7px'}}>
+                        {id===currentStage && (
+                          <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',
+                                                          background:'currentColor',marginRight:4,verticalAlign:'middle'}} />
+                        )}
                         {ns.text}
                       </span>
                     </div>
                     {i<stages.length-1 && (
                       <div className="pipeline-arrow">
-                        <svg width="24" height="10" viewBox="0 0 24 10">
-                          <line x1="0" y1="5" x2="16" y2="5"
-                                stroke={stageState[id]==='success'?'var(--ok)':'#d1d5db'} strokeWidth="1.5"/>
-                          <polyline points="13,2 20,5 13,8"
-                                    stroke={stageState[id]==='success'?'var(--ok)':'#d1d5db'}
+                        <svg width="20" height="10" viewBox="0 0 20 10">
+                          <line x1="0" y1="5" x2="13" y2="5"
+                                stroke={stageState[id]==='success'?'var(--ok)':'#cbd5e1'} strokeWidth="1.5"/>
+                          <polyline points="10,2 17,5 10,8"
+                                    stroke={stageState[id]==='success'?'var(--ok)':'#cbd5e1'}
                                     strokeWidth="1.5" fill="none"/>
                         </svg>
                       </div>
@@ -710,40 +885,40 @@ function RunningView({ liveState }) {
       {currentStage && (
         <div className="sf-card fade-in">
           <div className="sf-card-header">
-            <span className="spin" style={{marginRight:4}}>⟳</span>
+            <span className="spin">⟳</span>
             {stageLabel(currentStage)} — Stage {currentNum} of {totalStages}
           </div>
-          <div style={{padding:'20px',display:'grid',gridTemplateColumns:'148px 1fr',gap:20}}>
+          <div style={{padding:'20px',display:'grid',gridTemplateColumns:'148px 1fr',gap:20,alignItems:'start'}}>
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
               <HourGlass status="running" size={144} />
-              <div style={{fontSize:'0.65rem',color:'var(--muted)',textAlign:'center',fontFamily:'monospace'}}>
+              <div style={{fontSize:'10px',color:'var(--muted)',textAlign:'center',fontFamily:'monospace'}}>
                 stage {currentNum} / {totalStages}
               </div>
             </div>
             <div>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
                 <span style={{fontSize:'2rem'}}>{stageEmoji(currentStage)}</span>
                 <div>
-                  <div style={{fontWeight:800,fontSize:'1.05rem',color:'var(--text)'}}>{stageLabel(currentStage)}</div>
+                  <div style={{fontWeight:800,fontSize:'16px',color:'var(--text)',letterSpacing:'-0.2px'}}>{stageLabel(currentStage)}</div>
                   {(activeInfo.agent||activeInfo.mcp_server) && (
-                    <div style={{fontSize:'0.68rem',color:'var(--muted)',fontFamily:'monospace'}}>
+                    <div style={{fontSize:'10.5px',color:'var(--muted)',fontFamily:'monospace',marginTop:2}}>
                       {activeInfo.agent}{activeInfo.mcp_server?` · ${activeInfo.mcp_server}`:''}
                     </div>
                   )}
                 </div>
               </div>
               {activeInfo.consumer && (
-                <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'10px 14px',marginBottom:10}}>
-                  <div style={{fontSize:'0.62rem',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5}}>
+                <div style={{background:'var(--orange-lt)',border:'1px solid var(--orange-br)',borderRadius:8,padding:'11px 14px',marginBottom:12}}>
+                  <div style={{fontSize:'9.5px',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5}}>
                     What's happening
                   </div>
-                  <div style={{fontSize:'0.82rem',color:'#92400e',lineHeight:1.55}}>
+                  <div style={{fontSize:'12.5px',color:'#92400e',lineHeight:1.6}}>
                     {activeInfo.consumer}
                   </div>
                 </div>
               )}
               {activeInfo.outputs && (
-                <div style={{fontSize:'0.7rem',color:'var(--muted)',fontFamily:'monospace',marginBottom:4}}>
+                <div style={{fontSize:'11px',color:'var(--muted)',fontFamily:'monospace',marginBottom:4}}>
                   📦 {activeInfo.outputs}
                 </div>
               )}
@@ -756,31 +931,27 @@ function RunningView({ liveState }) {
       {/* ── Stage results grid ── */}
       {Object.entries(stageResults).length>0 && (
         <div>
-          <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+          <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
             Completed Stages
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
             {Object.entries(stageResults).map(([id,result])=>{
               const ok   = result.status==='success';
               const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{};
               return (
-                <div key={id} style={{
-                  display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderRadius:8,
-                  background:ok?'var(--ok-bg)':'var(--err-bg)',
-                  border:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
-                }}>
-                  <span style={{fontSize:'1.1rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
+                <div key={id} className={`stage-result-row ${ok?'ok':'fail'}`}>
+                  <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
                   <div style={{minWidth:0,flex:1}}>
-                    <div style={{fontSize:'0.78rem',fontWeight:700,color:ok?'#065f46':'#991b1b'}}>
+                    <div style={{fontSize:'12px',fontWeight:700,color:ok?'#065f46':'#991b1b'}}>
                       {meta.label||id}
                     </div>
                     {result.summary && (
-                      <div style={{fontSize:'0.65rem',color:ok?'#047857':'#b91c1c',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                        {result.summary.slice(0,70)}
+                      <div style={{fontSize:'10.5px',color:ok?'#047857':'#b91c1c',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {result.summary.slice(0,72)}
                       </div>
                     )}
                   </div>
-                  <span style={{fontSize:'0.9rem',fontWeight:700,color:ok?'var(--ok)':'var(--err)',flexShrink:0}}>
+                  <span style={{fontSize:'13px',fontWeight:700,color:ok?'var(--ok)':'var(--err)',flexShrink:0}}>
                     {ok?'✓':'✗'}
                   </span>
                 </div>
@@ -794,21 +965,28 @@ function RunningView({ liveState }) {
       {allFinished && !hasFailed && (
         <div className="victory-card victory-pop">
           <div className="victory-header">
-            <SevaForgeLogo size={44} />
+            <SevaForgeLogo size={48} />
             <div style={{flex:1}}>
-              <div style={{fontSize:'1.4rem',fontWeight:900,color:'#fff',letterSpacing:'-0.5px',marginBottom:3}}>
+              <div style={{fontSize:'22px',fontWeight:900,color:'#fff',letterSpacing:'-0.6px',marginBottom:4}}>
                 🎉 Your AI app is cloud-ready!
               </div>
-              <div style={{fontSize:'0.85rem',color:'rgba(255,255,255,.8)'}}>
+              <div style={{fontSize:'13px',color:'rgba(255,255,255,.8)'}}>
                 All {totalStages} stages completed in <strong style={{color:'#fff'}}>{elapsed}s</strong>
               </div>
             </div>
+            <div style={{
+              background:'rgba(255,255,255,.15)',border:'1px solid rgba(255,255,255,.2)',
+              padding:'8px 16px',borderRadius:8,textAlign:'center',
+            }}>
+              <div style={{fontSize:'22px',fontWeight:900,color:'#fff',letterSpacing:'-0.5px'}}>{elapsed}s</div>
+              <div style={{fontSize:'10px',color:'rgba(255,255,255,.7)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Total time</div>
+            </div>
           </div>
-          <div style={{padding:'20px 24px'}}>
-            <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>
+          <div style={{padding:'22px 24px'}}>
+            <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
               What Sevaforge built for you
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
               {[
                 {emoji:'🏗️', title:'Cloud Infrastructure',   detail:'Terraform, VPC, Kubernetes, Docker'},
                 {emoji:'🚀', title:'Deployment Pipelines',   detail:'ArgoCD, Kustomize, dev/staging/prod'},
@@ -819,43 +997,45 @@ function RunningView({ liveState }) {
                 {emoji:'🌉', title:'GitHub Push',            detail:'All files committed, PR opened'},
                 {emoji:'📋', title:'Runbooks & SLOs',        detail:'Grafana, Prometheus, alert rules'},
               ].map(({emoji,title,detail})=>(
-                <div key={title} style={{display:'flex',gap:10,padding:'8px 12px',borderRadius:8,
-                                         background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)'}}>
-                  <span style={{fontSize:'1.1rem',flexShrink:0}}>{emoji}</span>
+                <div key={title} style={{display:'flex',gap:10,padding:'9px 13px',borderRadius:8,
+                                         background:'rgba(255,255,255,.65)',border:'1px solid var(--ok-br)'}}>
+                  <span style={{fontSize:'1.05rem',flexShrink:0}}>{emoji}</span>
                   <div>
-                    <div style={{fontSize:'0.76rem',fontWeight:700,color:'#065f46'}}>{title}</div>
-                    <div style={{fontSize:'0.67rem',color:'#047857'}}>{detail}</div>
+                    <div style={{fontSize:'11.5px',fontWeight:700,color:'#065f46',marginBottom:1}}>{title}</div>
+                    <div style={{fontSize:'10.5px',color:'#047857'}}>{detail}</div>
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{marginTop:16,display:'flex',gap:10}}>
-              <div style={{flex:1,background:'rgba(255,255,255,.5)',border:'1px solid var(--ok-br)',
-                           borderRadius:8,padding:'10px 14px'}}>
-                <div style={{fontSize:'0.67rem',fontWeight:700,color:'var(--ok)',marginBottom:4}}>Next step</div>
-                <code style={{fontSize:'0.75rem',color:'#065f46'}}>gh pr view --web</code>
+            <div style={{display:'flex',gap:10}}>
+              <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
+                <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next step</div>
+                <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>gh pr view --web</code>
               </div>
-              <div style={{flex:1,background:'rgba(255,255,255,.5)',border:'1px solid var(--ok-br)',
-                           borderRadius:8,padding:'10px 14px'}}>
-                <div style={{fontSize:'0.67rem',fontWeight:700,color:'var(--ok)',marginBottom:4}}>Deploy</div>
-                <code style={{fontSize:'0.75rem',color:'#065f46'}}>forgeflow deploy</code>
+              <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
+                <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Deploy to cloud</div>
+                <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>forgeflow deploy</code>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Failed banner */}
+      {/* ── Failure banner ── */}
       {allFinished && hasFailed && (
-        <div style={{background:'var(--err-bg)',border:'1.5px solid var(--err-br)',borderRadius:12,padding:'16px 20px',
-                     display:'flex',alignItems:'center',gap:14}}>
-          <span style={{fontSize:'2rem'}}>⚠️</span>
+        <div style={{
+          background:'var(--err-bg)',border:'1.5px solid var(--err-br)',
+          borderRadius:12,padding:'18px 22px',
+          display:'flex',alignItems:'center',gap:16,
+        }}>
+          <span style={{fontSize:'2rem',flexShrink:0}}>⚠️</span>
           <div>
-            <div style={{fontWeight:700,fontSize:'1rem',color:'var(--err)',marginBottom:4}}>
+            <div style={{fontWeight:700,fontSize:'15px',color:'var(--err)',marginBottom:4,letterSpacing:'-0.2px'}}>
               Pipeline completed with errors
             </div>
-            <div style={{fontSize:'0.8rem',color:'#b91c1c'}}>
-              Check the stage results above — most issues are fixable in one command.
+            <div style={{fontSize:'12.5px',color:'#b91c1c',lineHeight:1.5}}>
+              Review the stage results above — most issues are fixable in one command.
+              Re-run the pipeline after fixing.
             </div>
           </div>
         </div>
@@ -864,7 +1044,7 @@ function RunningView({ liveState }) {
   );
 }
 
-// ── Dashboard view ────────────────────────────────────────────────────────────
+// ── Dashboard overview ────────────────────────────────────────────────────────
 function DashboardView({ history, connected, onNavigate }) {
   const runs      = history.length;
   const successes = history.filter(r=>r.status==='success').length;
@@ -872,24 +1052,24 @@ function DashboardView({ history, connected, onNavigate }) {
   const last      = history[0];
 
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
       <div>
-        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Dashboard</h1>
-        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>AIDDaaS — AI Dev to Delivery as a Service · ForgeFlow v2.1</p>
+        <div className="page-title">Dashboard</div>
+        <div className="page-sub">AIDDaaS — AI Dev to Delivery as a Service · ForgeFlow v2.1</div>
       </div>
 
-      {/* Stats */}
+      {/* Stats row */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
         {[
-          {label:'Pipeline Runs',  value:runs||0,        sub:'total',          color:'#6366f1'},
-          {label:'Success Rate',   value:rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color:rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'},
-          {label:'Last Run',       value:last?timeSince(last.ts):'None', sub:last?(last.status==='success'?'Passed':'Failed'):'no runs yet', color:last?(last.status==='success'?'var(--ok)':'var(--err)'):'var(--muted)'},
-          {label:'Status',         value:connected?'Live':'Offline', sub:'dashboard server', color:connected?'var(--ok)':'var(--err)'},
+          {label:'Pipeline Runs', value:runs||0,        sub:'total runs',    color:'#6366f1'},
+          {label:'Success Rate',  value:rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color:rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'},
+          {label:'Last Run',      value:last?timeSince(last.ts):'None', sub:last?(last.status==='success'?'Passed':'Failed'):'no runs yet', color:last?(last.status==='success'?'var(--ok)':'var(--err)'):'var(--muted)'},
+          {label:'Server Status', value:connected?'Live':'Offline',    sub:'dashboard connection', color:connected?'var(--ok)':'var(--err)'},
         ].map(({label,value,sub,color})=>(
-          <div key={label} className="sf-card" style={{padding:'16px 18px'}}>
-            <div style={{fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>{label}</div>
-            <div style={{fontSize:'1.6rem',fontWeight:800,color,marginBottom:2}}>{value}</div>
-            <div style={{fontSize:'0.72rem',color:'var(--light)'}}>{sub}</div>
+          <div key={label} className="stat-card">
+            <div className="stat-label">{label}</div>
+            <div className="stat-value" style={{color}}>{value}</div>
+            <div className="stat-sub">{sub}</div>
           </div>
         ))}
       </div>
@@ -897,15 +1077,27 @@ function DashboardView({ history, connected, onNavigate }) {
       {/* Stage overview */}
       <div className="sf-card">
         <div className="sf-card-header">What each stage does for you</div>
-        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:8}}>
-          {STAGE_INFO_FULL.slice(0,11).map(s=>(
-            <div key={s.id} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 14px',
-                                     borderRadius:8,border:'1px solid var(--border)',background:'#fafafa'}}>
-              <span style={{fontSize:'1.3rem',flexShrink:0}}>{s.emoji}</span>
+        <div style={{padding:'14px 18px',display:'flex',flexDirection:'column',gap:7}}>
+          {STAGE_INFO_FULL.slice(0,11).map((s,i)=>(
+            <div key={s.id} style={{
+              display:'flex',gap:12,alignItems:'flex-start',padding:'11px 14px',
+              borderRadius:8,border:'1px solid var(--border)',background:'var(--bg2)',
+            }}>
+              <div style={{
+                width:24,height:24,borderRadius:'50%',background:'var(--orange)',color:'#fff',
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+                flexShrink:0,marginTop:1,
+              }}>{i+1}</div>
+              <span style={{fontSize:'1.15rem',flexShrink:0,marginTop:2}}>{s.emoji}</span>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--text)',marginBottom:3}}>{s.label}</div>
-                <div style={{fontSize:'0.77rem',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
-                <div style={{fontSize:'0.67rem',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
+                <div style={{fontWeight:700,fontSize:'12.5px',color:'var(--text)',marginBottom:3}}>{s.label}</div>
+                <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
+                <div style={{fontSize:'10.5px',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
+              </div>
+              <div style={{flexShrink:0}}>
+                <code style={{fontSize:'10px',background:' var(--border-lt)',padding:'3px 8px',borderRadius:4,color:'var(--muted)',border:'1px solid var(--border)'}}>
+                  forgeflow {s.id}
+                </code>
               </div>
             </div>
           ))}
@@ -916,16 +1108,15 @@ function DashboardView({ history, connected, onNavigate }) {
       {history.length>0 && (
         <div className="sf-card">
           <div className="sf-card-header">Recent runs</div>
-          <div style={{padding:'12px 20px',display:'flex',flexDirection:'column',gap:6}}>
+          <div style={{padding:'12px 18px',display:'flex',flexDirection:'column',gap:6}}>
             {history.slice(0,5).map((r,i)=>{
               const ok=r.status==='success';
               return (
-                <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 12px',borderRadius:8,
-                                      background:ok?'var(--ok-bg)':'var(--err-bg)',
-                                      border:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`}}>
-                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700}}>{ok?'✓':'✗'}</span>
-                  <span style={{fontFamily:'monospace',fontSize:'0.75rem',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
-                  <span style={{fontSize:'0.7rem',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}</span>
+                <div key={i} className={`stage-result-row ${ok?'ok':'fail'}`}>
+                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700,fontSize:'13px'}}>{ok?'✓':'✗'}</span>
+                  <span style={{fontFamily:'monospace',fontSize:'11.5px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
+                  <span style={{fontSize:'11px',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</span>
+                  <span className={`pill ${ok?'pill-done':'pill-error'}`}>{ok?'Passed':'Failed'}</span>
                 </div>
               );
             })}
@@ -940,46 +1131,50 @@ function DashboardView({ history, connected, onNavigate }) {
 function StagesView() {
   const CORE = STAGE_INFO_FULL.slice(0,11);
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
       <div>
-        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Pipeline Stages</h1>
-        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>11 stages run automatically, end to end, on every run.</p>
+        <div className="page-title">Pipeline Stages</div>
+        <div className="page-sub">11 stages run automatically in sequence on every pipeline run.</div>
       </div>
-      {/* Flow */}
+      {/* Flow chip sequence */}
       <div className="sf-card">
-        <div className="sf-card-header">Sequence</div>
-        <div style={{padding:'16px 20px',overflowX:'auto'}}>
-          <div style={{display:'flex',alignItems:'center',gap:4,minWidth:'max-content'}}>
+        <div className="sf-card-header">Execution Order</div>
+        <div style={{padding:'16px 18px',overflowX:'auto'}}>
+          <div style={{display:'flex',alignItems:'center',gap:5,minWidth:'max-content'}}>
             {CORE.map((s,i)=>(
               <React.Fragment key={s.id}>
-                <span style={{padding:'4px 12px',borderRadius:999,fontSize:'0.72rem',fontWeight:600,
-                               background:'#f9fafb',border:'1px solid var(--border)',color:'var(--text)',whiteSpace:'nowrap'}}>
+                <span style={{
+                  padding:'5px 13px',borderRadius:20,fontSize:'11.5px',fontWeight:600,
+                  background:'var(--bg2)',border:'1.5px solid var(--border)',
+                  color:'var(--text)',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,
+                }}>
                   {s.emoji} {s.label}
                 </span>
-                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'0.7rem',flexShrink:0}}>→</span>}
+                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'11px',flexShrink:0}}>→</span>}
               </React.Fragment>
             ))}
           </div>
         </div>
       </div>
-      {/* Detail */}
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {/* Detail cards */}
+      <div style={{display:'flex',flexDirection:'column',gap:9}}>
         {CORE.map((s,i)=>(
           <div key={s.id} className="sf-card">
-            <div style={{padding:'14px 20px',display:'flex',gap:14,alignItems:'flex-start'}}>
-              <div style={{width:30,height:30,borderRadius:'50%',background:'var(--orange)',color:'#fff',
-                           display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.72rem',fontWeight:800,flexShrink:0}}>
-                {i+1}
-              </div>
-              <span style={{fontSize:'1.5rem',flexShrink:0,marginTop:2}}>{s.emoji}</span>
+            <div style={{padding:'15px 18px',display:'flex',gap:14,alignItems:'flex-start'}}>
+              <div style={{
+                width:28,height:28,borderRadius:'50%',background:'var(--orange)',color:'#fff',
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:800,
+                flexShrink:0,marginTop:1,
+              }}>{i+1}</div>
+              <span style={{fontSize:'1.5rem',flexShrink:0,marginTop:1}}>{s.emoji}</span>
               <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--text)',marginBottom:4}}>{s.label}</div>
-                <div style={{fontSize:'0.8rem',color:'var(--muted)',lineHeight:1.55,marginBottom:6}}>{s.consumer}</div>
-                <div style={{fontSize:'0.68rem',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
-                <div style={{marginTop:6}}>
-                  <code style={{fontSize:'0.7rem',background:'#f3f4f6',padding:'2px 8px',borderRadius:4,color:'var(--muted)'}}>forgeflow {s.id}</code>
-                </div>
+                <div style={{fontWeight:700,fontSize:'13.5px',color:'var(--text)',marginBottom:5}}>{s.label}</div>
+                <div style={{fontSize:'12.5px',color:'var(--muted)',lineHeight:1.55,marginBottom:7}}>{s.consumer}</div>
+                <div style={{fontSize:'11px',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
               </div>
+              <code style={{fontSize:'11px',background:'var(--bg2)',padding:'4px 10px',borderRadius:6,color:'var(--muted)',border:'1px solid var(--border)',flexShrink:0,fontFamily:'monospace',fontWeight:500}}>
+                forgeflow {s.id}
+              </code>
             </div>
           </div>
         ))}
@@ -991,32 +1186,35 @@ function StagesView() {
 // ── History view ──────────────────────────────────────────────────────────────
 function HistoryView({ history, onClear }) {
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
         <div>
-          <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Run History</h1>
-          <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>{history.length} runs recorded in this session</p>
+          <div className="page-title">Run History</div>
+          <div className="page-sub">{history.length} runs recorded in this session</div>
         </div>
         {history.length>0 && (
-          <button className="btn-secondary" onClick={onClear} style={{color:'var(--err)',borderColor:'var(--err-br)'}}>✗ Clear</button>
+          <button className="btn-secondary" onClick={onClear}
+                  style={{color:'var(--err)',borderColor:'var(--err-br)',flexShrink:0}}>
+            ✗ Clear history
+          </button>
         )}
       </div>
       {history.length===0 ? (
-        <div className="sf-card" style={{padding:'48px 24px',textAlign:'center'}}>
-          <div style={{fontSize:'2.5rem',marginBottom:12}}>◷</div>
-          <div style={{fontWeight:600,color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
-          <div style={{fontSize:'0.8rem',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
+        <div className="sf-card" style={{padding:'56px 24px',textAlign:'center'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:14}}>⊙</div>
+          <div style={{fontWeight:600,fontSize:'14px',color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
+          <div style={{fontSize:'12px',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
         </div>
       ) : (
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        <div style={{display:'flex',flexDirection:'column',gap:7}}>
           {history.map((r,i)=>{
             const ok=r.status==='success';
             return (
-              <div key={i} className="sf-card" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:14}}>
-                <span style={{fontSize:'1.2rem',color:ok?'var(--ok)':'var(--err)'}}>{ok?'✓':'✗'}</span>
+              <div key={i} className={`stage-result-row ${ok?'ok':'fail'}`}>
+                <span style={{fontSize:'14px',color:ok?'var(--ok)':'var(--err)',fontWeight:700}}>{ok?'✓':'✗'}</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:'monospace',fontSize:'0.8rem',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
-                  <div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:2}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</div>
+                  <div style={{fontFamily:'monospace',fontSize:'12px',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
+                  <div style={{fontSize:'11px',color:'var(--muted)',marginTop:2}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</div>
                 </div>
                 <span className={`pill ${ok?'pill-done':'pill-error'}`}>{ok?'Passed':'Failed'}</span>
               </div>
@@ -1031,45 +1229,48 @@ function HistoryView({ history, onClear }) {
 // ── Health view ───────────────────────────────────────────────────────────────
 function HealthView({ connected, liveState }) {
   const checks = [
-    { label:'SSE Dashboard Stream',  ok:connected,           detail:connected?'Real-time events flowing':'Run forgeflow dashboard' },
-    { label:'Pipeline Engine',       ok:true,                detail:'ForgeFlow CLI installed' },
-    { label:'React UI',              ok:true,                detail:'Rendering correctly' },
-    { label:'Hourglass Animation',   ok:true,                detail:'Canvas engine active' },
-    { label:'NoCaaS Mode',           ok:true,                detail:'Running at zero cost' },
-    { label:'Stage Descriptions',    ok:true,                detail:'Consumer descriptions loaded' },
-    { label:'Sevaforge Branding',    ok:true,                detail:'AIDDaaS theme active' },
-    { label:'Node Graph Canvas',     ok:true,                detail:'Pipeline visualiser ready' },
+    { label:'SSE Dashboard Stream',  ok:connected,  detail:connected?'Real-time events flowing':'Run forgeflow dashboard' },
+    { label:'Pipeline Engine',       ok:true,        detail:'ForgeFlow CLI installed and operational' },
+    { label:'React UI',              ok:true,        detail:'UI rendering correctly' },
+    { label:'Hourglass Animation',   ok:true,        detail:'Canvas engine active' },
+    { label:'NoCaaS Mode',           ok:true,        detail:'Running at zero infrastructure cost' },
+    { label:'Stage Descriptions',    ok:true,        detail:'All 11 consumer descriptions loaded' },
+    { label:'Sevaforge Branding',    ok:true,        detail:'AIDDaaS theme active · Inter font loaded' },
+    { label:'Node Graph Canvas',     ok:true,        detail:'Pipeline visualiser ready' },
   ];
   const ok = checks.filter(c=>c.ok).length;
   const pct = Math.round(ok/checks.length*100);
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
       <div>
-        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>System Health</h1>
-        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>{ok} of {checks.length} checks passing</p>
+        <div className="page-title">System Health</div>
+        <div className="page-sub">{ok} of {checks.length} checks passing</div>
       </div>
-      <div className="sf-card" style={{padding:'20px 24px'}}>
-        <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:16}}>
-          <div style={{fontSize:'2.5rem',fontWeight:900,color:pct===100?'var(--ok)':'var(--warn)'}}>{pct}%</div>
-          <div>
-            <div style={{fontWeight:700,color:pct===100?'var(--ok)':'var(--warn)'}}>
-              {pct===100?'All Systems Operational':`${checks.length-ok} checks need attention`}
+      <div className="sf-card">
+        <div className="sf-card-header">Health checks</div>
+        <div style={{padding:'18px 18px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:20}}>
+            <div style={{fontSize:'36px',fontWeight:900,color:pct===100?'var(--ok)':'var(--warn)',letterSpacing:'-1px'}}>
+              {pct}%
             </div>
-            <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Dashboard health</div>
-          </div>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {checks.map((c,i)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:8,
-                                  background:c.ok?'var(--ok-bg)':'var(--err-bg)',
-                                  border:`1px solid ${c.ok?'var(--ok-br)':'var(--err-br)'}`}}>
-              <span style={{color:c.ok?'var(--ok)':'var(--err)',fontWeight:700}}>{c.ok?'✓':'✗'}</span>
-              <div>
-                <div style={{fontSize:'0.78rem',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
-                <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{c.detail}</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:'14px',color:pct===100?'var(--ok)':'var(--warn)',marginBottom:3}}>
+                {pct===100?'All Systems Operational':`${checks.length-ok} checks need attention`}
               </div>
+              <div style={{fontSize:'12px',color:'var(--muted)'}}>Dashboard health status</div>
             </div>
-          ))}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {checks.map((c,i)=>(
+              <div key={i} className={`stage-result-row ${c.ok?'ok':'fail'}`}>
+                <span style={{color:c.ok?'var(--ok)':'var(--err)',fontWeight:700}}>{c.ok?'✓':'✗'}</span>
+                <div>
+                  <div style={{fontSize:'12px',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
+                  <div style={{fontSize:'10.5px',color:'var(--muted)'}}>{c.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1079,14 +1280,14 @@ function HealthView({ connected, liveState }) {
 // ── Settings view ─────────────────────────────────────────────────────────────
 function SettingsView() {
   return (
-    <div className="fade-in" style={{maxWidth:560,display:'flex',flexDirection:'column',gap:16}}>
+    <div className="fade-in" style={{maxWidth:580,display:'flex',flexDirection:'column',gap:18}}>
       <div>
-        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Settings</h1>
-        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Sevaforge · AIDDaaS · ForgeFlow v2.1</p>
+        <div className="page-title">Settings</div>
+        <div className="page-sub">Sevaforge · AIDDaaS · ForgeFlow v2.1</div>
       </div>
       <div className="sf-card">
-        <div className="sf-card-header">Platform</div>
-        <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <div className="sf-card-header">Platform details</div>
+        <div style={{padding:'16px 18px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
           {[
             ['Version','v2.1.0'],['Architecture','Agent → MCP → Tool'],
             ['AI Agents','13 production-ready'],['Core Stages','11 (discover → bridge)'],
@@ -1094,16 +1295,17 @@ function SettingsView() {
             ['CD Engine','ArgoCD + Kustomize'],['E2E Framework','Playwright'],
             ['Cost','🆓 NoCaaS — zero charge'],['Brand','Sevaforge / AIDDaaS'],
           ].map(([k,v])=>(
-            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'7px 10px',borderRadius:6,background:'#f9fafb',border:'1px solid var(--border)'}}>
-              <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>{k}</span>
-              <span style={{fontSize:'0.75rem',fontWeight:600,color:'var(--text)'}}>{v}</span>
+            <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                                   padding:'8px 11px',borderRadius:7,background:'var(--bg2)',border:'1px solid var(--border)'}}>
+              <span style={{fontSize:'11.5px',color:'var(--muted)'}}>{k}</span>
+              <span style={{fontSize:'11.5px',fontWeight:600,color:'var(--text)'}}>{v}</span>
             </div>
           ))}
         </div>
       </div>
       <div className="sf-card">
         <div className="sf-card-header">CLI Reference</div>
-        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:8}}>
+        <div style={{padding:'16px 18px',display:'flex',flexDirection:'column',gap:8}}>
           {[
             ['Open dashboard (no pipeline)', 'forgeflow dashboard'],
             ['Run full pipeline with GUI',   'forgeflow run-all --gui ~/repo'],
@@ -1111,9 +1313,9 @@ function SettingsView() {
             ['Security scan only',          'forgeflow scan --severity high ~/repo'],
             ['Push to GitHub only',         'forgeflow bridge --path ~/repo'],
           ].map(([desc,cmd])=>(
-            <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'#f9fafb',border:'1px solid var(--border)'}}>
-              <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:3}}>{desc}</div>
-              <code style={{fontSize:'0.8rem',color:'var(--orange)'}}>{cmd}</code>
+            <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:'10.5px',color:'var(--muted)',marginBottom:4,fontWeight:500}}>{desc}</div>
+              <code style={{fontSize:'12px',color:'var(--orange)',fontWeight:600}}>{cmd}</code>
             </div>
           ))}
         </div>
@@ -1136,7 +1338,7 @@ function App() {
   const addToast = useCallback((msg,type='info')=>{
     const id=Date.now();
     setToasts(p=>[...p,{id,msg,type}]);
-    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),4000);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),4500);
   },[]);
 
   // SSE connection
@@ -1183,71 +1385,98 @@ function App() {
   const pipelineActive = stages.length>0 || done;
   const showIdle = !pipelineActive;
 
-  // Breadcrumb
   const breadcrumbs = {
-    live:'Run Pipeline', dashboard:'Dashboard', pipeline:'Stages',
-    history:'History', health:'Health', settings:'Settings',
+    live:'Run Pipeline', dashboard:'Dashboard', pipeline:'Pipeline Stages',
+    history:'History', health:'System Health', settings:'Settings',
   };
 
   return (
     <div style={{display:'flex',height:'100vh',overflow:'hidden'}}>
-      {/* Sidebar */}
+
+      {/* ── Sidebar ── */}
       <aside className="sf-sidebar">
+
+        {/* Logo */}
         <div className="sf-logo-block">
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-            <SevaForgeLogo size={32} />
-            <div>
+          <div className="sf-logo-row">
+            <SevaForgeLogo size={36} />
+            <div className="sf-logo-text">
               <div className="sf-logo-name">Sevaforge</div>
-              <div className="sf-logo-tag">AIDDaaS</div>
+              <div className="sf-logo-sub">AIDDaaS</div>
             </div>
           </div>
-          <div style={{fontSize:'0.62rem',color:'rgba(255,255,255,.22)',lineHeight:1.4}}>
+          <div className="sf-logo-divider" />
+          <div className="sf-logo-tagline">
             AI Dev to Delivery as a Service
           </div>
         </div>
 
+        {/* Nav */}
         <nav className="sf-nav">
-          {VIEWS.map(v=>(
+          <div className="sf-nav-group-label">Pipeline</div>
+          {VIEWS.slice(0,1).map(v=>(
             <button key={v.id} className={`sf-nav-item ${view===v.id?'active':''}`} onClick={()=>setView(v.id)}>
               <span className="sf-nav-icon">{v.icon}</span>
               {v.label}
-              {v.id==='live' && pipelineActive && (
-                <span style={{marginLeft:'auto',width:7,height:7,borderRadius:'50%',
-                              background:done?'var(--ok)':'var(--orange)',
-                              boxShadow:done?'0 0 6px var(--ok)':'0 0 6px var(--orange)',
-                              animation:done?'none':'pulse 1.4s ease-in-out infinite'}} />
+              {pipelineActive && (
+                <span className="sf-nav-badge" style={{
+                  background:done?'var(--ok)':'var(--orange)',
+                  boxShadow:done?'0 0 5px var(--ok)':'0 0 5px var(--orange)',
+                  animation:done?'none':'pulse 1.6s ease-in-out infinite',
+                }}/>
               )}
+            </button>
+          ))}
+
+          <div className="sf-nav-group-label" style={{marginTop:6}}>Overview</div>
+          {VIEWS.slice(1).map(v=>(
+            <button key={v.id} className={`sf-nav-item ${view===v.id?'active':''}`} onClick={()=>setView(v.id)}>
+              <span className="sf-nav-icon">{v.icon}</span>
+              {v.label}
             </button>
           ))}
         </nav>
 
+        {/* Status bar */}
         <div className="sf-status-bar">
           <span className="sf-status-dot" style={{
-            background:connected?'var(--ok)':'#4b5563',
-            boxShadow:connected?'0 0 6px var(--ok)':'none',
-          }} />
-          <span style={{fontSize:'0.72rem',color:'rgba(255,255,255,.4)',flex:1}}>
+            background:connected?'var(--ok)':'#475569',
+            boxShadow:connected?'0 0 5px var(--ok)':'none',
+          }}/>
+          <span style={{fontSize:'11px',color:'rgba(255,255,255,.38)',flex:1}}>
             {connected?'Connected':'Connecting…'}
           </span>
-          {done && <span style={{fontSize:'0.62rem',color:'rgba(255,255,255,.3)',fontWeight:600}}>DONE</span>}
+          {done && (
+            <span style={{fontSize:'9.5px',color:'rgba(255,255,255,.28)',fontWeight:700,
+                           textTransform:'uppercase',letterSpacing:'0.06em'}}>
+              Done
+            </span>
+          )}
+        </div>
+        <div style={{padding:'10px 16px',fontSize:'10px',color:'rgba(255,255,255,.18)',fontWeight:500}}>
+          ForgeFlow v2.1.0 · NoCaaS Mode
         </div>
       </aside>
 
-      {/* Main */}
+      {/* ── Main ── */}
       <div className="sf-main">
+
         {/* Topbar */}
         <div className="sf-topbar">
           <div className="sf-breadcrumb">
-            <span>Sevaforge</span>
-            <span style={{color:'var(--border)'}}>›</span>
+            <span style={{opacity:.6}}>Sevaforge</span>
+            <span style={{color:'var(--border)',fontSize:'16px',fontWeight:300}}>›</span>
             <span className="current">{breadcrumbs[view]||view}</span>
           </div>
-          {pipelineActive && view!=='live' && (
-            <button className="btn-secondary" onClick={()=>setView('live')}
-                    style={{marginLeft:'auto',padding:'5px 14px',fontSize:'0.78rem'}}>
-              {done?'View Results':'↗ View Live Run'}
-            </button>
-          )}
+          <div className="sf-topbar-right">
+            {pipelineActive && view!=='live' && (
+              <button className="btn-secondary" onClick={()=>setView('live')}
+                      style={{fontSize:'12px',padding:'6px 13px'}}>
+                {done?'← View Results':'↗ View Live Run'}
+              </button>
+            )}
+            <span className="sf-version-chip">v2.1.0</span>
+          </div>
         </div>
 
         {/* Content */}
@@ -1265,14 +1494,15 @@ function App() {
         </div>
       </div>
 
-      {/* Toasts */}
-      <div style={{position:'fixed',bottom:20,right:20,display:'flex',flexDirection:'column',gap:8,zIndex:999}}>
+      {/* Toast notifications */}
+      <div style={{position:'fixed',bottom:24,right:24,display:'flex',flexDirection:'column',gap:8,zIndex:9999}}>
         {toasts.map(t=>(
           <div key={t.id} style={{
-            padding:'10px 16px',borderRadius:8,fontSize:'0.82rem',fontWeight:500,
+            padding:'11px 18px',borderRadius:9,fontSize:'13px',fontWeight:500,minWidth:220,
             background:t.type==='success'?'var(--ok)':t.type==='error'?'var(--err)':'var(--navy)',
-            color:'#fff',boxShadow:'0 4px 12px rgba(0,0,0,.15)',
-            animation:'fadeIn .3s ease both',
+            color:'#fff',
+            boxShadow:'0 4px 16px rgba(0,0,0,.18), 0 1px 4px rgba(0,0,0,.12)',
+            animation:'fadeIn .25s ease both',
           }}>{t.msg}</div>
         ))}
       </div>
