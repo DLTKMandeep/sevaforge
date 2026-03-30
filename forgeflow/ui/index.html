@@ -334,57 +334,16 @@
     }
     @keyframes aawGlowPulse { 0%,100%{opacity:.6; transform:scale(1)} 50%{opacity:1; transform:scale(1.12)} }
 
-    /* Left orb column */
+    /* Left hourglass column */
     .aaw-orb-col {
-      width: 200px; flex-shrink: 0; display: flex; align-items: center;
-      justify-content: center; position: relative; padding: 28px 0;
+      width: 180px; flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; position: relative; padding: 24px 0;
     }
-    /* Spinning rings */
-    .aaw-rings { position: relative; width: 120px; height: 120px; }
-    .aaw-ring {
-      position: absolute; border-radius: 50%; border-style: solid;
+    .aaw-stage-counter {
+      font-size: 10px; font-weight: 700; color: rgba(255,255,255,.3);
+      font-family: 'Inter', system-ui, sans-serif; letter-spacing: 0.05em;
     }
-    .aaw-ring-1 {
-      inset: 0; border-width: 1.5px;
-      border-color: rgba(249,115,22,.5) rgba(249,115,22,.08) rgba(249,115,22,.08) rgba(249,115,22,.08);
-      animation: aawSpin1 3.5s linear infinite;
-    }
-    .aaw-ring-2 {
-      inset: 14px; border-width: 1.5px;
-      border-color: rgba(249,115,22,.0) rgba(249,115,22,.0) rgba(249,115,22,.35) rgba(249,115,22,.0);
-      animation: aawSpin2 5.5s linear infinite reverse;
-    }
-    .aaw-ring-3 {
-      inset: 28px; border-width: 1px;
-      border-color: rgba(167,139,250,.3) rgba(167,139,250,.06) rgba(167,139,250,.06) rgba(167,139,250,.06);
-      animation: aawSpin1 8s linear infinite;
-    }
-    /* Dot on ring 1 */
-    .aaw-ring-1::after {
-      content:''; position:absolute; top:-4px; left:50%; margin-left:-4px;
-      width:8px; height:8px; border-radius:50%;
-      background:var(--orange); box-shadow:0 0 10px var(--orange), 0 0 20px rgba(249,115,22,.4);
-    }
-    .aaw-ring-2::before {
-      content:''; position:absolute; bottom:-3px; left:50%; margin-left:-3px;
-      width:6px; height:6px; border-radius:50%;
-      background:#f97316; box-shadow:0 0 8px rgba(249,115,22,.7);
-    }
-    @keyframes aawSpin1 { to { transform:rotate(360deg);  } }
-    @keyframes aawSpin2 { to { transform:rotate(-360deg); } }
-    /* Core */
-    .aaw-core {
-      position: absolute; inset: 28px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(249,115,22,.18) 0%, rgba(26,16,56,.8) 70%);
-      animation: aawCorePulse 2.4s ease-in-out infinite;
-    }
-    @keyframes aawCorePulse {
-      0%,100%{ box-shadow:0 0 0 0 rgba(249,115,22,.2), 0 0 16px rgba(249,115,22,.15); }
-      50%{     box-shadow:0 0 0 8px rgba(249,115,22,.0), 0 0 28px rgba(249,115,22,.3); }
-    }
-    .aaw-core-emoji { font-size: 1.8rem; line-height: 1; filter: drop-shadow(0 0 6px rgba(249,115,22,.5)); }
 
     /* Vertical separator */
     .aaw-sep {
@@ -928,16 +887,14 @@ function AgentAtWorkBanner({ currentStage, currentNum = 0, totalStages = 0 }) {
       {/* Ambient glow behind orb */}
       <div className="aaw-glow-bg" />
 
-      {/* Left: spinning rings orb */}
+      {/* Left: hourglass */}
       <div className="aaw-orb-col">
-        <div className="aaw-rings">
-          <div className="aaw-ring aaw-ring-1" />
-          <div className="aaw-ring aaw-ring-2" />
-          <div className="aaw-ring aaw-ring-3" />
-          <div className="aaw-core">
-            <span className="aaw-core-emoji">{emoji}</span>
+        <HourGlass status="running" size={150} />
+        {totalStages > 0 && (
+          <div className="aaw-stage-counter">
+            stage {currentNum || '…'} / {totalStages}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Vertical separator */}
@@ -1150,15 +1107,6 @@ function RunningView({ liveState }) {
   const passedCount = Object.values(stageState).filter(s=>s==='success').length;
   const pct         = totalStages ? Math.round(passedCount / totalStages * 100) : 0;
 
-  const staticMeta = STAGE_INFO_FULL.find(s=>s.id===currentStage) || {};
-  const sseInfo    = stageInfo[currentStage] || {};
-  const activeInfo = {
-    consumer:   staticMeta.consumer || '',
-    outputs:    sseInfo.outputs  || staticMeta.outputs || '',
-    agent:      sseInfo.agent    || '',
-    mcp_server: sseInfo.mcp_server || '',
-  };
-
   const nodeClass = id => {
     if (id===currentStage) return 'pipeline-node running runner-glow';
     const s = stageState[id];
@@ -1257,53 +1205,6 @@ function RunningView({ liveState }) {
                   </React.Fragment>
                 );
               })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Active stage spotlight ── */}
-      {currentStage && (
-        <div className="sf-card fade-in">
-          <div className="sf-card-header">
-            <span className="spin">⟳</span>
-            {stageLabel(currentStage)} — Stage {currentNum} of {totalStages}
-          </div>
-          <div style={{padding:'20px',display:'grid',gridTemplateColumns:'148px 1fr',gap:20,alignItems:'start'}}>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
-              <HourGlass status="running" size={144} />
-              <div style={{fontSize:'10px',color:'var(--muted)',textAlign:'center',fontFamily:'monospace'}}>
-                stage {currentNum} / {totalStages}
-              </div>
-            </div>
-            <div>
-              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <span style={{fontSize:'2rem'}}>{stageEmoji(currentStage)}</span>
-                <div>
-                  <div style={{fontWeight:800,fontSize:'16px',color:'var(--text)',letterSpacing:'-0.2px'}}>{stageLabel(currentStage)}</div>
-                  {(activeInfo.agent||activeInfo.mcp_server) && (
-                    <div style={{fontSize:'10.5px',color:'var(--muted)',fontFamily:'monospace',marginTop:2}}>
-                      {activeInfo.agent}{activeInfo.mcp_server?` · ${activeInfo.mcp_server}`:''}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {activeInfo.consumer && (
-                <div style={{background:'var(--orange-lt)',border:'1px solid var(--orange-br)',borderRadius:8,padding:'11px 14px',marginBottom:12}}>
-                  <div style={{fontSize:'9.5px',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5}}>
-                    What's happening
-                  </div>
-                  <div style={{fontSize:'12.5px',color:'#92400e',lineHeight:1.6}}>
-                    {activeInfo.consumer}
-                  </div>
-                </div>
-              )}
-              {activeInfo.outputs && (
-                <div style={{fontSize:'11px',color:'var(--muted)',fontFamily:'monospace',marginBottom:4}}>
-                  📦 {activeInfo.outputs}
-                </div>
-              )}
-              <ActivityTicker stageId={currentStage} running={true} />
             </div>
           </div>
         </div>
