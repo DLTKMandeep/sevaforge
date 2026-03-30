@@ -49,6 +49,7 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+      font-size: 15px;
     }
     #root { height: 100vh; display: flex; }
 
@@ -94,14 +95,14 @@
     /* Nav */
     .sf-nav { flex: 1; padding: 10px 10px 6px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
     .sf-nav-group-label {
-      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.2);
+      font-size: 10px; font-weight: 700; color: rgba(255,255,255,.2);
       text-transform: uppercase; letter-spacing: 0.12em;
       padding: 10px 8px 5px;
     }
     .sf-nav-item {
       display: flex; align-items: center; gap: 9px;
       padding: 8px 10px; border-radius: 7px; cursor: pointer;
-      font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,.45);
+      font-size: 14.5px; font-weight: 500; color: rgba(255,255,255,.45);
       transition: all .12s ease; border: none; background: transparent;
       width: 100%; text-align: left; position: relative;
     }
@@ -140,14 +141,14 @@
       gap: 12px; flex-shrink: 0;
     }
     .sf-breadcrumb {
-      font-size: 13px; color: var(--muted);
+      font-size: 14px; color: var(--muted);
       display: flex; align-items: center; gap: 8px; flex: 1;
     }
     .sf-breadcrumb .current { color: var(--text); font-weight: 600; }
     .sf-topbar-right { display: flex; align-items: center; gap: 10px; }
     .sf-version-chip {
       background: var(--blue-lt); border: 1px solid var(--blue-br);
-      color: var(--blue); font-size: 10px; font-weight: 700;
+      color: var(--blue); font-size: 11px; font-weight: 700;
       padding: 3px 10px; border-radius: 20px; letter-spacing: 0.03em;
     }
     .sf-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
@@ -161,7 +162,7 @@
     }
     .sf-card-header {
       padding: 10px 16px; border-bottom: 1px solid var(--border-lt);
-      font-size: 10.5px; font-weight: 700; color: var(--muted);
+      font-size: 11.5px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.08em;
       display: flex; align-items: center; gap: 8px;
       background: #fafbfc; border-radius: 12px 12px 0 0;
@@ -171,7 +172,7 @@
     /* ─── Buttons ─────────────────────────────────────────────────────── */
     .btn-primary {
       background: var(--blue); color: #fff; border: none;
-      padding: 9px 20px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
+      padding: 9px 20px; border-radius: 8px; font-size: 14.5px; font-weight: 600;
       cursor: pointer; transition: all .15s; font-family: inherit;
       display: inline-flex; align-items: center; gap: 7px; letter-spacing: -0.1px;
       box-shadow: 0 1px 2px rgba(37,99,235,.2), 0 2px 8px rgba(37,99,235,.12);
@@ -182,7 +183,7 @@
     .btn-secondary {
       background: var(--card); color: var(--text2);
       border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px;
-      font-size: 13px; font-weight: 500; cursor: pointer; transition: all .12s;
+      font-size: 14px; font-weight: 500; cursor: pointer; transition: all .12s;
       display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
     }
     .btn-secondary:hover { border-color: var(--blue-br); background: var(--blue-lt); color: var(--blue); }
@@ -191,7 +192,7 @@
     .pill {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 9px; border-radius: 20px;
-      font-size: 11px; font-weight: 600; white-space: nowrap;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
     }
     .pill-running  { background: var(--blue-lt); color: var(--blue); border: 1px solid var(--blue-br); }
     .pill-done     { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
@@ -259,13 +260,13 @@
       border-radius: 12px; padding: 18px 20px;
       box-shadow: 0 1px 3px rgba(15,23,42,.04);
     }
-    .stat-label { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-    .stat-value { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 3px; letter-spacing: -1px; }
-    .stat-sub   { font-size: 11.5px; color: var(--muted); }
+    .stat-label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .stat-value { font-size: 30px; font-weight: 800; line-height: 1; margin-bottom: 3px; letter-spacing: -1px; }
+    .stat-sub   { font-size: 12.5px; color: var(--muted); }
 
     /* ─── Ticker ──────────────────────────────────────────────────────── */
     .ticker-wrap { background: var(--blue-lt); border: 1px solid var(--blue-br); border-radius: 8px; padding: 10px 13px; margin-top: 10px; }
-    .ticker-label { font-size: 9.5px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+    .ticker-label { font-size: 10.5px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
 
     /* ─── Hourglass ───────────────────────────────────────────────────── */
     .hg-wrap { border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1.5px rgba(37,99,235,.2), 0 6px 24px rgba(37,99,235,.12); }
@@ -282,8 +283,8 @@
     }
 
     /* ─── Page header ─────────────────────────────────────────────────── */
-    .page-title { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; margin-bottom: 4px; }
-    .page-sub   { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+    .page-title { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; margin-bottom: 4px; }
+    .page-sub   { color: var(--muted); font-size: 14.5px; line-height: 1.5; }
 
     /* ─── Divider ─────────────────────────────────────────────────────── */
     .divider { height: 1px; background: var(--border); margin: 6px 0; }
@@ -297,14 +298,14 @@
     }
     .feature-item:hover { border-color: var(--blue-br); background: var(--blue-lt); }
     .feature-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-    .feature-label { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-    .feature-sub   { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .feature-label { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .feature-sub   { font-size: 12px; color: var(--muted); line-height: 1.4; }
 
     /* ─── Input ───────────────────────────────────────────────────────── */
     .sf-input {
       flex: 1; padding: 9px 13px; border-radius: 8px;
       font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
-      font-size: 12.5px; border: 1.5px solid var(--border);
+      font-size: 13.5px; border: 1.5px solid var(--border);
       outline: none; background: var(--card); color: var(--text);
       transition: border-color .15s, box-shadow .15s;
     }
@@ -557,7 +558,7 @@ function ActivityTicker({ stageId, running }) {
   return (
     <div className="ticker-wrap">
       <div className="ticker-label">⚡ Live activity</div>
-      <div style={{fontSize:'12px',color:'#1e40af',lineHeight:1.55,opacity:vis?1:0,transition:'opacity .28s',minHeight:'1.3rem'}}>
+      <div style={{fontSize:'15px',color:'#1e40af',lineHeight:1.55,opacity:vis?1:0,transition:'opacity .28s',minHeight:'1.3rem'}}>
         {steps[idx]}
       </div>
       <div style={{display:'flex',gap:4,marginTop:7}}>
@@ -667,13 +668,13 @@ function FolderBrowserModal({ onSelect, onCancel }) {
         }}>
           <span style={{fontSize:'1.3rem'}}>📁</span>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:700,fontSize:'14px',color:'var(--text)',marginBottom:3}}>
+            <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:3}}>
               Select Project Folder
             </div>
             {/* Breadcrumb */}
             <div style={{display:'flex',alignItems:'center',gap:3,flexWrap:'wrap'}}>
               <span style={{
-                fontSize:'10.5px',color:'var(--blue)',cursor:'pointer',fontWeight:600,
+                fontSize:'15.5px',color:'var(--blue)',cursor:'pointer',fontWeight:600,
               }} onClick={()=>nav('/')}>
                 /
               </span>
@@ -682,11 +683,11 @@ function FolderBrowserModal({ onSelect, onCancel }) {
                 const isLast   = i===parts.length-1;
                 return (
                   <React.Fragment key={fullPath}>
-                    <span style={{fontSize:'10px',color:'var(--light)'}}>›</span>
+                    <span style={{fontSize:'15px',color:'var(--light)'}}>›</span>
                     <span
                       onClick={()=>!isLast && nav(fullPath)}
                       style={{
-                        fontSize:'10.5px',fontWeight:isLast?700:500,
+                        fontSize:'15.5px',fontWeight:isLast?700:500,
                         color:isLast?'var(--text)':'var(--blue)',
                         cursor:isLast?'default':'pointer',
                         maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
@@ -709,7 +710,7 @@ function FolderBrowserModal({ onSelect, onCancel }) {
             <div onClick={()=>nav(parent)} style={{
               display:'flex',alignItems:'center',gap:10,padding:'8px 12px',
               borderRadius:7,cursor:'pointer',marginBottom:2,
-              color:'var(--muted)',fontSize:'13px',fontWeight:500,
+              color:'var(--muted)',fontSize:'15px',fontWeight:500,
               transition:'background .1s',
             }}
             onMouseEnter={e=>e.currentTarget.style.background='var(--bg2)'}
@@ -721,14 +722,14 @@ function FolderBrowserModal({ onSelect, onCancel }) {
 
           {/* Loading */}
           {loading && (
-            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'13px'}}>
+            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'15px'}}>
               <span className="spin" style={{display:'inline-block',marginRight:8}}>⟳</span>Loading…
             </div>
           )}
 
           {/* Error */}
           {errMsg && !loading && (
-            <div style={{padding:'16px',color:'var(--err)',fontSize:'12.5px',textAlign:'center'}}>
+            <div style={{padding:'16px',color:'var(--err)',fontSize:'15.5px',textAlign:'center'}}>
               ⚠ {errMsg}
             </div>
           )}
@@ -746,16 +747,16 @@ function FolderBrowserModal({ onSelect, onCancel }) {
               onClick={()=>nav(e.path)}
             >
               <span style={{fontSize:'1rem',flexShrink:0}}>📁</span>
-              <span style={{flex:1,fontSize:'13px',color:'var(--text)',fontWeight:500,
+              <span style={{flex:1,fontSize:'15px',color:'var(--text)',fontWeight:500,
                             overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {e.name}
               </span>
-              <span style={{fontSize:'11px',color:'var(--light)',flexShrink:0}}>›</span>
+              <span style={{fontSize:'15px',color:'var(--light)',flexShrink:0}}>›</span>
             </div>
           ))}
 
           {!loading && !errMsg && entries.length===0 && (
-            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'12.5px'}}>
+            <div style={{padding:'24px',textAlign:'center',color:'var(--muted)',fontSize:'15.5px'}}>
               No subfolders here
             </div>
           )}
@@ -767,7 +768,7 @@ function FolderBrowserModal({ onSelect, onCancel }) {
           background:'#fafbfd',display:'flex',alignItems:'center',gap:10,
         }}>
           <div style={{
-            flex:1,fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',
+            flex:1,fontFamily:'monospace',fontSize:'15.5px',color:'var(--muted)',
             overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
             background:'var(--bg2)',border:'1px solid var(--border)',
             padding:'6px 10px',borderRadius:6,
@@ -775,7 +776,7 @@ function FolderBrowserModal({ onSelect, onCancel }) {
             {cwd || '…'}
           </div>
           <button className="btn-primary" onClick={()=>cwd && onSelect(cwd)}
-                  disabled={!cwd} style={{flexShrink:0,padding:'8px 18px',fontSize:'13px'}}>
+                  disabled={!cwd} style={{flexShrink:0,padding:'8px 18px',fontSize:'15px'}}>
             ✓ Select this folder
           </button>
         </div>
@@ -807,17 +808,17 @@ function FolderPicker({ onPathSelected }) {
         {path ? (
           <>
             <div style={{fontSize:'2rem',marginBottom:8}}>📁</div>
-            <div style={{fontSize:'12.5px',fontWeight:700,color:'var(--blue)',marginBottom:4}}>Folder selected</div>
-            <div style={{fontFamily:'monospace',fontSize:'11.5px',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
-            <div style={{fontSize:'11px',color:'var(--light)',marginTop:8}}>Click to change</div>
+            <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--blue)',marginBottom:4}}>Folder selected</div>
+            <div style={{fontFamily:'monospace',fontSize:'15.5px',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
+            <div style={{fontSize:'15px',color:'var(--light)',marginTop:8}}>Click to change</div>
           </>
         ) : (
           <>
             <div className="folder-icon">📂</div>
-            <div style={{fontSize:'14px',fontWeight:600,color:'var(--text)',marginBottom:6}}>
+            <div style={{fontSize:'15px',fontWeight:600,color:'var(--text)',marginBottom:6}}>
               Browse and select your project folder
             </div>
-            <div style={{fontSize:'12px',color:'var(--muted)'}}>
+            <div style={{fontSize:'15px',color:'var(--muted)'}}>
               Opens a built-in folder browser — works on Mac, Windows, and Linux
             </div>
           </>
@@ -825,7 +826,7 @@ function FolderPicker({ onPathSelected }) {
       </div>
 
       {/* Manual input fallback */}
-      <div style={{fontSize:'10px',color:'var(--muted)',fontWeight:700,marginBottom:6,letterSpacing:'0.06em'}}>
+      <div style={{fontSize:'15px',color:'var(--muted)',fontWeight:700,marginBottom:6,letterSpacing:'0.06em'}}>
         OR ENTER PATH MANUALLY
       </div>
       <input
@@ -837,7 +838,7 @@ function FolderPicker({ onPathSelected }) {
         style={{width:'100%',marginBottom:10}}
       />
       {errMsg && (
-        <div style={{color:'var(--err)',fontSize:'12px',display:'flex',alignItems:'center',gap:5}}>
+        <div style={{color:'var(--err)',fontSize:'15px',display:'flex',alignItems:'center',gap:5}}>
           <span>⚠</span> {errMsg}
         </div>
       )}
@@ -1033,18 +1034,18 @@ function IdleScreen({ connected, onLaunch }) {
 
   // Shared styles
   const selStyle = {
-    width:'100%',padding:'8px 10px',fontSize:'13px',
+    width:'100%',padding:'8px 10px',fontSize:'15px',
     background:'var(--surface2)',border:'1px solid var(--border)',
     borderRadius:6,color:'var(--text)',outline:'none',cursor:'pointer',
     appearance:'auto',
   };
   const inputStyle = {
-    width:'100%',padding:'8px 10px',fontSize:'13px',
+    width:'100%',padding:'8px 10px',fontSize:'15px',
     background:'var(--surface2)',border:'1px solid var(--border)',
     borderRadius:6,color:'var(--text)',outline:'none',cursor:'text',
     boxSizing:'border-box',
   };
-  const labelStyle = { fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
+  const labelStyle = { fontSize:'15px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
 
   return (
     <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,height:'100%',alignItems:'start'}}>
@@ -1057,7 +1058,7 @@ function IdleScreen({ connected, onLaunch }) {
         <div className="sf-card-header">
           <span style={{
             background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
-            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
           }}>1</span>
           Choose project type
         </div>
@@ -1071,11 +1072,11 @@ function IdleScreen({ connected, onLaunch }) {
                    background: mode==='brownfield' ? 'var(--blue-lt)' : 'var(--surface2)',
                  }}>
               <div style={{fontSize:18,marginBottom:4}}>📂</div>
-              <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginBottom:2}}>Existing Project</div>
-              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.4}}>
+              <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginBottom:2}}>Existing Project</div>
+              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.4}}>
                 Add infrastructure, CI/CD, tests, and docs to your codebase.
               </div>
-              {mode==='brownfield' && <div style={{marginTop:6,fontSize:'11px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
+              {mode==='brownfield' && <div style={{marginTop:6,fontSize:'15px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
             </div>
             {/* Greenfield card */}
             <div onClick={()=>{setMode('greenfield');setLaunchErr('');}}
@@ -1085,11 +1086,11 @@ function IdleScreen({ connected, onLaunch }) {
                    background: mode==='greenfield' ? 'rgba(99,102,241,.08)' : 'var(--surface2)',
                  }}>
               <div style={{fontSize:18,marginBottom:4}}>🌱</div>
-              <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginBottom:2}}>New Project</div>
-              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.4}}>
+              <div style={{fontWeight:800,fontSize:'15px',color:'var(--text)',marginBottom:2}}>New Project</div>
+              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.4}}>
                 Scaffold a full project structure then run the entire pipeline.
               </div>
-              {mode==='greenfield' && <div style={{marginTop:6,fontSize:'11px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
+              {mode==='greenfield' && <div style={{marginTop:6,fontSize:'15px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
             </div>
           </div>
         </div>
@@ -1101,7 +1102,7 @@ function IdleScreen({ connected, onLaunch }) {
           <div className="sf-card-header">
             <span style={{
               background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
-              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
             }}>2</span>
             Select your project folder
           </div>
@@ -1117,7 +1118,7 @@ function IdleScreen({ connected, onLaunch }) {
           <div className="sf-card-header">
             <span style={{
               background:'#6366f1',color:'#fff',width:18,height:18,borderRadius:'50%',
-              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+              display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
             }}>2</span>
             Configure your new project
           </div>
@@ -1154,18 +1155,18 @@ function IdleScreen({ connected, onLaunch }) {
                   <span style={{fontSize:'16px',flexShrink:0}}>{gfParent?'📁':'📂'}</span>
                   <div style={{flex:1,minWidth:0}}>
                     {gfParent
-                      ? <div style={{fontSize:'11.5px',fontFamily:'monospace',color:'#a5b4fc',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{gfParent}</div>
-                      : <div style={{fontSize:'12px',color:'var(--muted)'}}>Click to browse &amp; select folder</div>
+                      ? <div style={{fontSize:'15.5px',fontFamily:'monospace',color:'#a5b4fc',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{gfParent}</div>
+                      : <div style={{fontSize:'15px',color:'var(--muted)'}}>Click to browse &amp; select folder</div>
                     }
                   </div>
-                  <span style={{fontSize:'10.5px',color:'var(--light)',flexShrink:0}}>{gfParent?'change':'browse'}</span>
+                  <span style={{fontSize:'15.5px',color:'var(--light)',flexShrink:0}}>{gfParent?'change':'browse'}</span>
                 </div>
                 {/* Manual type fallback */}
                 <input type="text" placeholder="or type path manually"
                   value={gfParent} onChange={e=>{ setGfParent(e.target.value); setGfParentErr(''); }}
-                  style={{...inputStyle,fontFamily:'monospace',fontSize:'11.5px'}} />
+                  style={{...inputStyle,fontFamily:'monospace',fontSize:'15.5px'}} />
                 {gfName && gfParent && (
-                  <div style={{marginTop:5,fontSize:'10px',color:'rgba(99,102,241,.85)',fontFamily:'monospace',
+                  <div style={{marginTop:5,fontSize:'15px',color:'rgba(99,102,241,.85)',fontFamily:'monospace',
                     overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                     → {gfParent.replace(/\/+$/,'')}/{gfName.trim()}
                   </div>
@@ -1198,7 +1199,7 @@ function IdleScreen({ connected, onLaunch }) {
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Cloud Providers <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'rgba(255,255,255,.3)',fontSize:'10px'}}>(pick any)</span></label>
+                <label style={labelStyle}>Cloud Providers <span style={{fontWeight:400,textTransform:'none',letterSpacing:0,color:'rgba(255,255,255,.3)',fontSize:'15px'}}>(pick any)</span></label>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
                   {GF_CLOUDS.map(c=>{
                     const checked = gfClouds.includes(c);
@@ -1218,15 +1219,15 @@ function IdleScreen({ connected, onLaunch }) {
                           border:`1.5px solid ${checked?'#6366f1':'var(--border)'}`,
                           background: checked?'#6366f1':'transparent',
                           display:'flex',alignItems:'center',justifyContent:'center',
-                          fontSize:'9px',color:'#fff',fontWeight:800,
+                          fontSize:'15px',color:'#fff',fontWeight:800,
                         }}>{checked?'✓':''}</span>
-                        <span style={{fontSize:'11.5px',color:'var(--text)',fontWeight: checked?600:400}}>{c}</span>
+                        <span style={{fontSize:'15.5px',color:'var(--text)',fontWeight: checked?600:400}}>{c}</span>
                       </label>
                     );
                   })}
                 </div>
                 {gfClouds.length===0 && (
-                  <div style={{marginTop:5,fontSize:'10.5px',color:'var(--warn)'}}>⚠ Select at least one cloud</div>
+                  <div style={{marginTop:5,fontSize:'15.5px',color:'var(--warn)'}}>⚠ Select at least one cloud</div>
                 )}
               </div>
             </div>
@@ -1268,7 +1269,7 @@ function IdleScreen({ connected, onLaunch }) {
                   .filter(v=>v&&v!=='None'&&v!=='None / Self-hosted')
                   .map(v=>(
                   <span key={v} style={{
-                    fontSize:'11px',fontWeight:600,padding:'3px 9px',borderRadius:12,
+                    fontSize:'15px',fontWeight:600,padding:'3px 9px',borderRadius:12,
                     background:'rgba(99,102,241,.15)',color:'#a5b4fc',border:'1px solid rgba(99,102,241,.25)',
                   }}>{v}</span>
                 ))}
@@ -1325,19 +1326,19 @@ function IdleScreen({ connected, onLaunch }) {
           <span style={{
             background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--blue)':'#cbd5e1',
             color:'#fff',width:18,height:18,borderRadius:'50%',
-            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+            display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
           }}>3</span>
           Launch the full pipeline
         </div>
         <div className="sf-card-body">
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
             <div style={{flex:1,minWidth:200}}>
-              <div style={{fontWeight:700,fontSize:'13px',color:'var(--text)',marginBottom:4}}>
+              <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:4}}>
                 {mode==='greenfield'
                   ? 'Scaffold + run all 11 stages on your new project'
                   : '11 stages run automatically, end to end'}
               </div>
-              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.45,fontFamily:'monospace'}}>
+              <div style={{fontSize:'15px',color:'var(--muted)',lineHeight:1.45,fontFamily:'monospace'}}>
                 {mode==='greenfield'
                   ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'
                   : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'}
@@ -1345,7 +1346,7 @@ function IdleScreen({ connected, onLaunch }) {
               {mode==='brownfield' && chosenPath && (
                 <div style={{
                   marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
-                  fontFamily:'monospace',fontSize:'11.5px',color:'var(--blue)',
+                  fontFamily:'monospace',fontSize:'15.5px',color:'var(--blue)',
                   background:'var(--blue-lt)',padding:'5px 11px',borderRadius:6,
                   border:'1px solid var(--blue-br)',maxWidth:'100%',overflow:'hidden',
                   textOverflow:'ellipsis',whiteSpace:'nowrap',
@@ -1356,7 +1357,7 @@ function IdleScreen({ connected, onLaunch }) {
               {mode==='greenfield' && gfName && gfParent && (
                 <div style={{
                   marginTop:10,display:'inline-flex',alignItems:'center',gap:6,
-                  fontFamily:'monospace',fontSize:'11.5px',color:'#6366f1',
+                  fontFamily:'monospace',fontSize:'15.5px',color:'#6366f1',
                   background:'rgba(99,102,241,.08)',padding:'5px 11px',borderRadius:6,
                   border:'1px solid rgba(99,102,241,.25)',maxWidth:'100%',overflow:'hidden',
                   textOverflow:'ellipsis',whiteSpace:'nowrap',
@@ -1368,7 +1369,7 @@ function IdleScreen({ connected, onLaunch }) {
             <button className="btn-primary" onClick={handleLaunch}
                     disabled={mode==='brownfield'?!canLaunchBF:!canLaunchGF}
                     style={{
-                      flexShrink:0,padding:'10px 22px',fontSize:'13.5px',
+                      flexShrink:0,padding:'10px 22px',fontSize:'15.5px',
                       background: mode==='greenfield' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : undefined,
                       boxShadow:  mode==='greenfield' ? '0 4px 18px rgba(99,102,241,.35)' : undefined,
                     }}>
@@ -1383,12 +1384,12 @@ function IdleScreen({ connected, onLaunch }) {
             display:'flex',alignItems:'center',justifyContent:'space-between',
           }}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:'13px'}}>{privateRepo?'🔒':'🌐'}</span>
+              <span style={{fontSize:'15px'}}>{privateRepo?'🔒':'🌐'}</span>
               <div>
-                <div style={{fontSize:'12.5px',fontWeight:600,color:'var(--text)'}}>
+                <div style={{fontSize:'15.5px',fontWeight:600,color:'var(--text)'}}>
                   {privateRepo ? 'Private repository' : 'Public repository'}
                 </div>
-                <div style={{fontSize:'10.5px',color:'var(--muted)'}}>
+                <div style={{fontSize:'15.5px',color:'var(--muted)'}}>
                   {privateRepo ? 'Only you and collaborators can see it' : 'Anyone on the internet can see this'}
                 </div>
               </div>
@@ -1414,12 +1415,12 @@ function IdleScreen({ connected, onLaunch }) {
             display:'flex',alignItems:'center',justifyContent:'space-between',
           }}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:'13px'}}>🔬</span>
+              <span style={{fontSize:'15px'}}>🔬</span>
               <div>
-                <div style={{fontSize:'12.5px',fontWeight:600,color:dryRun?'#7c3aed':'var(--text)'}}>
+                <div style={{fontSize:'15.5px',fontWeight:600,color:dryRun?'#7c3aed':'var(--text)'}}>
                   {dryRun ? 'Dry Run — Preview mode' : 'Dry Run mode'}
                 </div>
-                <div style={{fontSize:'10.5px',color:'var(--muted)'}}>
+                <div style={{fontSize:'15.5px',color:'var(--muted)'}}>
                   {dryRun ? 'Agents simulate work — no files will be written' : 'Preview what each agent would do without writing files'}
                 </div>
               </div>
@@ -1448,17 +1449,17 @@ function IdleScreen({ connected, onLaunch }) {
               borderRadius:8,
             }}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                <div style={{fontSize:'11px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em'}}>
+                <div style={{fontSize:'15px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em'}}>
                   🔬 Choose stages to preview
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   <button onClick={()=>setSelectedStages(PIPELINE_STAGE_IDS.slice())} style={{
-                    fontSize:'10px',fontWeight:600,color:'#7c3aed',background:'none',border:'none',
+                    fontSize:'15px',fontWeight:600,color:'#7c3aed',background:'none',border:'none',
                     cursor:'pointer',padding:'2px 6px',borderRadius:4,
                     textDecoration:selectedStages.length===PIPELINE_STAGE_IDS.length?'none':'underline',
                   }}>All</button>
                   <button onClick={()=>setSelectedStages([])} style={{
-                    fontSize:'10px',fontWeight:600,color:'var(--muted)',background:'none',border:'none',
+                    fontSize:'15px',fontWeight:600,color:'var(--muted)',background:'none',border:'none',
                     cursor:'pointer',padding:'2px 6px',borderRadius:4,
                     textDecoration:selectedStages.length===0?'none':'underline',
                   }}>None</button>
@@ -1481,11 +1482,11 @@ function IdleScreen({ connected, onLaunch }) {
                         background: on ? '#7c3aed' : 'transparent',
                         border: on ? '1.5px solid #7c3aed' : '1.5px solid #cbd5e1',
                         display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:'9px',color:'#fff',fontWeight:800,
+                        fontSize:'15px',color:'#fff',fontWeight:800,
                         transition:'all .12s',
                       }}>{on?'✓':''}</span>
-                      <span style={{fontSize:'9.5px'}}>{info.emoji}</span>
-                      <span style={{fontSize:'11px',fontWeight:600,color:on?'#7c3aed':'var(--text2)',lineHeight:1.2}}>
+                      <span style={{fontSize:'15.5px'}}>{info.emoji}</span>
+                      <span style={{fontSize:'15px',fontWeight:600,color:on?'#7c3aed':'var(--text2)',lineHeight:1.2}}>
                         {info.label}
                       </span>
                     </div>
@@ -1493,12 +1494,12 @@ function IdleScreen({ connected, onLaunch }) {
                 })}
               </div>
               {selectedStages.length === 0 && (
-                <div style={{marginTop:8,fontSize:'11px',color:'var(--err)',fontWeight:500}}>
+                <div style={{marginTop:8,fontSize:'15px',color:'var(--err)',fontWeight:500}}>
                   ⚠ Select at least one stage to preview.
                 </div>
               )}
               {selectedStages.length > 0 && selectedStages.length < PIPELINE_STAGE_IDS.length && (
-                <div style={{marginTop:8,fontSize:'11px',color:'var(--muted)'}}>
+                <div style={{marginTop:8,fontSize:'15px',color:'var(--muted)'}}>
                   {selectedStages.length} of {PIPELINE_STAGE_IDS.length} stages selected — others will be skipped.
                 </div>
               )}
@@ -1506,7 +1507,7 @@ function IdleScreen({ connected, onLaunch }) {
           )}
 
           {launchErr && (
-            <div style={{color:'var(--err)',fontSize:'12px',marginTop:12,display:'flex',alignItems:'center',gap:5}}>
+            <div style={{color:'var(--err)',fontSize:'15px',marginTop:12,display:'flex',alignItems:'center',gap:5}}>
               <span>⚠</span> {launchErr}
             </div>
           )}
@@ -1545,7 +1546,7 @@ function IdleScreen({ connected, onLaunch }) {
           background:connected?'var(--ok)':'#94a3b8',
           boxShadow:connected?'0 0 6px var(--ok)':'none',display:'inline-block',
         }}/>
-        <span style={{fontSize:'11.5px',color:'var(--muted)'}}>
+        <span style={{fontSize:'15.5px',color:'var(--muted)'}}>
           {connected ? 'Dashboard server connected — ready to run' : 'Connecting to dashboard server…'}
         </span>
       </div>
@@ -1606,10 +1607,10 @@ function LiveConsole({ logs, currentStage }) {
             boxShadow:  currentStage ? '0 0 8px #22c55e' : 'none',
             transition:'all .3s',
           }}/>
-          <span style={{fontSize:'10.5px',fontWeight:700,color:'rgba(255,255,255,.5)',letterSpacing:'0.1em',flex:1}}>
+          <span style={{fontSize:'15.5px',fontWeight:700,color:'rgba(255,255,255,.5)',letterSpacing:'0.1em',flex:1}}>
             LIVE OUTPUT
           </span>
-          <span style={{fontSize:'9px',color:'rgba(255,255,255,.2)',fontFamily:'monospace'}}>
+          <span style={{fontSize:'15px',color:'rgba(255,255,255,.2)',fontFamily:'monospace'}}>
             {logs.length} lines
           </span>
         </div>
@@ -1620,12 +1621,12 @@ function LiveConsole({ logs, currentStage }) {
             padding:'5px 9px',borderRadius:6,
             background:'rgba(34,197,94,.1)',border:'1px solid rgba(34,197,94,.25)',
           }}>
-            <span style={{fontSize:'13px',lineHeight:1}}>{activeMeta.emoji}</span>
+            <span style={{fontSize:'15px',lineHeight:1}}>{activeMeta.emoji}</span>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:'11px',fontWeight:700,color:'#4ade80',letterSpacing:'-0.1px'}}>
+              <div style={{fontSize:'15px',fontWeight:700,color:'#4ade80',letterSpacing:'-0.1px'}}>
                 {activeMeta.label}
               </div>
-              <div style={{fontSize:'9.5px',color:'rgba(255,255,255,.35)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              <div style={{fontSize:'15.5px',color:'rgba(255,255,255,.35)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {activeMeta.consumer}
               </div>
             </div>
@@ -1638,9 +1639,9 @@ function LiveConsole({ logs, currentStage }) {
       </div>
 
       {/* ── Scrollable log body ── */}
-      <div ref={scrollRef} style={{flex:1,overflowY:'auto',padding:'4px 0',fontFamily:'monospace',fontSize:'10.5px',lineHeight:1.6}}>
+      <div ref={scrollRef} style={{flex:1,overflowY:'auto',padding:'4px 0',fontFamily:'monospace',fontSize:'15.5px',lineHeight:1.6}}>
         {logs.length===0 && (
-          <div style={{padding:'32px 14px',color:'rgba(255,255,255,.15)',textAlign:'center',fontSize:'11.5px'}}>
+          <div style={{padding:'32px 14px',color:'rgba(255,255,255,.15)',textAlign:'center',fontSize:'15.5px'}}>
             Agent output will appear here…
           </div>
         )}
@@ -1651,8 +1652,8 @@ function LiveConsole({ logs, currentStage }) {
               borderTop:'1px solid rgba(255,255,255,.05)',
               display:'flex',alignItems:'center',gap:6,
             }}>
-              <span style={{fontSize:'11px'}}>{stageEmoji(row.stage)}</span>
-              <span style={{fontSize:'9px',fontWeight:800,color:'rgba(99,102,241,.8)',
+              <span style={{fontSize:'15px'}}>{stageEmoji(row.stage)}</span>
+              <span style={{fontSize:'15px',fontWeight:800,color:'rgba(99,102,241,.8)',
                 textTransform:'uppercase',letterSpacing:'0.12em'}}>
                 {stageLabel(row.stage)}
               </span>
@@ -1663,7 +1664,7 @@ function LiveConsole({ logs, currentStage }) {
               padding:'1px 13px',display:'flex',gap:8,alignItems:'baseline',
             }}>
               <span style={{color:'rgba(255,255,255,.16)',flexShrink:0,fontSize:'8.5px',minWidth:44,paddingTop:1}}>{row.t}</span>
-              <span style={{color:levelColor(row.level),wordBreak:'break-word',whiteSpace:'pre-wrap',flex:1,fontSize:'10.5px'}}>
+              <span style={{color:levelColor(row.level),wordBreak:'break-word',whiteSpace:'pre-wrap',flex:1,fontSize:'15.5px'}}>
                 {row.msg}
               </span>
             </div>
@@ -1723,10 +1724,10 @@ function RunningView({ liveState, logs, onReset }) {
         }}>
           <span style={{fontSize:'18px'}}>🔬</span>
           <div style={{flex:1}}>
-            <div style={{fontSize:'12.5px',fontWeight:700,color:'#7c3aed'}}>
+            <div style={{fontSize:'15.5px',fontWeight:700,color:'#7c3aed'}}>
               DRY RUN — Preview Mode
             </div>
-            <div style={{fontSize:'11px',color:'var(--muted)'}}>
+            <div style={{fontSize:'15px',color:'var(--muted)'}}>
               Agents are simulating work — no files will be written to disk. Results show what each stage <em>would</em> produce.
             </div>
           </div>
@@ -1751,7 +1752,7 @@ function RunningView({ liveState, logs, onReset }) {
                 ? <>{dryRun?'🔬 Simulating':'Running'} <span style={{color: dryRun?'#7c3aed':'var(--blue)'}}>{stageLabel(currentStage)}</span> — stage {currentNum} of {totalStages}</>
                 : 'Pipeline starting…'}
           </div>
-          <div style={{fontFamily:'monospace',fontSize:'11px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <div style={{fontFamily:'monospace',fontSize:'15px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {pipelinePath || '—'}
           </div>
         </div>
@@ -1772,7 +1773,7 @@ function RunningView({ liveState, logs, onReset }) {
           <div className="sf-progress-track">
             <div className="sf-progress-fill" style={{width:`${pct}%`}} />
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:'11px',color:'var(--muted)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:'15px',color:'var(--muted)'}}>
             <span>{pct}% complete</span>
             <span>{passedCount} of {totalStages} stages passed</span>
           </div>
@@ -1782,7 +1783,7 @@ function RunningView({ liveState, logs, onReset }) {
       {/* ── Pipeline node graph ── */}
       {stages.length>0 && (
         <div>
-          <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
+          <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
             Pipeline Flow
           </div>
           <div className="pipeline-canvas">
@@ -1794,11 +1795,11 @@ function RunningView({ liveState, logs, onReset }) {
                     <div className={nodeClass(id)}>
                       <span className="node-num">{i+1}</span>
                       <div style={{fontSize:'1.2rem',marginBottom:5,lineHeight:1}}>{stageEmoji(id)}</div>
-                      <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--text2)',marginBottom:6,
+                      <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--text2)',marginBottom:6,
                                    whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
                         {stageLabel(id)}
                       </div>
-                      <span className={ns.cls} style={{fontSize:'9.5px',padding:'2px 7px'}}>
+                      <span className={ns.cls} style={{fontSize:'15.5px',padding:'2px 7px'}}>
                         {id===currentStage && (
                           <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',
                                                           background:'currentColor',marginRight:4,verticalAlign:'middle'}} />
@@ -1837,7 +1838,7 @@ function RunningView({ liveState, logs, onReset }) {
       {/* ── Stage results grid ── */}
       {Object.entries(stageResults).length>0 && (
         <div>
-          <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
+          <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em'}}>
             Completed Stages
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
@@ -1859,16 +1860,16 @@ function RunningView({ liveState, logs, onReset }) {
                      style={rowBg?{background:rowBg,border:rowBdr}:{}}>
                   <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
                   <div style={{minWidth:0,flex:1}}>
-                    <div style={{fontSize:'12px',fontWeight:700,color:textColor}}>
+                    <div style={{fontSize:'15px',fontWeight:700,color:textColor}}>
                       {meta.label||id}
                     </div>
                     {result.summary && (
-                      <div style={{fontSize:'10.5px',color:subColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <div style={{fontSize:'15.5px',color:subColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {result.summary.slice(0,72)}
                       </div>
                     )}
                   </div>
-                  <span style={{fontSize:'13px',fontWeight:700,color:iconColor,flexShrink:0}}>
+                  <span style={{fontSize:'15px',fontWeight:700,color:iconColor,flexShrink:0}}>
                     {icon}
                   </span>
                 </div>
@@ -1898,7 +1899,7 @@ function RunningView({ liveState, logs, onReset }) {
               <div style={{fontSize:'22px',fontWeight:900,color:'#fff',letterSpacing:'-0.6px',marginBottom:4}}>
                 {dryRun ? '🔬 Dry run complete — preview ready!' : '🎉 Your AI app is cloud-ready!'}
               </div>
-              <div style={{fontSize:'13px',color:'rgba(255,255,255,.8)'}}>
+              <div style={{fontSize:'15px',color:'rgba(255,255,255,.8)'}}>
                 {dryRun
                   ? `${stages.filter(id=>stageState[id]==='preview').length} stage${stages.filter(id=>stageState[id]==='preview').length!==1?'s':''} previewed in ${elapsed}s — no files written`
                   : <>All {totalStages} stages completed in <strong style={{color:'#fff'}}>{elapsed}s</strong></>
@@ -1910,14 +1911,14 @@ function RunningView({ liveState, logs, onReset }) {
               padding:'8px 16px',borderRadius:8,textAlign:'center',
             }}>
               <div style={{fontSize:'22px',fontWeight:900,color:'#fff',letterSpacing:'-0.5px'}}>{elapsed}s</div>
-              <div style={{fontSize:'10px',color:'rgba(255,255,255,.7)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Total time</div>
+              <div style={{fontSize:'15px',color:'rgba(255,255,255,.7)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Total time</div>
             </div>
           </div>
           <div style={{padding:'22px 24px'}}>
             {dryRun ? (
               /* ── Dry run success body ── */
               <>
-                <div style={{fontSize:'10.5px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
+                <div style={{fontSize:'15.5px',fontWeight:700,color:'#7c3aed',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
                   What Sevaforge would generate for you
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
@@ -1929,8 +1930,8 @@ function RunningView({ liveState, logs, onReset }) {
                                             background:'rgba(124,58,237,.07)',border:'1px solid rgba(124,58,237,.2)'}}>
                         <span style={{fontSize:'1.05rem',flexShrink:0}}>{meta.emoji}</span>
                         <div style={{minWidth:0}}>
-                          <div style={{fontSize:'11.5px',fontWeight:700,color:'#6d28d9',marginBottom:1}}>{meta.label}</div>
-                          <div style={{fontSize:'10px',color:'#7c3aed',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{meta.outputs||'—'}</div>
+                          <div style={{fontSize:'15.5px',fontWeight:700,color:'#6d28d9',marginBottom:1}}>{meta.label}</div>
+                          <div style={{fontSize:'15px',color:'#7c3aed',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{meta.outputs||'—'}</div>
                         </div>
                       </div>
                     );
@@ -1939,7 +1940,7 @@ function RunningView({ liveState, logs, onReset }) {
                 <div style={{
                   padding:'12px 14px',borderRadius:8,
                   background:'rgba(124,58,237,.07)',border:'1px solid rgba(124,58,237,.2)',
-                  fontSize:'12px',color:'#6d28d9',lineHeight:1.6,
+                  fontSize:'15px',color:'#6d28d9',lineHeight:1.6,
                 }}>
                   <strong>Ready to apply?</strong> Disable Dry Run mode and click Launch to actually run the pipeline and write all generated files.
                 </div>
@@ -1947,7 +1948,7 @@ function RunningView({ liveState, logs, onReset }) {
             ) : (
               /* ── Real pipeline success body ── */
               <>
-                <div style={{fontSize:'10.5px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
+                <div style={{fontSize:'15.5px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:13}}>
                   What Sevaforge built for you
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:18}}>
@@ -1965,20 +1966,20 @@ function RunningView({ liveState, logs, onReset }) {
                                              background:'rgba(255,255,255,.65)',border:'1px solid var(--ok-br)'}}>
                       <span style={{fontSize:'1.05rem',flexShrink:0}}>{emoji}</span>
                       <div>
-                        <div style={{fontSize:'11.5px',fontWeight:700,color:'#065f46',marginBottom:1}}>{title}</div>
-                        <div style={{fontSize:'10.5px',color:'#047857'}}>{detail}</div>
+                        <div style={{fontSize:'15.5px',fontWeight:700,color:'#065f46',marginBottom:1}}>{title}</div>
+                        <div style={{fontSize:'15.5px',color:'#047857'}}>{detail}</div>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div style={{display:'flex',gap:10}}>
                   <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
-                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next step</div>
-                    <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>gh pr view --web</code>
+                    <div style={{fontSize:'15px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next step</div>
+                    <code style={{fontSize:'15px',color:'#065f46',fontWeight:600}}>gh pr view --web</code>
                   </div>
                   <div style={{flex:1,background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)',borderRadius:8,padding:'11px 14px'}}>
-                    <div style={{fontSize:'10px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Deploy to cloud</div>
-                    <code style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>forgeflow deploy</code>
+                    <div style={{fontSize:'15px',fontWeight:700,color:'var(--ok)',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Deploy to cloud</div>
+                    <code style={{fontSize:'15px',color:'#065f46',fontWeight:600}}>forgeflow deploy</code>
                   </div>
                 </div>
               </>
@@ -1991,7 +1992,7 @@ function RunningView({ liveState, logs, onReset }) {
                 border: dryRun ? '1.5px solid rgba(124,58,237,.4)' : '1.5px solid rgba(255,255,255,.4)',
                 background: dryRun ? 'rgba(124,58,237,.15)' : 'rgba(255,255,255,.15)',
                 color:'#fff',cursor:'pointer',
-                fontSize:'13px',fontWeight:600,letterSpacing:'-0.1px',
+                fontSize:'15px',fontWeight:600,letterSpacing:'-0.1px',
                 display:'flex',alignItems:'center',gap:8,
               }}>
                 ← Run Another Pipeline
@@ -2013,7 +2014,7 @@ function RunningView({ liveState, logs, onReset }) {
               <div style={{fontWeight:700,fontSize:'15px',color:'var(--err)',marginBottom:4,letterSpacing:'-0.2px'}}>
                 Pipeline completed with errors
               </div>
-              <div style={{fontSize:'12.5px',color:'#b91c1c',lineHeight:1.5}}>
+              <div style={{fontSize:'15.5px',color:'#b91c1c',lineHeight:1.5}}>
                 Review the stage results above — most issues are fixable in one command.
                 Re-run the pipeline after fixing.
               </div>
@@ -2023,7 +2024,7 @@ function RunningView({ liveState, logs, onReset }) {
             <button onClick={onReset} style={{
               padding:'9px 24px',borderRadius:8,border:'1.5px solid var(--err-br)',
               background:'var(--err-bg)',color:'var(--err)',cursor:'pointer',
-              fontSize:'13px',fontWeight:600,display:'flex',alignItems:'center',gap:7,
+              fontSize:'15px',fontWeight:600,display:'flex',alignItems:'center',gap:7,
             }}>
               ← Run Another Pipeline
             </button>
@@ -2081,17 +2082,17 @@ function DashboardView({ history, connected, onNavigate }) {
             }}>
               <div style={{
                 width:24,height:24,borderRadius:'50%',background:'var(--blue)',color:'#fff',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:800,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
                 flexShrink:0,marginTop:1,
               }}>{i+1}</div>
               <span style={{fontSize:'1.15rem',flexShrink:0,marginTop:2}}>{s.emoji}</span>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,fontSize:'12.5px',color:'var(--text)',marginBottom:3}}>{s.label}</div>
-                <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
-                <div style={{fontSize:'10.5px',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
+                <div style={{fontWeight:700,fontSize:'15.5px',color:'var(--text)',marginBottom:3}}>{s.label}</div>
+                <div style={{fontSize:'15.5px',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
+                <div style={{fontSize:'15.5px',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
               </div>
               <div style={{flexShrink:0}}>
-                <code style={{fontSize:'10px',background:' var(--border-lt)',padding:'3px 8px',borderRadius:4,color:'var(--muted)',border:'1px solid var(--border)'}}>
+                <code style={{fontSize:'15px',background:' var(--border-lt)',padding:'3px 8px',borderRadius:4,color:'var(--muted)',border:'1px solid var(--border)'}}>
                   forgeflow {s.id}
                 </code>
               </div>
@@ -2109,9 +2110,9 @@ function DashboardView({ history, connected, onNavigate }) {
               const ok=r.status==='success';
               return (
                 <div key={i} className={`stage-result-row ${ok?'ok':'fail'}`}>
-                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700,fontSize:'13px'}}>{ok?'✓':'✗'}</span>
-                  <span style={{fontFamily:'monospace',fontSize:'11.5px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
-                  <span style={{fontSize:'11px',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</span>
+                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700,fontSize:'15px'}}>{ok?'✓':'✗'}</span>
+                  <span style={{fontFamily:'monospace',fontSize:'15.5px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
+                  <span style={{fontSize:'15px',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</span>
                   <span className={`pill ${ok?'pill-done':'pill-error'}`}>{ok?'Passed':'Failed'}</span>
                 </div>
               );
@@ -2140,13 +2141,13 @@ function StagesView() {
             {CORE.map((s,i)=>(
               <React.Fragment key={s.id}>
                 <span style={{
-                  padding:'5px 13px',borderRadius:20,fontSize:'11.5px',fontWeight:600,
+                  padding:'5px 13px',borderRadius:20,fontSize:'15.5px',fontWeight:600,
                   background:'var(--bg2)',border:'1.5px solid var(--border)',
                   color:'var(--text)',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,
                 }}>
                   {s.emoji} {s.label}
                 </span>
-                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'11px',flexShrink:0}}>→</span>}
+                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'15px',flexShrink:0}}>→</span>}
               </React.Fragment>
             ))}
           </div>
@@ -2159,16 +2160,16 @@ function StagesView() {
             <div style={{padding:'15px 18px',display:'flex',gap:14,alignItems:'flex-start'}}>
               <div style={{
                 width:28,height:28,borderRadius:'50%',background:'var(--blue)',color:'#fff',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:800,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'15px',fontWeight:800,
                 flexShrink:0,marginTop:1,
               }}>{i+1}</div>
               <span style={{fontSize:'1.5rem',flexShrink:0,marginTop:1}}>{s.emoji}</span>
               <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:'13.5px',color:'var(--text)',marginBottom:5}}>{s.label}</div>
-                <div style={{fontSize:'12.5px',color:'var(--muted)',lineHeight:1.55,marginBottom:7}}>{s.consumer}</div>
-                <div style={{fontSize:'11px',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
+                <div style={{fontWeight:700,fontSize:'15.5px',color:'var(--text)',marginBottom:5}}>{s.label}</div>
+                <div style={{fontSize:'15.5px',color:'var(--muted)',lineHeight:1.55,marginBottom:7}}>{s.consumer}</div>
+                <div style={{fontSize:'15px',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
               </div>
-              <code style={{fontSize:'11px',background:'var(--bg2)',padding:'4px 10px',borderRadius:6,color:'var(--muted)',border:'1px solid var(--border)',flexShrink:0,fontFamily:'monospace',fontWeight:500}}>
+              <code style={{fontSize:'15px',background:'var(--bg2)',padding:'4px 10px',borderRadius:6,color:'var(--muted)',border:'1px solid var(--border)',flexShrink:0,fontFamily:'monospace',fontWeight:500}}>
                 forgeflow {s.id}
               </code>
             </div>
@@ -2218,8 +2219,8 @@ function HistoryView({ history, onClear }) {
       {history.length===0 ? (
         <div className="sf-card" style={{padding:'56px 24px',textAlign:'center'}}>
           <div style={{fontSize:'2.5rem',marginBottom:14}}>⊙</div>
-          <div style={{fontWeight:600,fontSize:'14px',color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
-          <div style={{fontSize:'12px',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
+          <div style={{fontWeight:600,fontSize:'15px',color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
+          <div style={{fontSize:'15px',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
         </div>
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -2240,10 +2241,10 @@ function HistoryView({ history, onClear }) {
                     fontSize:'15px',fontWeight:800,color:ok?'var(--ok)':'var(--err)',
                   }}>{ok?'✓':'✗'}</div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:'13px',color:'var(--text)',marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {projName}
                     </div>
-                    <div style={{fontFamily:'monospace',fontSize:'10px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    <div style={{fontFamily:'monospace',fontSize:'15px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {r.path||'—'}
                     </div>
                   </div>
@@ -2251,7 +2252,7 @@ function HistoryView({ history, onClear }) {
                     <span className={`pill ${ok?'pill-done':'pill-error'}`} style={{marginBottom:3,display:'block'}}>
                       {ok?'✓ Passed':'✗ Failed'}
                     </span>
-                    <div style={{fontSize:'10px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
+                    <div style={{fontSize:'15px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
                   </div>
                 </div>
                 {/* Meta strip */}
@@ -2265,7 +2266,7 @@ function HistoryView({ history, onClear }) {
                     {icon:'⏱', val: r.elapsed?`${r.elapsed}s`:'—'},
                     r.failedStage && {icon:'⛔', val:`Failed at: ${r.failedStage}`},
                   ].filter(Boolean).map(({icon,val})=>(
-                    <span key={val} style={{fontSize:'10.5px',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
+                    <span key={val} style={{fontSize:'15.5px',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
                       <span>{icon}</span>{val}
                     </span>
                   ))}
@@ -2307,10 +2308,10 @@ function HealthView({ connected, liveState }) {
               {pct}%
             </div>
             <div>
-              <div style={{fontWeight:700,fontSize:'14px',color:pct===100?'var(--ok)':'var(--warn)',marginBottom:3}}>
+              <div style={{fontWeight:700,fontSize:'15px',color:pct===100?'var(--ok)':'var(--warn)',marginBottom:3}}>
                 {pct===100?'All Systems Operational':`${checks.length-ok} checks need attention`}
               </div>
-              <div style={{fontSize:'12px',color:'var(--muted)'}}>Dashboard health status</div>
+              <div style={{fontSize:'15px',color:'var(--muted)'}}>Dashboard health status</div>
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -2318,8 +2319,8 @@ function HealthView({ connected, liveState }) {
               <div key={i} className={`stage-result-row ${c.ok?'ok':'fail'}`}>
                 <span style={{color:c.ok?'var(--ok)':'var(--err)',fontWeight:700}}>{c.ok?'✓':'✗'}</span>
                 <div>
-                  <div style={{fontSize:'12px',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
-                  <div style={{fontSize:'10.5px',color:'var(--muted)'}}>{c.detail}</div>
+                  <div style={{fontSize:'15px',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
+                  <div style={{fontSize:'15.5px',color:'var(--muted)'}}>{c.detail}</div>
                 </div>
               </div>
             ))}
@@ -2350,8 +2351,8 @@ function SettingsView() {
           ].map(([k,v])=>(
             <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
                                    padding:'8px 11px',borderRadius:7,background:'var(--bg2)',border:'1px solid var(--border)'}}>
-              <span style={{fontSize:'11.5px',color:'var(--muted)'}}>{k}</span>
-              <span style={{fontSize:'11.5px',fontWeight:600,color:'var(--text)'}}>{v}</span>
+              <span style={{fontSize:'15.5px',color:'var(--muted)'}}>{k}</span>
+              <span style={{fontSize:'15.5px',fontWeight:600,color:'var(--text)'}}>{v}</span>
             </div>
           ))}
         </div>
@@ -2367,8 +2368,8 @@ function SettingsView() {
             ['Push to GitHub only',         'forgeflow bridge --path ~/repo'],
           ].map(([desc,cmd])=>(
             <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)'}}>
-              <div style={{fontSize:'10.5px',color:'var(--muted)',marginBottom:4,fontWeight:500}}>{desc}</div>
-              <code style={{fontSize:'12px',color:'var(--blue)',fontWeight:600}}>{cmd}</code>
+              <div style={{fontSize:'15.5px',color:'var(--muted)',marginBottom:4,fontWeight:500}}>{desc}</div>
+              <code style={{fontSize:'15px',color:'var(--blue)',fontWeight:600}}>{cmd}</code>
             </div>
           ))}
         </div>
@@ -2539,17 +2540,17 @@ function App() {
             background:connected?'var(--ok)':'#475569',
             boxShadow:connected?'0 0 5px var(--ok)':'none',
           }}/>
-          <span style={{fontSize:'11px',color:'rgba(255,255,255,.38)',flex:1}}>
+          <span style={{fontSize:'15px',color:'rgba(255,255,255,.38)',flex:1}}>
             {connected?'Connected':'Connecting…'}
           </span>
           {done && (
-            <span style={{fontSize:'9.5px',color:'rgba(255,255,255,.28)',fontWeight:700,
+            <span style={{fontSize:'15.5px',color:'rgba(255,255,255,.28)',fontWeight:700,
                            textTransform:'uppercase',letterSpacing:'0.06em'}}>
               Done
             </span>
           )}
         </div>
-        <div style={{padding:'10px 16px',fontSize:'10px',color:'rgba(255,255,255,.18)',fontWeight:500}}>
+        <div style={{padding:'10px 16px',fontSize:'15px',color:'rgba(255,255,255,.18)',fontWeight:500}}>
           ForgeFlow v2.1.0 · NoCaaS Mode
         </div>
       </aside>
@@ -2567,7 +2568,7 @@ function App() {
           <div className="sf-topbar-right">
             {pipelineActive && view!=='live' && (
               <button className="btn-secondary" onClick={()=>setView('live')}
-                      style={{fontSize:'12px',padding:'6px 13px'}}>
+                      style={{fontSize:'15px',padding:'6px 13px'}}>
                 {done?'← View Results':'↗ View Live Run'}
               </button>
             )}
@@ -2597,7 +2598,7 @@ function App() {
       <div style={{position:'fixed',bottom:24,right:24,display:'flex',flexDirection:'column',gap:8,zIndex:9999}}>
         {toasts.map(t=>(
           <div key={t.id} style={{
-            padding:'11px 18px',borderRadius:9,fontSize:'13px',fontWeight:500,minWidth:220,
+            padding:'11px 18px',borderRadius:9,fontSize:'15px',fontWeight:500,minWidth:220,
             background:t.type==='success'?'var(--ok)':t.type==='error'?'var(--err)':'var(--navy)',
             color:'#fff',
             boxShadow:'0 4px 16px rgba(0,0,0,.18), 0 1px 4px rgba(0,0,0,.12)',
