@@ -1127,6 +1127,114 @@ function ActivityTicker({ stageId, running }) {
   );
 }
 
+// ── Launch Panel ─────────────────────────────────────────────────────────────
+function LaunchPanel() {
+  const [path, setPath]       = useState('');
+  const [status, setStatus]   = useState('idle'); // idle | launching | error | ok
+  const [errMsg, setErrMsg]   = useState('');
+
+  const launch = async () => {
+    const trimmed = path.trim();
+    if (!trimmed) { setErrMsg('Please enter the path to your project.'); setStatus('error'); return; }
+    setStatus('launching');
+    setErrMsg('');
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setErrMsg(data.error || `Server error ${res.status}`); setStatus('error'); return; }
+      setStatus('ok');
+    } catch (e) {
+      setErrMsg(`Could not reach the dashboard server: ${e.message}`);
+      setStatus('error');
+    }
+  };
+
+  const handleKey = (e) => { if (e.key === 'Enter') launch(); };
+
+  return (
+    <div style={{
+      background: 'rgba(0,0,0,.45)',
+      border: '1.5px solid rgba(245,158,11,.35)',
+      borderRadius: 16,
+      padding: '1.4rem 1.8rem',
+      maxWidth: 560,
+      width: '100%',
+      boxShadow: '0 0 40px rgba(245,158,11,.07)',
+    }}>
+      <div style={{color:'rgba(226,232,240,.4)', fontSize:'0.7rem', fontWeight:700,
+                   letterSpacing:'0.1em', marginBottom:'0.9rem', textAlign:'center'}}>
+        🚀 LAUNCH YOUR PIPELINE
+      </div>
+
+      {/* Path input */}
+      <div style={{display:'flex', gap:'8px', alignItems:'center', marginBottom:'0.75rem'}}>
+        <input
+          type="text"
+          value={path}
+          onChange={e => { setPath(e.target.value); setStatus('idle'); }}
+          onKeyDown={handleKey}
+          placeholder="~/your-ai-project  or  /full/path/to/repo"
+          style={{
+            flex: 1,
+            background: 'rgba(255,255,255,.07)',
+            border: `1px solid ${status==='error' ? 'rgba(239,68,68,.6)' : 'rgba(245,158,11,.3)'}`,
+            borderRadius: 10,
+            padding: '0.55rem 0.9rem',
+            color: '#e2e8f0',
+            fontFamily: 'monospace',
+            fontSize: '0.88rem',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={launch}
+          disabled={status === 'launching' || status === 'ok'}
+          style={{
+            padding: '0.55rem 1.2rem',
+            borderRadius: 10,
+            fontWeight: 800,
+            fontSize: '0.88rem',
+            border: 'none',
+            cursor: status === 'launching' || status === 'ok' ? 'not-allowed' : 'pointer',
+            background: status === 'ok'
+              ? 'rgba(52,211,153,.25)'
+              : status === 'launching'
+                ? 'rgba(245,158,11,.25)'
+                : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: status === 'ok' ? '#6ee7b7' : status === 'launching' ? '#fbbf24' : '#0d0d14',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s',
+          }}>
+          {status === 'launching' ? '⟳ Starting…'
+           : status === 'ok'      ? '✓ Launched!'
+           : '▶ Run Pipeline'}
+        </button>
+      </div>
+
+      {/* Feedback */}
+      {status === 'error' && (
+        <div style={{color:'#f87171', fontSize:'0.78rem', marginTop:'0.4rem'}}>
+          ⚠ {errMsg}
+        </div>
+      )}
+      {status === 'ok' && (
+        <div style={{color:'#6ee7b7', fontSize:'0.78rem', marginTop:'0.4rem', textAlign:'center'}}>
+          Pipeline is starting — switching to Live view automatically…
+        </div>
+      )}
+      {status === 'idle' && (
+        <div style={{color:'rgba(226,232,240,.3)', fontSize:'0.72rem', textAlign:'center'}}>
+          Paste your project path above and press Enter or click Run Pipeline
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveView({ liveState }) {
   const { connected, pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed } = liveState;
@@ -1201,16 +1309,25 @@ function LiveView({ liveState }) {
           ))}
         </div>
 
+        {/* ── Launch panel — click to run, no terminal needed ── */}
+        <LaunchPanel />
+
+        {/* ── Divider with OR ── */}
+        <div style={{display:'flex', alignItems:'center', gap:'1rem', maxWidth:520, width:'100%'}}>
+          <div style={{flex:1, height:1, background:'rgba(255,255,255,.08)'}} />
+          <span style={{fontSize:'0.7rem', color:'rgba(226,232,240,.3)', fontWeight:600, letterSpacing:'0.08em'}}>OR RUN FROM TERMINAL</span>
+          <div style={{flex:1, height:1, background:'rgba(255,255,255,.08)'}} />
+        </div>
+
         {/* ── Command block ── */}
         <div style={{
-          background:'rgba(0,0,0,.4)', border:'1px solid rgba(245,158,11,.3)',
+          background:'rgba(0,0,0,.4)', border:'1px solid rgba(245,158,11,.2)',
           borderRadius:'14px', padding:'1.2rem 2rem', textAlign:'center',
-          boxShadow:'0 0 40px rgba(245,158,11,.08)',
           maxWidth: 520, width: '100%',
         }}>
-          <div style={{color:'rgba(226,232,240,.4)', fontSize:'0.7rem',
+          <div style={{color:'rgba(226,232,240,.3)', fontSize:'0.7rem',
                        fontWeight:700, letterSpacing:'0.1em', marginBottom:'0.6rem'}}>
-            PASTE THIS INTO YOUR TERMINAL
+            PASTE INTO YOUR TERMINAL
           </div>
           <div style={{
             fontFamily:'monospace', fontSize:'1rem', color:'#fbbf24',

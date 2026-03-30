@@ -26,7 +26,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # Path to the single-file UI
 _UI_DIR = Path(__file__).parent.parent / "ui"
@@ -77,6 +77,40 @@ class _EventBus:
 
 _bus = _EventBus()
 
+# Global run-lock: prevents two pipelines running at the same time
+_run_lock = threading.Lock()
+_running  = False   # True while a pipeline is in flight
+
+
+def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
+    """
+    Run MissionControl.run_all() in a daemon thread.
+    Called from the /api/run POST handler.
+    """
+    global _running
+
+    def _work():
+        global _running
+        try:
+            # Lazy import avoids circular dep during server startup
+            try:
+                from forgeflow.core.mission_control import MissionControl
+            except ImportError:
+                from forgeflow_local.core.mission_control import MissionControl
+
+            mc = MissionControl()
+            mc.run_all(path=path)
+        except Exception as exc:
+            _bus.emit("log", {"stage": "server", "message": f"Pipeline error: {exc}"})
+            _bus.emit("pipeline_done", {"success": False, "elapsed_s": 0,
+                                        "summary": str(exc)})
+        finally:
+            _running = False
+
+    _running = True
+    t = threading.Thread(target=_work, daemon=True, name="forgeflow-pipeline")
+    t.start()
+
 
 # ---------------------------------------------------------------------------
 # HTTP Request Handler
@@ -87,6 +121,14 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):  # silence default access log
         pass
 
+    # ── CORS preflight ────────────────────────────────────────────────────
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin",  "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_GET(self):
         path = urlparse(self.path).path
 
@@ -96,6 +138,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_sse()
         elif path == "/api/state":
             self._serve_state()
+        elif path == "/api/running":
+            self._json({"running": _running})
         elif path == "/health":
             self._json({"ok": True})
         else:
@@ -106,6 +150,52 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+
+    # ── POST handler — /api/run ───────────────────────────────────────────
+    def do_POST(self):
+        global _running
+        parsed_path = urlparse(self.path).path
+
+        if parsed_path != "/api/run":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        # Read body
+        length = int(self.headers.get("Content-Length", 0))
+        body   = self.rfile.read(length) if length else b"{}"
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            self._json({"error": "invalid JSON"}, status=400)
+            return
+
+        repo_path = (payload.get("path") or "").strip()
+        if not repo_path:
+            self._json({"error": "path is required"}, status=400)
+            return
+
+        # Expand ~ so /Users/mandeep/demo-api works
+        repo_path = str(Path(repo_path).expanduser())
+
+        if not Path(repo_path).exists():
+            self._json({"error": f"Path not found: {repo_path}"}, status=400)
+            return
+
+        if _running:
+            self._json({"error": "A pipeline is already running"}, status=409)
+            return
+
+        if not _run_lock.acquire(blocking=False):
+            self._json({"error": "A pipeline is already starting"}, status=409)
+            return
+
+        try:
+            _spawn_pipeline(repo_path)
+        finally:
+            _run_lock.release()
+
+        self._json({"started": True, "path": repo_path})
 
     # ── File serving ──────────────────────────────────────────────────────
 
@@ -173,9 +263,9 @@ class _Handler(BaseHTTPRequestHandler):
         state = getattr(DashboardServer._instance, "_state", {})
         self._json(state)
 
-    def _json(self, data: dict):
+    def _json(self, data: dict, status: int = 200):
         body = json.dumps(data).encode()
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
