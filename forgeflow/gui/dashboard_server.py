@@ -35,7 +35,44 @@ from urllib.parse import urlparse, parse_qs
 _UI_DIR = Path(__file__).parent.parent / "ui"
 _INDEX  = _UI_DIR / "index.html"
 
+# History file — stored in ~/.sevaforge/ so it persists across restarts and
+# works identically in local CLI mode and cloud portal deployments.
+_HISTORY_DIR  = Path.home() / ".sevaforge"
+_HISTORY_FILE = _HISTORY_DIR / "run_history.json"
+_HISTORY_LOCK = threading.Lock()
+_MAX_HISTORY  = 200
+
 DEFAULT_PORT = 7860
+
+
+def _load_history() -> List[Dict[str, Any]]:
+    """Load run history from disk; returns [] on any error."""
+    try:
+        if _HISTORY_FILE.exists():
+            return json.loads(_HISTORY_FILE.read_text())
+    except Exception:
+        pass
+    return []
+
+
+def _save_history(entries: List[Dict[str, Any]]) -> None:
+    """Persist history to disk atomically; silently ignores errors."""
+    try:
+        _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = _HISTORY_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(entries, indent=2))
+        tmp.replace(_HISTORY_FILE)
+    except Exception:
+        pass
+
+
+def _append_history(entry: Dict[str, Any]) -> None:
+    """Thread-safe append of one run entry and save to disk."""
+    with _HISTORY_LOCK:
+        entries = _load_history()
+        entries.insert(0, entry)          # newest first
+        entries = entries[:_MAX_HISTORY]
+        _save_history(entries)
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +366,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_state()
         elif path == "/api/running":
             self._json({"running": _running})
+        elif path == "/api/history":
+            self._json({"history": _load_history()})
         elif path == "/api/ls":
             self._handle_ls()
         elif path == "/health":
@@ -349,6 +388,12 @@ class _Handler(BaseHTTPRequestHandler):
 
         if parsed_path == "/api/browse":
             self._handle_browse()
+            return
+
+        if parsed_path == "/api/history/clear":
+            with _HISTORY_LOCK:
+                _save_history([])
+            self._json({"cleared": True})
             return
 
         if parsed_path != "/api/run":
@@ -646,6 +691,10 @@ class DashboardServer:
 
     def emit_stage_result(self, stage: str, result: Dict[str, Any]) -> None:
         self._state["current_stage"] = None
+        # Accumulate per-stage results so emit_pipeline_done can find failed stage
+        if "stage_results" not in self._state:
+            self._state["stage_results"] = {}
+        self._state["stage_results"][stage] = result
         _bus.emit("stage_result", {
             "stage":  stage,
             "result": result,
@@ -658,6 +707,23 @@ class DashboardServer:
         elapsed = round(time.time() - self._start_ts, 1)
         self._state.update({"status": "done", "success": success,
                              "elapsed_s": elapsed})
+
+        # Persist this run to server-side history (works in local + cloud modes).
+        s = self._state
+        stage_results = s.get("stage_results", {})
+        failed_stage  = next(
+            (st for st, r in stage_results.items() if r.get("status") == "error"),
+            None,
+        )
+        _append_history({
+            "path":        s.get("path", ""),
+            "status":      "success" if success else "error",
+            "stageCount":  s.get("total", 0),
+            "elapsed":     elapsed,
+            "failedStage": failed_stage,
+            "ts":          int(time.time() * 1000),   # ms epoch, matches JS Date.now()
+        })
+
         _bus.emit("pipeline_done", {
             "success":   success,
             "elapsed_s": elapsed,

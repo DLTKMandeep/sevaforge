@@ -1951,7 +1951,7 @@ function HistoryView({ history, onClear }) {
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
         <div>
           <div className="page-title">Run History</div>
-          <div className="page-sub">{history.length} runs saved · persists across reloads</div>
+          <div className="page-sub">{history.length} runs · saved to ~/.sevaforge/run_history.json</div>
         </div>
         {history.length>0 && (
           <button className="btn-secondary" onClick={onClear}
@@ -2142,15 +2142,19 @@ function SettingsView() {
 // ── App shell ─────────────────────────────────────────────────────────────────
 function App() {
   const [view,    setView]    = useState('live');
-  const [history, setHistory] = useState(() => {
-    try { const s=localStorage.getItem('sf_run_history'); return s?JSON.parse(s):[]; } catch { return []; }
-  });
+  const [history, setHistory] = useState([]);
   const [toasts,  setToasts]  = useState([]);
 
-  // Persist history across reloads
+  // Load history from server on mount (works in local + cloud portal modes).
+  // Falls back to localStorage if the API is unreachable (standalone file usage).
   useEffect(()=>{
-    try { localStorage.setItem('sf_run_history', JSON.stringify(history.slice(0,100))); } catch {}
-  }, [history]);
+    fetch('/api/history')
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{ if(d?.history) setHistory(d.history); })
+      .catch(()=>{
+        try { const s=localStorage.getItem('sf_run_history'); if(s) setHistory(JSON.parse(s)); } catch {}
+      });
+  },[]);
   const [logs,    setLogs]    = useState([]);
   const currentStageRef = useRef(null);   // tracks active stage for log tagging
   const [liveState, setLiveState] = useState({
@@ -2194,10 +2198,12 @@ function App() {
           stageResults:{...s.stageResults,[msg.stage]:msg.result||{}}}));
       } else if (type==='pipeline_done') {
         setLiveState(s=>{
+          // Prepend to local state immediately for instant UI update.
+          // The server already persisted this to ~/.sevaforge/run_history.json.
           const failedStage=Object.entries(s.stageState).find(([,v])=>v==='error')?.[0]||null;
           const entry={path:msg.path||s.pipelinePath||'—',status:msg.success?'success':'error',
             stageCount:s.stages.length||msg.stage_count||0,elapsed:msg.elapsed_s||0,failedStage,ts:Date.now()};
-          setHistory(prev=>[entry,...prev.slice(0,99)]);
+          setHistory(prev=>[entry,...prev.slice(0,199)]);
           return{...s,done:true,currentStage:null,elapsed:msg.elapsed_s||0};
         });
         addToast(msg.success?`✓ Pipeline complete in ${msg.elapsed_s}s`:'✗ Pipeline failed',
@@ -2323,7 +2329,10 @@ function App() {
           )}
           {view==='dashboard' && <DashboardView history={history} connected={connected} onNavigate={setView} />}
           {view==='pipeline'  && <StagesView />}
-          {view==='history'   && <HistoryView history={history} onClear={()=>setHistory([])} />}
+          {view==='history'   && <HistoryView history={history} onClear={()=>{
+            fetch('/api/history/clear',{method:'POST'}).catch(()=>{});
+            setHistory([]);
+          }} />}
           {view==='health'    && <HealthView connected={connected} liveState={liveState} />}
           {view==='settings'  && <SettingsView />}
         </div>
