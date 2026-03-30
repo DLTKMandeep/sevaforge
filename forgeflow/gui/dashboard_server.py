@@ -24,6 +24,7 @@ import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, parse_qs
@@ -155,6 +156,15 @@ def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
     _running = True
     t = threading.Thread(target=_work, daemon=True, name="forgeflow-pipeline")
     t.start()
+
+
+# ---------------------------------------------------------------------------
+# Threaded HTTP server — each connection (SSE, API, static) gets its own thread
+# so long-lived SSE streams don't block short API calls like /api/browse
+# ---------------------------------------------------------------------------
+
+class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True   # threads die when the main process exits
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +363,7 @@ class DashboardServer:
     def __init__(self, port: int = DEFAULT_PORT, open_browser: bool = True) -> None:
         self.port         = self._find_free_port(port)
         self.open_browser = open_browser
-        self._server: Optional[HTTPServer] = None
+        self._server: Optional[_ThreadedHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
         self._state: Dict[str, Any] = {"mode": "live", "status": "idle"}
         self._start_ts: float = 0.0
@@ -363,7 +373,7 @@ class DashboardServer:
 
     def start(self) -> "DashboardServer":
         """Start the HTTP server in a daemon thread and open the browser."""
-        self._server = HTTPServer(("127.0.0.1", self.port), _Handler)
+        self._server = _ThreadedHTTPServer(("127.0.0.1", self.port), _Handler)
         self._thread = threading.Thread(
             target=self._server.serve_forever,
             daemon=True,
