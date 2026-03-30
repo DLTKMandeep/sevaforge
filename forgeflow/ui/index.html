@@ -150,7 +150,7 @@
       color: var(--blue); font-size: 10px; font-weight: 700;
       padding: 3px 10px; border-radius: 20px; letter-spacing: 0.03em;
     }
-    .sf-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
+    .sf-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
 
     /* ─── Cards ───────────────────────────────────────────────────────── */
     .sf-card {
@@ -160,13 +160,13 @@
       box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 4px 12px rgba(15,23,42,.04);
     }
     .sf-card-header {
-      padding: 12px 18px; border-bottom: 1px solid var(--border-lt);
+      padding: 10px 16px; border-bottom: 1px solid var(--border-lt);
       font-size: 10.5px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.08em;
       display: flex; align-items: center; gap: 8px;
       background: #fafbfc; border-radius: 12px 12px 0 0;
     }
-    .sf-card-body { padding: 18px; }
+    .sf-card-body { padding: 14px 16px; }
 
     /* ─── Buttons ─────────────────────────────────────────────────────── */
     .btn-primary {
@@ -239,7 +239,7 @@
     /* ─── Idle hero banner ────────────────────────────────────────────── */
     .idle-hero {
       background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #1d4ed8 100%);
-      border-radius: 14px; padding: 32px 36px; margin-bottom: 22px;
+      border-radius: 14px; padding: 22px 26px; margin-bottom: 0;
       color: white; position: relative; overflow: hidden;
     }
     .idle-hero::before {
@@ -1047,46 +1047,13 @@ function IdleScreen({ connected, onLaunch }) {
   const labelStyle = { fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
 
   return (
-    <div style={{maxWidth:700, margin:'0 auto'}} className="fade-in">
+    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,height:'100%',alignItems:'start'}}>
 
-      {/* ── Hero banner ── */}
-      <div className="idle-hero">
-        <div style={{position:'relative',zIndex:1}}>
-          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
-            <SevaForgeLogo size={44} />
-            <div>
-              <div style={{fontSize:26,fontWeight:900,color:'#fff',letterSpacing:'-0.8px',lineHeight:1}}>
-                Sevaforge
-              </div>
-              <div style={{
-                fontSize:9.5,fontWeight:700,color:'var(--blue)',letterSpacing:'0.12em',
-                textTransform:'uppercase',marginTop:3,
-                display:'inline-flex',alignItems:'center',gap:5,
-                background:'rgba(37,99,235,.12)',border:'1px solid rgba(37,99,235,.2)',
-                padding:'2px 8px',borderRadius:4,
-              }}>
-                ● AIDDaaS
-              </div>
-            </div>
-          </div>
-          <div style={{fontSize:15.5,fontWeight:400,color:'rgba(255,255,255,.65)',lineHeight:1.55,maxWidth:480}}>
-            AI Dev to Delivery as a Service — automatically build infrastructure,
-            CI/CD, tests, docs, and security for any codebase in one command.
-          </div>
-          <div style={{display:'flex',gap:10,marginTop:18,flexWrap:'wrap'}}>
-            {['11 Automated Stages','AWS · GCP · Azure','ArgoCD + Kustomize','Playwright E2E','Zero config'].map(t=>(
-              <span key={t} style={{
-                fontSize:11.5,fontWeight:600,color:'rgba(255,255,255,.55)',
-                background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',
-                padding:'4px 11px',borderRadius:20,
-              }}>{t}</span>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* ═══ LEFT COLUMN: Setup steps ═══ */}
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
       {/* ── Step 1: Project Mode ── */}
-      <div className="sf-card" style={{marginBottom:14}}>
+      <div className="sf-card">
         <div className="sf-card-header">
           <span style={{
             background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
@@ -1099,30 +1066,30 @@ function IdleScreen({ connected, onLaunch }) {
             {/* Brownfield card */}
             <div onClick={()=>{setMode('brownfield');setLaunchErr('');}}
                  style={{
-                   cursor:'pointer',padding:'14px 16px',borderRadius:8,transition:'all .15s',
+                   cursor:'pointer',padding:'12px 14px',borderRadius:8,transition:'all .15s',
                    border: mode==='brownfield' ? '2px solid var(--blue)' : '2px solid var(--border)',
                    background: mode==='brownfield' ? 'var(--blue-lt)' : 'var(--surface2)',
                  }}>
-              <div style={{fontSize:22,marginBottom:6}}>📂</div>
-              <div style={{fontWeight:800,fontSize:'13.5px',color:'var(--text)',marginBottom:3}}>Existing Project</div>
-              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.45}}>
-                Bring your own codebase. Sevaforge analyses it and adds infrastructure, CI/CD, tests, and docs.
+              <div style={{fontSize:18,marginBottom:4}}>📂</div>
+              <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginBottom:2}}>Existing Project</div>
+              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.4}}>
+                Add infrastructure, CI/CD, tests, and docs to your codebase.
               </div>
-              {mode==='brownfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
+              {mode==='brownfield' && <div style={{marginTop:6,fontSize:'11px',fontWeight:700,color:'var(--blue)'}}>✓ Selected</div>}
             </div>
             {/* Greenfield card */}
             <div onClick={()=>{setMode('greenfield');setLaunchErr('');}}
                  style={{
-                   cursor:'pointer',padding:'14px 16px',borderRadius:8,transition:'all .15s',
+                   cursor:'pointer',padding:'12px 14px',borderRadius:8,transition:'all .15s',
                    border: mode==='greenfield' ? '2px solid #6366f1' : '2px solid var(--border)',
                    background: mode==='greenfield' ? 'rgba(99,102,241,.08)' : 'var(--surface2)',
                  }}>
-              <div style={{fontSize:22,marginBottom:6}}>🌱</div>
-              <div style={{fontWeight:800,fontSize:'13.5px',color:'var(--text)',marginBottom:3}}>New Project</div>
-              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.45}}>
-                Start from scratch. Sevaforge scaffolds the entire directory structure, then runs the full pipeline.
+              <div style={{fontSize:18,marginBottom:4}}>🌱</div>
+              <div style={{fontWeight:800,fontSize:'13px',color:'var(--text)',marginBottom:2}}>New Project</div>
+              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.4}}>
+                Scaffold a full project structure then run the entire pipeline.
               </div>
-              {mode==='greenfield' && <div style={{marginTop:8,fontSize:'11px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
+              {mode==='greenfield' && <div style={{marginTop:6,fontSize:'11px',fontWeight:700,color:'#6366f1'}}>✓ Selected</div>}
             </div>
           </div>
         </div>
@@ -1130,7 +1097,7 @@ function IdleScreen({ connected, onLaunch }) {
 
       {/* ── Step 2a: Brownfield folder picker ── */}
       {mode === 'brownfield' && (
-        <div className="sf-card" style={{marginBottom:14}}>
+        <div className="sf-card">
           <div className="sf-card-header">
             <span style={{
               background:'var(--blue)',color:'#fff',width:18,height:18,borderRadius:'50%',
@@ -1146,7 +1113,7 @@ function IdleScreen({ connected, onLaunch }) {
 
       {/* ── Step 2b: Greenfield wizard ── */}
       {mode === 'greenfield' && (
-        <div className="sf-card" style={{marginBottom:14}}>
+        <div className="sf-card">
           <div className="sf-card-header">
             <span style={{
               background:'#6366f1',color:'#fff',width:18,height:18,borderRadius:'50%',
@@ -1311,8 +1278,49 @@ function IdleScreen({ connected, onLaunch }) {
         </div>
       )}
 
+      </div>{/* end LEFT COLUMN */}
+
+      {/* ═══ RIGHT COLUMN: Hero + Launch ═══ */}
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+
+        {/* ── Hero banner ── */}
+        <div className="idle-hero">
+          <div style={{position:'relative',zIndex:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:11,marginBottom:14}}>
+              <SevaForgeLogo size={38} />
+              <div>
+                <div style={{fontSize:22,fontWeight:900,color:'#fff',letterSpacing:'-0.6px',lineHeight:1}}>
+                  Sevaforge
+                </div>
+                <div style={{
+                  fontSize:9,fontWeight:700,color:'var(--blue3)',letterSpacing:'0.12em',
+                  textTransform:'uppercase',marginTop:3,
+                  display:'inline-flex',alignItems:'center',gap:5,
+                  background:'rgba(37,99,235,.15)',border:'1px solid rgba(96,165,250,.25)',
+                  padding:'2px 8px',borderRadius:4,
+                }}>
+                  ● AIDDaaS
+                </div>
+              </div>
+            </div>
+            <div style={{fontSize:13.5,fontWeight:400,color:'rgba(255,255,255,.65)',lineHeight:1.5,maxWidth:420}}>
+              AI Dev to Delivery as a Service — automatically build infrastructure,
+              CI/CD, tests, docs, and security for any codebase in one command.
+            </div>
+            <div style={{display:'flex',gap:7,marginTop:13,flexWrap:'wrap'}}>
+              {['11 Stages','AWS · GCP · Azure','ArgoCD','Playwright E2E','Zero config'].map(t=>(
+                <span key={t} style={{
+                  fontSize:10.5,fontWeight:600,color:'rgba(255,255,255,.55)',
+                  background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.1)',
+                  padding:'3px 9px',borderRadius:20,
+                }}>{t}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+
       {/* ── Step 3: Launch ── */}
-      <div className="sf-card" style={{marginBottom:22}}>
+      <div className="sf-card">
         <div className="sf-card-header">
           <span style={{
             background:(mode==='brownfield'?chosenPath:(canLaunchGF))?'var(--blue)':'#cbd5e1',
@@ -1322,17 +1330,17 @@ function IdleScreen({ connected, onLaunch }) {
           Launch the full pipeline
         </div>
         <div className="sf-card-body">
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
-            <div style={{flex:1,minWidth:240}}>
-              <div style={{fontWeight:700,fontSize:'13.5px',color:'var(--text)',marginBottom:5}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontWeight:700,fontSize:'13px',color:'var(--text)',marginBottom:4}}>
                 {mode==='greenfield'
-                  ? 'Scaffold + run all 11 stages on your brand-new project'
-                  : '11 stages will run automatically, end to end'}
+                  ? 'Scaffold + run all 11 stages on your new project'
+                  : '11 stages run automatically, end to end'}
               </div>
-              <div style={{fontSize:'11.5px',color:'var(--muted)',lineHeight:1.5}}>
+              <div style={{fontSize:'11px',color:'var(--muted)',lineHeight:1.45,fontFamily:'monospace'}}>
                 {mode==='greenfield'
-                  ? 'Scaffold → Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub'
-                  : 'Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub'}
+                  ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'
+                  : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'}
               </div>
               {mode==='brownfield' && chosenPath && (
                 <div style={{
@@ -1360,7 +1368,7 @@ function IdleScreen({ connected, onLaunch }) {
             <button className="btn-primary" onClick={handleLaunch}
                     disabled={mode==='brownfield'?!canLaunchBF:!canLaunchGF}
                     style={{
-                      flexShrink:0,padding:'11px 28px',fontSize:'14px',
+                      flexShrink:0,padding:'10px 22px',fontSize:'13.5px',
                       background: mode==='greenfield' ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : undefined,
                       boxShadow:  mode==='greenfield' ? '0 4px 18px rgba(99,102,241,.35)' : undefined,
                     }}>
@@ -1371,7 +1379,7 @@ function IdleScreen({ connected, onLaunch }) {
           </div>
           {/* GitHub visibility toggle */}
           <div style={{
-            marginTop:14,paddingTop:12,borderTop:'1px solid var(--border)',
+            marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)',
             display:'flex',alignItems:'center',justifyContent:'space-between',
           }}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1531,7 +1539,7 @@ function IdleScreen({ connected, onLaunch }) {
       </div>
 
       {/* Connection indicator */}
-      <div style={{marginTop:18,display:'flex',alignItems:'center',gap:7,justifyContent:'center'}}>
+      <div style={{marginTop:4,display:'flex',alignItems:'center',gap:7,justifyContent:'center'}}>
         <span style={{
           width:7,height:7,borderRadius:'50%',
           background:connected?'var(--ok)':'#94a3b8',
@@ -1541,7 +1549,9 @@ function IdleScreen({ connected, onLaunch }) {
           {connected ? 'Dashboard server connected — ready to run' : 'Connecting to dashboard server…'}
         </span>
       </div>
-    </div>
+
+      </div>{/* end RIGHT COLUMN */}
+    </div>{/* end GRID */}
   );
 }
 
