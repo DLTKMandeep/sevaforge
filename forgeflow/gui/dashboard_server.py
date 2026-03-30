@@ -88,17 +88,28 @@ def _pick_folder_native() -> Optional[str]:
 
     # ── macOS: osascript (built-in, no deps, reliable) ──────────────────────
     if _sys.platform == "darwin":
+        import os as _os
+        home = _os.path.expanduser("~")
         try:
-            # Multiple -e flags = multi-line script; Finder activate ensures
-            # the dialog pops to the front instead of hiding behind the browser.
+            # Key UX points:
+            #   • default location → home dir (avoids starting buried somewhere)
+            #   • prompt text explicitly tells user to SINGLE-CLICK then Open
+            #   • "choose folder" only allows selecting folders, never files
+            #   • Finder activate brings the dialog to the foreground
             r = subprocess.run(
                 ["osascript",
                  "-e", "tell application \"Finder\" to activate",
-                 "-e", "POSIX path of (choose folder with prompt \"Select your AI project folder\")"],
+                 "-e", (
+                     f"POSIX path of (choose folder"
+                     f" with prompt \"Select your AI project folder"
+                     f" \\u2014 single-click the folder, then click Open\""
+                     f" default location POSIX file \"{home}\")"
+                 )],
                 capture_output=True, text=True, timeout=120,
             )
             if r.returncode == 0:
-                return r.stdout.strip() or None
+                # Strip trailing slash that macOS always appends
+                return r.stdout.strip().rstrip("/") or None
             # returncode 1 = user pressed Cancel — not an error
             return None
         except FileNotFoundError:

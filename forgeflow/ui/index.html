@@ -574,7 +574,14 @@ function FolderPicker({ onPathSelected }) {
             <div style={{fontSize:'14px',fontWeight:600,color:'var(--text)',marginBottom:6}}>
               Click to select your project folder
             </div>
-            <div style={{fontSize:'12px',color:'var(--muted)'}}>Opens your native Mac folder picker — no terminal needed</div>
+            <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:6}}>Opens your native Mac folder picker</div>
+            <div style={{
+              fontSize:'11px',color:'var(--orange)',background:'var(--orange-lt)',
+              border:'1px solid var(--orange-br)',borderRadius:6,padding:'5px 12px',
+              display:'inline-block',fontWeight:600,
+            }}>
+              💡 Single-click your project folder, then click Open
+            </div>
           </>
         )}
       </div>
