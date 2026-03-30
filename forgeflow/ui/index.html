@@ -394,12 +394,22 @@ function FolderPicker({ onPathSelected }) {
 
   const browse = async () => {
     setStatus('browsing');
+    setErrMsg('');
     try {
       const res  = await fetch('/api/browse', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
       const data = await res.json();
-      if (data.path) { setPath(data.path); setStatus('typing'); onPathSelected(data.path); }
-      else { setStatus('idle'); }
-    } catch(e) { setStatus('idle'); }
+      if (data.path && !data.path.startsWith('ERROR:')) {
+        setPath(data.path); setStatus('typing'); onPathSelected(data.path);
+      } else if (data.cancelled) {
+        setStatus('idle'); // user pressed Cancel — stay quiet
+      } else {
+        setErrMsg('Could not open folder picker. Please type your path below.');
+        setStatus('error');
+      }
+    } catch(e) {
+      setErrMsg(`Could not reach server: ${e.message}`);
+      setStatus('error');
+    }
   };
 
   const launch = async () => {

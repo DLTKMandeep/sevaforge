@@ -81,17 +81,34 @@ _bus = _EventBus()
 
 def _pick_folder_native() -> Optional[str]:
     """
-    Open the OS-native folder picker and return the chosen path.
-
-    Spawns a *fresh Python subprocess* so tkinter runs on that process's main
-    thread — avoids the 'must run on main thread' restriction when called from
-    inside a ThreadingMixIn request handler.
+    Open the OS-native folder picker and return the chosen path (or None if cancelled).
+    Returns the string 'ERROR:<reason>' if every method fails — lets the UI show a message.
     """
     import subprocess, sys as _sys
 
-    # ── Primary: subprocess + tkinter (works on macOS, Linux, Windows) ─────
+    # ── macOS: osascript (built-in, no deps, reliable) ──────────────────────
+    if _sys.platform == "darwin":
+        try:
+            # Multiple -e flags = multi-line script; Finder activate ensures
+            # the dialog pops to the front instead of hiding behind the browser.
+            r = subprocess.run(
+                ["osascript",
+                 "-e", "tell application \"Finder\" to activate",
+                 "-e", "POSIX path of (choose folder with prompt \"Select your AI project folder\")"],
+                capture_output=True, text=True, timeout=120,
+            )
+            if r.returncode == 0:
+                return r.stdout.strip() or None
+            # returncode 1 = user pressed Cancel — not an error
+            return None
+        except FileNotFoundError:
+            pass   # osascript not found (shouldn't happen on macOS)
+        except Exception:
+            pass
+
+    # ── subprocess + tkinter (fresh process avoids thread-safety issues) ────
     _tk_script = (
-        "import tkinter as tk, sys;"
+        "import tkinter as tk;"
         "from tkinter import filedialog;"
         "r=tk.Tk();r.withdraw();r.lift();r.attributes('-topmost',True);"
         "p=filedialog.askdirectory(title='Select your AI project folder');"
@@ -100,30 +117,14 @@ def _pick_folder_native() -> Optional[str]:
     try:
         result = subprocess.run(
             [_sys.executable, "-c", _tk_script],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, timeout=120,
         )
-        path = result.stdout.strip()
-        if path:
-            return path
-        # empty stdout = user cancelled
-        return None
+        if result.returncode == 0:
+            return result.stdout.strip() or None
     except Exception:
         pass
 
-    # ── macOS fallback: osascript ────────────────────────────────────────────
-    if _sys.platform == "darwin":
-        try:
-            r = subprocess.run(
-                ["osascript", "-e",
-                 'POSIX path of (choose folder with prompt "Select your AI project folder")'],
-                capture_output=True, text=True, timeout=120,
-            )
-            if r.returncode == 0:
-                return r.stdout.strip() or None
-        except Exception:
-            pass
-
-    # ── Linux fallback: zenity / kdialog ────────────────────────────────────
+    # ── Linux: zenity / kdialog ──────────────────────────────────────────────
     if _sys.platform.startswith("linux"):
         for cmd in (
             ["zenity", "--file-selection", "--directory",
@@ -139,7 +140,8 @@ def _pick_folder_native() -> Optional[str]:
             except Exception:
                 break
 
-    return None
+    # Nothing worked — tell the UI so it can show a helpful message
+    return "ERROR:no_picker"
 
 
 # Global run-lock: prevents two pipelines running at the same time
@@ -157,11 +159,25 @@ def _spawn_pipeline(path: str, stages: Optional[List[str]] = None) -> None:
     def _work():
         global _running
         try:
-            # Lazy import avoids circular dep during server startup
-            try:
-                from forgeflow.core.mission_control import MissionControl
-            except ImportError:
-                from forgeflow_local.core.mission_control import MissionControl
+            # Lazy import avoids circular dep during server startup.
+            # Try installed package first, then local flat import (dev / editable install).
+            MissionControl = None
+            for _import in [
+                "forgeflow.core.mission_control",
+                "core.mission_control",
+                "forgeflow_local.core.mission_control",
+            ]:
+                try:
+                    import importlib
+                    _mod = importlib.import_module(_import)
+                    MissionControl = _mod.MissionControl
+                    break
+                except ImportError:
+                    continue
+            if MissionControl is None:
+                raise ImportError(
+                    "Cannot find MissionControl — tried forgeflow.core, core, and forgeflow_local.core"
+                )
 
             mc = MissionControl()
             mc.run_all(path=path)
