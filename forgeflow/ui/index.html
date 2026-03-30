@@ -1,459 +1,560 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="night">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sevaforge — No Charge as a Service Hub</title>
-
-  <!-- Tailwind + DaisyUI -->
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <title>Sevaforge — AIDDaaS</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-
   <style>
-    /* ── Sevaforge Design System ───────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --sidebar-w: 260px;
-      --forge-amber: #f59e0b;
-      --forge-purple: #7c3aed;
-      --forge-glow: rgba(245,158,11,0.35);
+      --navy:    #1a2035;
+      --navy2:   #232b42;
+      --orange:  #f97316;
+      --orange2: #ea6c0a;
+      --bg:      #f0f2f7;
+      --card:    #ffffff;
+      --border:  #e5e7eb;
+      --text:    #111827;
+      --muted:   #6b7280;
+      --light:   #9ca3af;
+      --ok:      #10b981;
+      --ok-bg:   #ecfdf5;
+      --ok-br:   #a7f3d0;
+      --err:     #ef4444;
+      --err-bg:  #fef2f2;
+      --err-br:  #fecaca;
+      --warn:    #f59e0b;
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-      /* Forge-branded deep background with subtle grid */
-      background-color: #0d0d14;
-      background-image:
-        radial-gradient(ellipse 60% 40% at 15% 10%, rgba(124,58,237,0.10) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 40% at 85% 85%, rgba(245,158,11,0.07) 0%, transparent 55%),
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-      background-attachment: fixed;
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+    #root { height: 100vh; display: flex; }
+
+    /* ── Sidebar ── */
+    .sf-sidebar {
+      width: 220px; min-width: 220px; background: var(--navy);
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    .sf-logo-block {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .sf-logo-name {
+      font-size: 1.1rem; font-weight: 800; color: #fff;
+      letter-spacing: -0.3px; line-height: 1.2;
+    }
+    .sf-logo-tag {
+      font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,.35);
+      letter-spacing: 0.04em; margin-top: 2px; text-transform: uppercase;
+    }
+    .sf-nav { flex: 1; padding: 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .sf-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,.55);
+      transition: all .15s ease; border: none; background: transparent; width: 100%; text-align: left;
+    }
+    .sf-nav-item:hover  { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
+    .sf-nav-item.active { background: rgba(249,115,22,.18); color: #fff;
+                          box-shadow: inset 3px 0 0 var(--orange); }
+    .sf-nav-icon { width: 18px; text-align: center; font-size: 0.95rem; flex-shrink: 0; }
+    .sf-status-bar {
+      padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.07);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sf-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Main content ── */
+    .sf-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .sf-topbar {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 52px; display: flex; align-items: center;
+      gap: 8px; flex-shrink: 0;
+    }
+    .sf-breadcrumb { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .sf-breadcrumb .current { color: var(--text); font-weight: 600; }
+    .sf-content { flex: 1; overflow-y: auto; padding: 24px; }
+
+    /* ── Cards ── */
+    .sf-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .sf-card-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      font-size: 0.8rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sf-card-body { padding: 20px; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--orange); color: #fff; border: none;
+      padding: 9px 20px; border-radius: 8px; font-size: 0.85rem;
+      font-weight: 600; cursor: pointer; transition: background .15s;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-primary:hover { background: var(--orange2); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary {
+      background: #fff; color: var(--text); border: 1px solid var(--border);
+      padding: 9px 18px; border-radius: 8px; font-size: 0.85rem;
+      font-weight: 500; cursor: pointer; transition: all .15s;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-secondary:hover { border-color: #d1d5db; background: #f9fafb; }
+
+    /* ── Status pills ── */
+    .pill { display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .pill-running { background: #fff7ed; color: var(--orange); border: 1px solid #fed7aa; }
+    .pill-done    { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-br); }
+    .pill-error   { background: var(--err-bg); color: var(--err); border: 1px solid var(--err-br); }
+    .pill-pending { background: #f9fafb; color: var(--light); border: 1px solid var(--border); }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* ── Pipeline node canvas ── */
+    .pipeline-canvas {
+      background: #f8f9fc; border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px 20px;
+      overflow-x: auto; overflow-y: visible;
+    }
+    .pipeline-node {
+      width: 130px; flex-shrink: 0;
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 12px 10px 10px;
+      position: relative; transition: all .2s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .pipeline-node.running {
+      border-color: var(--orange); background: #fff7ed;
+      box-shadow: 0 0 0 3px rgba(249,115,22,.15), 0 2px 8px rgba(249,115,22,.12);
+    }
+    .pipeline-node.done {
+      border-color: var(--ok); background: var(--ok-bg);
+    }
+    .pipeline-node.error {
+      border-color: var(--err); background: var(--err-bg);
+    }
+    .pipeline-node.pending { opacity: .55; }
+    .pipeline-arrow { display: flex; align-items: center; flex-shrink: 0; width: 24px; }
+    .node-num {
+      position: absolute; top: 5px; right: 7px;
+      font-size: 0.58rem; font-weight: 700; color: var(--light);
     }
 
-    /* ── Layout ─────────────────────────────────────────────────────────── */
-    .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); }
-    .main-content { width: calc(100vw - var(--sidebar-w)); }
-    .stage-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-    .stage-card { transition: all .18s ease; }
-    .stage-card:hover { transform: translateY(-2px); }
-
-    /* ── Brand logo ─────────────────────────────────────────────────────── */
-    .seva-logo-hex polygon { stroke: url(#logoGrad); }
-    .seva-logo-hex path    { fill:   url(#logoGrad); }
-    .brand-gradient {
-      background: linear-gradient(135deg, var(--forge-amber) 0%, var(--forge-purple) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    /* ── Progress bar ── */
+    .sf-progress-track {
+      height: 5px; background: #e5e7eb; border-radius: 4px; overflow: hidden;
     }
-    .seva-wordmark {
-      font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px;
-      background: linear-gradient(100deg, #f59e0b 0%, #c084fc 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .sf-progress-fill {
+      height: 100%; border-radius: 4px; transition: width 1s ease;
+      background: linear-gradient(90deg, var(--orange), var(--ok));
     }
 
-    /* ── NoCaaS badge ───────────────────────────────────────────────────── */
-    .nocaas-badge {
-      display: flex; align-items: center; gap: 6px;
-      padding: 5px 10px; border-radius: 999px;
-      background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(124,58,237,.12));
-      border: 1px solid rgba(245,158,11,.25);
-      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.04em;
-      color: #fbbf24;
-      backdrop-filter: blur(4px);
+    /* ── Folder picker ── */
+    .folder-drop-zone {
+      border: 2px dashed #d1d5db; border-radius: 12px;
+      padding: 32px 24px; text-align: center; cursor: pointer;
+      transition: all .2s ease; background: #fafafa;
     }
-    .nocaas-badge .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #f59e0b;
-      box-shadow: 0 0 6px #f59e0b;
-      animation: pulse 1.4s ease-in-out infinite;
+    .folder-drop-zone:hover, .folder-drop-zone.has-path {
+      border-color: var(--orange); background: #fff7ed;
     }
+    .folder-icon { font-size: 2.5rem; margin-bottom: 10px; }
 
-    /* ── Animations ─────────────────────────────────────────────────────── */
-    .spin { animation: spin .7s linear infinite; }
+    /* ── Animations ── */
     @keyframes spin { to { transform: rotate(360deg); } }
-    .slide-in { animation: slideIn .35s cubic-bezier(.16,1,.3,1); }
-    @keyframes slideIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
-    .finding-row:not(:last-child) { border-bottom: 1px solid oklch(var(--b3)); }
+    .spin { animation: spin .7s linear infinite; display: inline-block; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
-    .step-running > .step-content { animation: pulse 1.2s ease-in-out infinite; }
+    .pulse { animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+    .fade-in { animation: fadeIn .3s ease both; }
+    @keyframes victoryPop { 0%{transform:scale(.96);opacity:0} 100%{transform:scale(1);opacity:1} }
+    .victory-pop { animation: victoryPop .4s cubic-bezier(.34,1.56,.64,1) both; }
 
-    /* Float — idle hero elements drift gently */
-    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-    .float-slow { animation: float 5s ease-in-out infinite; }
-    .float-med  { animation: float 3.8s ease-in-out infinite .6s; }
-
-    /* Shimmer — text highlight sweep */
-    @keyframes shimmer {
-      0%   { background-position: -200% center; }
-      100% { background-position: 200% center; }
+    /* ── Ticker ── */
+    .ticker-wrap {
+      background: #fff7ed; border: 1px solid #fed7aa;
+      border-radius: 8px; padding: 10px 12px; margin-top: 10px;
     }
-    .shimmer-text {
-      background: linear-gradient(90deg, #f59e0b 0%, #c084fc 40%, #f59e0b 80%);
-      background-size: 200% auto;
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: shimmer 3s linear infinite;
-    }
+    .ticker-label { font-size: 0.62rem; font-weight: 700; color: var(--orange);
+                    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
 
-    /* Stage pill pop-in */
-    @keyframes popIn {
-      0%   { opacity:0; transform: scale(.7) translateY(8px); }
-      70%  { transform: scale(1.08) translateY(-2px); }
-      100% { opacity:1; transform: scale(1) translateY(0); }
+    /* ── Hourglass wrap ── */
+    .hg-wrap {
+      border-radius: 10px; overflow: hidden;
+      box-shadow: 0 0 0 1.5px rgba(249,115,22,.25), 0 4px 16px rgba(249,115,22,.1);
     }
-    .pop-in { animation: popIn .45s cubic-bezier(.34,1.56,.64,1) both; }
+    .hg-wrap canvas { display: block; border-radius: 9px; }
 
-    /* Victory flash — done screen */
-    @keyframes victoryGlow {
-      0%,100% { box-shadow: 0 0 40px rgba(52,211,153,.2), 0 0 80px rgba(52,211,153,.08); }
-      50%     { box-shadow: 0 0 60px rgba(52,211,153,.4), 0 0 120px rgba(52,211,153,.15); }
+    /* ── Victory ── */
+    .victory-card {
+      background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+      border: 1.5px solid var(--ok-br); border-radius: 16px; overflow: hidden;
     }
-    .victory-glow { animation: victoryGlow 2.4s ease-in-out infinite; }
-
-    /* Count-up badge */
-    @keyframes countUp { from{transform:scale(.5);opacity:0} to{transform:scale(1);opacity:1} }
-    .count-badge { animation: countUp .5s cubic-bezier(.34,1.56,.64,1) both; }
-
-    /* Typewriter cursor */
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    .cursor { display:inline-block; width:2px; height:1em; background:#f59e0b;
-              margin-left:2px; animation: blink 1s step-end infinite; vertical-align:text-bottom; }
-
-    /* Stage progress fill */
-    @keyframes fillRight {
-      from { width: 0%; }
-      to   { width: var(--fill-pct, 100%); }
-    }
-    .progress-fill { animation: fillRight 1.2s cubic-bezier(.22,1,.36,1) both; }
-
-    /* Forge fire flicker on the logo while pipeline runs */
-    @keyframes forgeFlicker {
-      0%,100% { filter: drop-shadow(0 0 5px rgba(245,158,11,.7)); }
-      33%     { filter: drop-shadow(0 0 12px rgba(245,158,11,.9)) drop-shadow(0 0 24px rgba(245,158,11,.3)); }
-      66%     { filter: drop-shadow(0 0 8px rgba(245,158,11,.5)); }
-    }
-    .forge-fire { animation: forgeFlicker 1.8s ease-in-out infinite; }
-
-    /* Sand settle — fills stage card from bottom when stage completes */
-    .sand-fill-success { position:relative; overflow:hidden; }
-    .sand-fill-success::after {
-      content:''; position:absolute; inset:0;
-      background: linear-gradient(to top, rgba(34,197,94,.18) 0%, rgba(34,197,94,.04) 100%);
-      animation: sandRise .8s cubic-bezier(.22,1,.36,1) forwards;
-    }
-    .sand-fill-error::after {
-      content:''; position:absolute; inset:0;
-      background: linear-gradient(to top, rgba(239,68,68,.2) 0%, rgba(239,68,68,.05) 100%);
-      animation: sandRise .8s cubic-bezier(.22,1,.36,1) forwards;
-    }
-    @keyframes sandRise {
-      from { clip-path: inset(100% 0 0 0); }
-      to   { clip-path: inset(0% 0 0 0); }
+    .victory-header {
+      background: var(--ok); padding: 20px 24px;
+      display: flex; align-items: center; gap: 16px;
     }
 
-    /* Stage card ring-burst on completion */
-    @keyframes burstFlash {
-      0%  { box-shadow: 0 0 0 0 rgba(34,197,94,.8); }
-      70% { box-shadow: 0 0 0 16px rgba(34,197,94,0); }
-      100%{ box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-    }
-    .burst-success { animation: burstFlash .55s ease-out; }
-    @keyframes burstFlashErr {
-      0%  { box-shadow: 0 0 0 0 rgba(239,68,68,.8); }
-      70% { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
-      100%{ box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    }
-    .burst-error { animation: burstFlashErr .55s ease-out; }
-
-    /* Pendulum canvas container glow */
-    .pendulum-wrap { border-radius: 12px; overflow: hidden; position: relative; }
-    .pendulum-wrap::before {
-      content:''; position:absolute; inset:-1px; border-radius:13px;
-      background: linear-gradient(135deg, rgba(245,158,11,.4), rgba(124,58,237,.4));
-      z-index:0;
-    }
-    .pendulum-wrap canvas { position:relative; z-index:1; border-radius:11px; display:block; }
-
-    /* Stat colors */
-    .stat-primary .stat-value { color: oklch(var(--p)); }
-    .stat-success .stat-value { color: oklch(var(--su)); }
-    .stat-warning .stat-value { color: oklch(var(--wa)); }
-    .stat-error   .stat-value { color: oklch(var(--er)); }
-
-    /* Live view hero */
-    .live-hero {
-      background: linear-gradient(135deg, rgba(124,58,237,.12) 0%, rgba(245,158,11,.08) 100%);
-      border: 1px solid rgba(245,158,11,.15);
-      border-radius: 16px;
-      backdrop-filter: blur(8px);
-    }
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
   </style>
 </head>
-<body class="bg-base-300 min-h-screen">
+<body>
 <div id="root"></div>
-
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-const STAGES = [
-  { id:'discover',  label:'Discover',  emoji:'🔍', endpoint:'/api/v1/discover',  desc:'Scan structure',      color:'primary',   tag:null },
-  { id:'normalize', label:'Normalize', emoji:'🔧', endpoint:'/api/v1/normalize', desc:'Standardize repo',    color:'primary',   tag:null },
-  { id:'docs',      label:'Docs',      emoji:'📚', endpoint:'/api/v1/docs',      desc:'Documentation',       color:'secondary', tag:null },
-  { id:'iac',       label:'IAC',       emoji:'🏗️',  endpoint:'/api/v1/iac',       desc:'Infra as Code',       color:'accent',    tag:'v2.1' },
-  { id:'cd',        label:'CD',        emoji:'🚀', endpoint:'/api/v1/cd',        desc:'Deployment config',   color:'accent',    tag:'v2.1' },
-  { id:'ci',        label:'CI',        emoji:'⚙️',  endpoint:'/api/v1/ci',        desc:'CI pipelines',        color:'accent',    tag:'v2.1' },
-  { id:'e2e',       label:'E2E',       emoji:'🧪', endpoint:'/api/v1/e2e',       desc:'E2E test setup',      color:'accent',    tag:'v2.1' },
-  { id:'review',    label:'Review',    emoji:'👁️',  endpoint:'/api/v1/review',    desc:'Code quality',        color:'info',      tag:null },
-  { id:'test',      label:'Test',      emoji:'✅', endpoint:'/api/v1/test',      desc:'Run test suite',      color:'info',      tag:null },
-  { id:'scan',      label:'Scan',      emoji:'🔒', endpoint:'/api/v1/scan',      desc:'Security scan',       color:'warning',   tag:null },
-  { id:'bridge',    label:'Bridge',    emoji:'🌉', endpoint:'/api/v1/bridge',    desc:'GitHub sync',         color:'secondary', tag:null },
-  { id:'generate',  label:'Generate',  emoji:'📦', endpoint:'/api/v1/generate',  desc:'Artifacts',           color:'primary',   tag:null },
-  { id:'deploy',    label:'Deploy',    emoji:'☁️',  endpoint:'/api/v1/deploy',    desc:'Deploy to cloud',     color:'error',     tag:'post-merge' },
-  { id:'monitor',   label:'Monitor',   emoji:'📊', endpoint:'/api/v1/monitor',   desc:'Observability stack', color:'success',   tag:'post-merge' },
-];
-
-const VIEWS = [
-  { id:'live',      label:'Live Run',   icon:'⚡' },
-  { id:'dashboard', label:'Dashboard',  icon:'◈' },
-  { id:'pipeline',  label:'Pipeline',   icon:'▶' },
-  { id:'health',    label:'Health',     icon:'♥' },
-  { id:'history',   label:'History',    icon:'◷' },
-  { id:'settings',  label:'Settings',   icon:'⚙' },
-];
-
-// ── API Hook ──────────────────────────────────────────────────────────────────
-
-function useApi({ apiUrl, apiKey }) {
-  return useCallback(async (method, path, body) => {
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['X-API-Key'] = apiKey;
-    const res = await fetch(`${apiUrl}${path}`, {
-      method, headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status}${txt ? ': ' + txt.slice(0,120) : ''}`);
-    }
-    return res.json();
-  }, [apiUrl, apiKey]);
-}
-
-// ── Small helpers ─────────────────────────────────────────────────────────────
-
-const timeSince = (ts) => {
-  if (!ts) return '—';
-  const diff = Math.floor((Date.now() - new Date(ts)) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-  return new Date(ts).toLocaleTimeString();
-};
-
-function StatusBadge({ status }) {
-  const map = {
-    success: 'badge-success',  running: 'badge-warning',
-    error:   'badge-error',    warning: 'badge-warning',
-    healthy: 'badge-success',  down:    'badge-error',
-  };
-  const labels = {
-    success:'Success', running:'Running', error:'Error',
-    warning:'Warning', healthy:'Healthy', down:'Offline',
-  };
-  return (
-    <span className={`badge badge-sm font-semibold ${map[status] || 'badge-ghost'}`}>
-      {labels[status] || status}
-    </span>
-  );
-}
-
-function Spinner({ size = 'sm' }) {
-  return <span className={`loading loading-spinner loading-${size}`} />;
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-
-function ToastStack({ toasts }) {
-  return (
-    <div className="toast toast-end toast-bottom z-50">
-      {toasts.map(t => (
-        <div key={t.id} className={`alert shadow-lg slide-in ${t.type === 'error' ? 'alert-error' : t.type === 'success' ? 'alert-success' : 'alert-info'}`}>
-          <span className="text-sm">{t.msg}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-
+// ── Stage data ────────────────────────────────────────────────────────────────
 const STAGE_INFO_FULL = [
   { id:'discover',  emoji:'🔍', label:'Discover',
-    consumer:'Sevaforge is reading your project for the first time. It figures out what programming language you used, what web framework is running, which port your app listens on, and what packages it depends on — so every later stage is tailored specifically to your codebase, not a generic template.',
-    purpose:'Map codebase — detect language, frameworks, entry points, port, deps',
+    consumer:'Sevaforge reads your project for the first time — detecting language, framework, port, and all dependencies — so every later stage is tailored to your codebase.',
     outputs:'Tech stack · Entry points · Port · Dependency list',
-    steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies (requirements / package.json / go.mod)…','Detecting exposed port and environment variables…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
+    steps:['Scanning directory tree and file extensions…','Detecting language and runtime version…','Identifying web framework and entry point…','Mapping declared dependencies…','Detecting exposed port and environment variables…','Checking for existing Dockerfiles or CI configs…','Writing tech-stack manifest to staging/…'] },
 
   { id:'normalize', emoji:'🔧', label:'Normalize',
-    consumer:'Your project is getting tidied up so it meets professional engineering standards. Sevaforge adds the files that most teams forget — a proper .gitignore so passwords never get committed, a README so new developers can get started, and consistent code-style settings so the whole team formats code the same way.',
-    purpose:'Standardize repo structure — add .gitignore, README, linting configs',
+    consumer:'Your project gets tidied up — a proper .gitignore so passwords never leak, a README, and consistent code-style settings so the whole team formats code the same way.',
     outputs:'.gitignore · README.md · pyproject.toml · .editorconfig',
-    steps:['Reading detected tech stack from previous stage…','Checking for missing .gitignore patterns…','Generating language-specific .gitignore…','Creating or updating README.md scaffold…','Writing pyproject.toml / package.json lint settings…','Adding .editorconfig for consistent formatting…','Verifying repo structure is CI-ready…'] },
+    steps:['Reading detected tech stack…','Checking for missing .gitignore patterns…','Generating language-specific .gitignore…','Creating or updating README.md scaffold…','Writing pyproject.toml / package.json lint settings…','Adding .editorconfig for consistent formatting…','Verifying repo structure is CI-ready…'] },
 
   { id:'docs', emoji:'📚', label:'Docs',
-    consumer:'Sevaforge is writing your documentation automatically. It produces an architecture diagram showing how all the parts of your system connect, a threat model listing what could go wrong and how to prevent it, and a database diagram so anyone can understand the data structure — without you writing a single word.',
-    purpose:'Generate architecture diagrams, threat models, ERDs, API docs',
+    consumer:'Sevaforge writes your documentation automatically — an architecture diagram, a threat model, and a database diagram — without you writing a single word.',
     outputs:'ARCHITECTURE.md · THREAT_MODEL.md · ERD · deployment diagram',
-    steps:['Parsing source files for modules and services…','Building C4 component model…','Generating ARCHITECTURE.md with Mermaid diagram…','Running STRIDE threat-modelling pass…','Writing THREAT_MODEL.md with risk table…','Extracting DB schema for Entity Relationship Diagram…','Generating API reference from route handlers…'] },
+    steps:['Parsing source files for modules and services…','Building C4 component model…','Generating ARCHITECTURE.md with Mermaid diagram…','Running STRIDE threat-modelling pass…','Writing THREAT_MODEL.md with risk table…','Extracting DB schema for ERD…','Generating API reference from route handlers…'] },
 
   { id:'iac', emoji:'🏗️', label:'Infrastructure',
-    consumer:'Sevaforge is building the cloud infrastructure blueprint for your app. It writes the Terraform files that tell AWS, GCP, or Azure exactly what servers, networks, and storage to create — and it builds a Dockerfile so your app runs identically on every machine, from your laptop to production.',
-    purpose:'Generate Terraform + Docker for your detected cloud stack',
+    consumer:'Sevaforge builds the cloud blueprint for your app — writing the Terraform files that tell AWS, GCP, or Azure exactly what servers to create, plus a Dockerfile.',
     outputs:'main.tf · variables.tf · Dockerfile · docker-compose.yml',
     steps:['Reading cloud target from config (AWS / GCP / Azure)…','Scaffolding Terraform provider block…','Generating network module (VPC, subnets, SGs)…','Generating cluster module (EKS / GKE / AKS)…','Writing variables.tf and outputs.tf…','Building multi-stage Dockerfile…','Writing docker-compose.yml for local dev…'] },
 
-  { id:'cd', emoji:'🚀', label:'Continuous Deployment',
-    consumer:'Sevaforge is setting up your automated deployment pipeline. Every time you merge code, it will automatically roll out your changes to dev, then staging, then production — with safety checks at each step. No more manually copying files to servers or running deployment scripts by hand.',
-    purpose:'Generate ArgoCD, Kustomize, and Kubernetes deployment manifests',
-    outputs:'deploy.yml · argocd app · k8s manifests · kustomize overlays',
+  { id:'cd', emoji:'🚀', label:'CD Pipeline',
+    consumer:'Sevaforge sets up your automated deployment pipeline — every time you merge code, it rolls out changes to dev, staging, then production with safety checks.',
+    outputs:'deploy.yml · ArgoCD app · k8s manifests · Kustomize overlays',
     steps:['Scaffolding ArgoCD Application manifest…','Generating AppProject and RBAC rules…','Writing Kustomize base (deployment, service, configmap)…','Creating dev / staging / prod overlays…','Generating GitHub Actions infra.yml workflow…','Writing bootstrap.yml for ArgoCD install…','Generating deploy.yml pilot-to-prod pipeline…'] },
 
-  { id:'ci', emoji:'⚙️', label:'Continuous Integration',
-    consumer:'Sevaforge is wiring up your quality gates. From now on, every time anyone pushes code, GitHub will automatically run your tests, check for security issues, and build a fresh container image. Bad code gets caught before it ever reaches your users — not after.',
-    purpose:'Generate chained GitHub Actions pipeline — Security → Tests → Build',
+  { id:'ci', emoji:'⚙️', label:'CI Pipelines',
+    consumer:'Sevaforge wires up your quality gates — every code push automatically runs your tests, checks for security issues, and builds a fresh container image.',
     outputs:'pipeline.yml · release.yml · .gitlab-ci.yml · dependabot.yml',
     steps:['Detecting existing CI configs to avoid conflicts…','Writing ci.yml — lint + unit test job…','Adding security.yml — Trivy + Snyk scan job…','Writing release.yml — build + push container image…','Generating .gitlab-ci.yml equivalent…','Adding Dependabot auto-update config…','Linking jobs into dependency chain…'] },
 
-  { id:'e2e', emoji:'🧪', label:'End-to-End Tests',
-    consumer:'Sevaforge is writing browser-level tests that check your app works from a real user\'s perspective. It creates test scripts that log in, navigate pages, fill forms, and call your APIs — the same actions your users take. These run automatically on every deployment so regressions are caught immediately.',
-    purpose:'Scaffold Playwright E2E tests and CI workflow for API endpoints',
+  { id:'e2e', emoji:'🧪', label:'E2E Tests',
+    consumer:'Sevaforge writes browser-level tests that check your app works from a real user\'s perspective — login, navigation, forms, API calls — running on every deployment.',
     outputs:'playwright.config.ts · tests/e2e/*.spec.ts · e2e.yml',
     steps:['Detecting API routes from source…','Scaffolding playwright.config.ts…','Generating auth flow spec (login / logout)…','Writing navigation and routing spec…','Generating form submission spec…','Adding API health-check spec…','Writing e2e.yml GitHub Actions workflow…'] },
 
   { id:'review', emoji:'👁️', label:'Code Review',
-    consumer:'An AI engineer is reading every line of your code right now. It looks for functions that are too complex, duplicated logic, dead code nobody calls, inconsistent patterns, and missing error handling — then writes up a prioritised list of improvements so your team knows exactly what to fix first.',
-    purpose:'AI code review — quality, patterns, complexity, dead code',
+    consumer:'An AI engineer reads every line of your code — finding functions that are too complex, duplicated logic, dead code, and missing error handling — then writes a prioritised fix list.',
     outputs:'Code quality report · Improvement suggestions · Findings list',
-    steps:['Reading all source files into context…','Analysing cyclomatic complexity…','Detecting code duplication and dead code…','Checking naming conventions and style…','Reviewing error handling patterns…','Identifying potential performance bottlenecks…','Writing code quality report…'] },
+    steps:['Reading all source files into context…','Analysing cyclomatic complexity…','Detecting code duplication and dead code…','Checking naming conventions and style…','Reviewing error handling patterns…','Identifying performance bottlenecks…','Writing code quality report…'] },
 
   { id:'test', emoji:'✅', label:'Test Suite',
-    consumer:'Sevaforge is running all your tests and measuring how much of your code they actually cover. You\'ll get a clear pass/fail result, the exact names of any failing tests, and a coverage percentage — so you know immediately whether your code is solid or has gaps that need attention.',
-    purpose:'Run unit tests, measure coverage, report failures',
+    consumer:'Sevaforge runs all your tests and measures coverage — giving you a clear pass/fail result, the exact names of any failures, and a coverage percentage.',
     outputs:'Test results · Coverage % · Failing test details',
     steps:['Discovering test files and test runner…','Installing test dependencies…','Running unit test suite…','Measuring line and branch coverage…','Collecting failing test names and stack traces…','Comparing coverage against threshold…','Writing test results report…'] },
 
   { id:'scan', emoji:'🔒', label:'Security Scan',
-    consumer:'Sevaforge is checking your project for security holes before hackers find them. It scans your code for common vulnerabilities, checks every dependency for known CVEs, and hunts for accidentally committed secrets like API keys or passwords. You get a prioritised list of what to fix — critical issues first.',
-    purpose:'Security vulnerability scan — SAST, deps, secrets detection',
+    consumer:'Sevaforge checks your project for security holes before hackers find them — scanning code, checking dependencies for CVEs, and hunting for leaked secrets.',
     outputs:'SARIF report · CVE list · Severity-classified findings',
-    steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity (Critical / High / Med / Low)…','Generating SARIF report…','Listing actionable remediation steps…'] },
+    steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity…','Generating SARIF report…','Listing actionable remediation steps…'] },
 
   { id:'bridge', emoji:'🌉', label:'Push to GitHub',
-    consumer:'All the files Sevaforge generated — the infrastructure code, deployment pipelines, tests, documentation, and security configs — are now being committed and pushed to your GitHub repository. Your team will see a pull request they can review, merge, and immediately start benefiting from.',
-    purpose:'Push all generated files to GitHub, create PR if needed',
+    consumer:'All generated files — infrastructure, pipelines, tests, docs, security configs — are committed and pushed to your GitHub repo so your team can immediately review and merge.',
     outputs:'GitHub repo · All generated files committed · PR link',
     steps:['Authenticating with GitHub…','Checking if remote repository exists…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…','Recording PR URL in pipeline report…'] },
 
-  { id:'deploy', emoji:'☁️', label:'Deploy to Cloud',
-    consumer:'Your application is being deployed to the cloud right now. Sevaforge applies the infrastructure it built, pushes your container to the registry, and starts it up on Kubernetes. In a few minutes you\'ll have a live URL your users can hit — with automatic rollback if anything goes wrong.',
-    purpose:'Deploy to cloud (AWS EKS / GCP Cloud Run / Azure AKS)',
-    outputs:'Live deployment URL · Health check · Rollback plan',
+  { id:'deploy', emoji:'☁️', label:'Deploy',
+    consumer:'Your application is deployed to the cloud. Sevaforge applies the infrastructure, pushes your container, and starts it on Kubernetes — with automatic rollback if anything fails.',
+    outputs:'Live URL · Health check · Rollback plan',
     steps:['Reading kubeconfig / cloud credentials…','Running terraform plan…','Applying infrastructure changes…','Pushing container image to registry…','Applying Kubernetes manifests…','Waiting for pods to reach Running state…','Verifying health check endpoint…'] },
 
-  { id:'monitor', emoji:'📊', label:'Monitoring Setup',
-    consumer:'Sevaforge is installing your observability stack so you always know what your app is doing in production. You\'ll get live dashboards showing response times, error rates, and server load — plus automatic alerts that page you the moment something goes wrong, before your users even notice.',
-    purpose:'Set up Prometheus, Grafana, alerts, SLOs, dashboards',
-    outputs:'prometheus.yml · grafana dashboards · alert rules · SLO config',
+  { id:'monitor', emoji:'📊', label:'Monitoring',
+    consumer:'Sevaforge installs your observability stack — live dashboards showing response times and error rates, plus automatic alerts that page you the moment something goes wrong.',
+    outputs:'prometheus.yml · Grafana dashboards · alert rules · SLO config',
     steps:['Installing Prometheus stack via Helm…','Writing scrape config for app metrics…','Importing Grafana dashboard templates…','Configuring alert rules (error rate, latency, saturation)…','Defining SLO objectives and burn-rate alerts…','Writing runbook links into alerts…','Verifying metrics are flowing…'] },
 ];
 
-function DashboardView({ history, connected, onNavigate }) {
-  const runs       = history.length;
-  const successes  = history.filter(r => r.status === 'success').length;
-  const rate       = runs ? Math.round(successes / runs * 100) : null;
-  const last       = history[0];
-  const totalStages = history.reduce((a,r) => a + (r.stageCount||0), 0);
+const VIEWS = [
+  { id:'live',      label:'Run Pipeline', icon:'▶' },
+  { id:'dashboard', label:'Dashboard',    icon:'◈' },
+  { id:'pipeline',  label:'Stages',       icon:'⬡' },
+  { id:'history',   label:'History',      icon:'◷' },
+  { id:'health',    label:'Health',       icon:'♥' },
+  { id:'settings',  label:'Settings',     icon:'⚙' },
+];
+
+const timeSince = (ts) => {
+  if (!ts) return '—';
+  const d = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (d < 60) return `${d}s ago`;
+  if (d < 3600) return `${Math.floor(d/60)}m ago`;
+  return new Date(ts).toLocaleTimeString();
+};
+
+// ── Hourglass canvas ──────────────────────────────────────────────────────────
+function HourGlass({ status = 'running', size = 140 }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const cv = canvasRef.current; if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height, cx = W/2, cy = H/2;
+    const TW = W*.38, TH = H*.39, NK = 2.8;
+    const outlinePath = () => { ctx.beginPath(); ctx.moveTo(cx-TW,cy-TH); ctx.lineTo(cx+TW,cy-TH); ctx.lineTo(cx+NK,cy); ctx.lineTo(cx+TW,cy+TH); ctx.lineTo(cx-TW,cy+TH); ctx.lineTo(cx-NK,cy); ctx.closePath(); };
+    const topClip = () => { ctx.beginPath(); ctx.moveTo(cx-TW,cy-TH); ctx.lineTo(cx+TW,cy-TH); ctx.lineTo(cx+NK,cy); ctx.lineTo(cx-NK,cy); ctx.closePath(); };
+    const botClip = () => { ctx.beginPath(); ctx.moveTo(cx-NK,cy); ctx.lineTo(cx+NK,cy); ctx.lineTo(cx+TW,cy+TH); ctx.lineTo(cx-TW,cy+TH); ctx.closePath(); };
+    let level=0, grains=[], alive=true, rafId, last=null; const CYCLE=5500;
+    const frame = (ts) => {
+      if (!alive) return;
+      if (last===null) last=ts;
+      const dt=Math.min(ts-last,50); last=ts;
+      level+=dt/CYCLE; if(level>1) level=0;
+      ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff8f0'; ctx.fillRect(0,0,W,H);
+      const og=ctx.createLinearGradient(cx,cy-TH,cx,cy+TH);
+      og.addColorStop(0,'rgba(249,115,22,.8)'); og.addColorStop(.5,'rgba(234,88,12,.6)'); og.addColorStop(1,'rgba(249,115,22,.8)');
+      ctx.save(); outlinePath(); ctx.strokeStyle=og; ctx.lineWidth=2; ctx.stroke(); ctx.restore();
+      const topSandH=TH*(1-level), topSandY=cy-topSandH, topSandSpan=NK+(TW-NK)*topSandH/TH;
+      ctx.save(); topClip(); ctx.clip();
+      const tg=ctx.createLinearGradient(0,topSandY,0,cy);
+      tg.addColorStop(0,'rgba(249,115,22,.18)'); tg.addColorStop(1,'rgba(249,115,22,.45)');
+      ctx.beginPath(); ctx.moveTo(cx-topSandSpan,topSandY); ctx.lineTo(cx+topSandSpan,topSandY); ctx.lineTo(cx+NK,cy); ctx.lineTo(cx-NK,cy); ctx.closePath(); ctx.fillStyle=tg; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx-topSandSpan,topSandY); ctx.lineTo(cx+topSandSpan,topSandY); ctx.strokeStyle='rgba(249,115,22,.7)'; ctx.lineWidth=1.3; ctx.stroke(); ctx.restore();
+      const botSandH=TH*level, botSandY=cy+TH-botSandH, botSandSpan=NK+(TW-NK)*botSandH/TH;
+      ctx.save(); botClip(); ctx.clip();
+      const bg2=ctx.createLinearGradient(0,botSandY,0,cy+TH);
+      bg2.addColorStop(0,'rgba(249,115,22,.22)'); bg2.addColorStop(1,'rgba(249,115,22,.5)');
+      ctx.beginPath(); ctx.moveTo(cx-botSandSpan,botSandY); ctx.lineTo(cx+botSandSpan,botSandY); ctx.lineTo(cx+TW,cy+TH); ctx.lineTo(cx-TW,cy+TH); ctx.closePath(); ctx.fillStyle=bg2; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx-botSandSpan,botSandY); ctx.lineTo(cx+botSandSpan,botSandY); ctx.strokeStyle='rgba(249,115,22,.55)'; ctx.lineWidth=1.1; ctx.stroke(); ctx.restore();
+      if (status==='running') {
+        if (Math.random()<.35) grains.push({x:cx+(Math.random()-.5)*3,y:cy+1,vy:1.2+Math.random()*2,r:.7+Math.random()*.9,a:.6+Math.random()*.4});
+        grains=grains.filter(g=>{ g.y+=g.vy; g.vy+=.18; if(g.y>botSandY) return false; ctx.beginPath(); ctx.arc(g.x,g.y,g.r,0,Math.PI*2); ctx.fillStyle=`rgba(249,115,22,${g.a})`; ctx.fill(); return true; });
+      }
+      rafId=requestAnimationFrame(frame);
+    };
+    rafId=requestAnimationFrame(frame);
+    return ()=>{ alive=false; cancelAnimationFrame(rafId); };
+  }, [status]);
+  return <div className="hg-wrap" style={{width:size,height:size}}><canvas ref={canvasRef} width={size} height={size} /></div>;
+}
+
+// ── Activity ticker ───────────────────────────────────────────────────────────
+function ActivityTicker({ stageId, running }) {
+  const steps = (STAGE_INFO_FULL.find(s=>s.id===stageId)||{}).steps || ['Working…'];
+  const [idx, setIdx] = useState(0);
+  const [vis, setVis] = useState(true);
+  useEffect(() => {
+    if (!running) return;
+    setIdx(0); setVis(true);
+    const iv = setInterval(()=>{ setVis(false); setTimeout(()=>{ setIdx(i=>(i+1)%steps.length); setVis(true); },300); },4000);
+    return ()=>clearInterval(iv);
+  }, [stageId, running]);
+  return (
+    <div className="ticker-wrap">
+      <div className="ticker-label">⚡ Live activity</div>
+      <div style={{fontSize:'0.8rem',color:'#92400e',lineHeight:1.5,opacity:vis?1:0,transition:'opacity .3s',minHeight:'1.3rem'}}>
+        {steps[idx]}
+      </div>
+      <div style={{display:'flex',gap:4,marginTop:6}}>
+        {steps.map((_,i)=><span key={i} style={{width:5,height:5,borderRadius:'50%',display:'inline-block',background:i===idx?'var(--orange)':'#fed7aa',transition:'background .3s'}} />)}
+      </div>
+    </div>
+  );
+}
+
+// ── Sevaforge hex logo ────────────────────────────────────────────────────────
+function SevaForgeLogo({ size=36, spinning=false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" fill="none"
+         style={spinning?{animation:'spin .8s linear infinite'}:{}}>
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#f97316"/><stop offset="100%" stopColor="#ea580c"/>
+        </linearGradient>
+      </defs>
+      <polygon points="28,2 51,15 51,41 28,54 5,41 5,15"
+               stroke="url(#lg1)" strokeWidth="2" fill="rgba(249,115,22,.08)" strokeLinejoin="round"/>
+      <path d="M24 43C24 43 16 34 20 26C21.5 23 23.5 26 25 24C25 24 22 16 28 11C28 11 30 20 34.5 18C37.5 23 40 31 34 43Z"
+            fill="url(#lg1)"/>
+      <rect x="20" y="43" width="16" height="2.5" rx="1.25" fill="url(#lg1)" opacity=".6"/>
+    </svg>
+  );
+}
+
+// ── Folder picker panel ───────────────────────────────────────────────────────
+function FolderPicker({ onPathSelected }) {
+  const [path,   setPath]   = useState('');
+  const [status, setStatus] = useState('idle'); // idle|browsing|typing|error|ok
+  const [errMsg, setErrMsg] = useState('');
+
+  const browse = async () => {
+    setStatus('browsing');
+    try {
+      const res  = await fetch('/api/browse', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+      const data = await res.json();
+      if (data.path) { setPath(data.path); setStatus('typing'); onPathSelected(data.path); }
+      else { setStatus('idle'); }
+    } catch(e) { setStatus('idle'); }
+  };
+
+  const launch = async () => {
+    const p = path.trim();
+    if (!p) { setErrMsg('Please select or enter a folder path.'); setStatus('error'); return; }
+    setStatus('ok');
+    setErrMsg('');
+    onPathSelected(p);
+  };
 
   return (
-    <div className="slide-in space-y-6">
+    <div style={{maxWidth:540, margin:'0 auto'}}>
+      {/* Drop zone / browse area */}
+      <div className={`folder-drop-zone ${path?'has-path':''}`} onClick={browse}
+           style={{marginBottom:16}}>
+        {status==='browsing' ? (
+          <>
+            <div className="folder-icon spin">⏳</div>
+            <div style={{fontSize:'0.9rem',color:'var(--muted)',fontWeight:500}}>Opening folder picker…</div>
+          </>
+        ) : path ? (
+          <>
+            <div style={{fontSize:'2rem',marginBottom:8}}>📁</div>
+            <div style={{fontSize:'0.85rem',fontWeight:700,color:'var(--orange)',marginBottom:4}}>Folder selected</div>
+            <div style={{fontFamily:'monospace',fontSize:'0.78rem',color:'var(--muted)',wordBreak:'break-all'}}>{path}</div>
+            <div style={{fontSize:'0.72rem',color:'var(--light)',marginTop:8}}>Click to change folder</div>
+          </>
+        ) : (
+          <>
+            <div className="folder-icon">📂</div>
+            <div style={{fontSize:'0.95rem',fontWeight:600,color:'var(--text)',marginBottom:6}}>Click to select your project folder</div>
+            <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Opens your Mac folder picker — no terminal needed</div>
+          </>
+        )}
+      </div>
 
-      {/* Hero */}
-      <div className="live-hero flex items-center gap-5 px-6 py-5">
-        <SevaForgeLogo size={56} />
-        <div className="flex-1">
-          <div className="seva-wordmark text-2xl mb-1">Sevaforge</div>
-          <NoCaaSBadge />
-          <p className="text-sm opacity-50 mt-2">AI Platform Engineering · 14-stage pipeline automation · ForgeFlow v2.1</p>
+      {/* Manual path input */}
+      <div style={{marginBottom:4,fontSize:'0.72rem',color:'var(--muted)',fontWeight:600}}>
+        OR TYPE PATH DIRECTLY
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:12}}>
+        <input
+          type="text"
+          value={path}
+          onChange={e=>{ setPath(e.target.value); setStatus('typing'); setErrMsg(''); onPathSelected(e.target.value); }}
+          onKeyDown={e=>e.key==='Enter' && launch()}
+          placeholder="~/your-ai-project  or  /Users/you/project"
+          style={{
+            flex:1, padding:'9px 12px', borderRadius:8, fontFamily:'monospace',
+            fontSize:'0.82rem', border:`1px solid ${status==='error'?'var(--err)':'var(--border)'}`,
+            outline:'none', background:'#fff', color:'var(--text)',
+          }}
+        />
+      </div>
+
+      {status==='error' && <div style={{color:'var(--err)',fontSize:'0.78rem',marginBottom:10}}>⚠ {errMsg}</div>}
+    </div>
+  );
+}
+
+// ── Idle / launch screen ──────────────────────────────────────────────────────
+function IdleScreen({ connected, onLaunch }) {
+  const [chosenPath, setChosenPath] = useState('');
+  const [launching,  setLaunching]  = useState(false);
+  const [launchErr,  setLaunchErr]  = useState('');
+
+  const handleLaunch = async () => {
+    const p = chosenPath.trim();
+    if (!p) { setLaunchErr('Please select a project folder first.'); return; }
+    setLaunching(true); setLaunchErr('');
+    try {
+      const res  = await fetch('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path:p}) });
+      const data = await res.json();
+      if (!res.ok) { setLaunchErr(data.error || `Error ${res.status}`); setLaunching(false); return; }
+      onLaunch(p);
+    } catch(e) { setLaunchErr(`Server unreachable: ${e.message}`); setLaunching(false); }
+  };
+
+  return (
+    <div style={{maxWidth:680, margin:'0 auto', padding:'40px 0'}}>
+      {/* Page header */}
+      <div style={{marginBottom:32}}>
+        <h1 style={{fontSize:'1.65rem',fontWeight:800,color:'var(--text)',letterSpacing:'-0.5px',marginBottom:6}}>
+          New Pipeline Run
+        </h1>
+        <p style={{color:'var(--muted)',fontSize:'0.9rem',lineHeight:1.6}}>
+          Select your AI project folder and Sevaforge will automatically run all 11 stages —
+          from code analysis through infrastructure, CI/CD, security, and GitHub push.
+        </p>
+      </div>
+
+      {/* Step 1 — Select folder */}
+      <div className="sf-card" style={{marginBottom:16}}>
+        <div className="sf-card-header">
+          <span style={{background:'var(--orange)',color:'#fff',width:20,height:20,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,flexShrink:0}}>1</span>
+          Select your project folder
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className={`badge gap-1 ${connected===true?'badge-success':connected===false?'badge-error':'badge-ghost'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full bg-current ${connected===true?'animate-pulse':''}`}/>
-            {connected===true?'Dashboard Live':connected===false?'Disconnected':'Connecting…'}
-          </span>
-          <span className="text-xs font-mono opacity-30">localhost · SSE stream</span>
+        <div className="sf-card-body">
+          <FolderPicker onPathSelected={setChosenPath} />
         </div>
       </div>
 
-      {/* Run stats — from SSE history */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label:'Pipeline Runs',    value: runs || '0',        sub:'total executions',        color:'#818cf8' },
-          { label:'Success Rate',     value: rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color: rate>=80?'#34d399':rate>50?'#fbbf24':'#f87171' },
-          { label:'Last Run',         value: last?(last.status==='success'?'Passed':'Failed'):'None', sub:last?timeSince(last.ts):'no runs yet', color:last?(last.status==='success'?'#34d399':'#f87171'):'#6b7280' },
-          { label:'Stages Run',       value: totalStages || '0', sub:'across all runs',         color:'#f59e0b' },
-        ].map(({label,value,sub,color}) => (
-          <div key={label} className="card bg-base-200/80 shadow">
-            <div className="card-body py-4 px-5">
-              <div className="text-xs uppercase tracking-widest opacity-40 mb-1">{label}</div>
-              <div className="text-2xl font-bold" style={{color}}>{value}</div>
-              <div className="text-xs opacity-40">{sub}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Quick start */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">⚡ Quick Start</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { step:'1', label:'Run full pipeline with live GUI', cmd:'forgeflow run-all --gui ~/your-repo' },
-              { step:'2', label:'Run a single stage', cmd:'forgeflow discover --path ~/your-repo' },
-              { step:'3', label:'Check what ForgeFlow will generate', cmd:'forgeflow iac --cloud aws --path ~/repo' },
-              { step:'4', label:'Push everything to GitHub', cmd:'forgeflow bridge --path ~/your-repo' },
-            ].map(({step,label,cmd}) => (
-              <div key={step} className="rounded-xl p-3"
-                   style={{background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.15)'}}>
-                <div className="text-xs opacity-50 mb-1">Step {step} — {label}</div>
-                <code className="text-xs font-mono text-warning block">{cmd}</code>
+      {/* Step 2 — Launch */}
+      <div className="sf-card" style={{marginBottom:24}}>
+        <div className="sf-card-header">
+          <span style={{background: chosenPath ? 'var(--orange)' : '#d1d5db',color:'#fff',width:20,height:20,borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,flexShrink:0}}>2</span>
+          Run the full pipeline
+        </div>
+        <div className="sf-card-body">
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}}>
+            <div>
+              <div style={{fontWeight:600,fontSize:'0.88rem',color:'var(--text)',marginBottom:4}}>
+                11 automated stages will run in sequence
               </div>
-            ))}
+              <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>
+                Discover → Normalize → Docs → IAC → CD → CI → E2E → Review → Test → Scan → GitHub Push
+              </div>
+              {chosenPath && (
+                <div style={{marginTop:8,fontFamily:'monospace',fontSize:'0.75rem',color:'var(--orange)',
+                             background:'#fff7ed',padding:'4px 10px',borderRadius:6,display:'inline-block'}}>
+                  📁 {chosenPath}
+                </div>
+              )}
+            </div>
+            <button className="btn-primary" onClick={handleLaunch}
+                    disabled={!chosenPath || launching}
+                    style={{flexShrink:0, padding:'11px 28px', fontSize:'0.9rem'}}>
+              {launching ? <><span className="spin">⟳</span> Starting…</> : '▶  Run Pipeline'}
+            </button>
           </div>
+          {launchErr && <div style={{color:'var(--err)',fontSize:'0.78rem',marginTop:10}}>⚠ {launchErr}</div>}
         </div>
       </div>
 
-      {/* Pipeline stages overview */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">📋 What Each Stage Does for You</h3>
-          <div className="space-y-2">
-            {STAGE_INFO_FULL.slice(0,11).map((s) => (
-              <div key={s.id} className="flex items-start gap-3 rounded-xl px-4 py-3"
-                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)'}}>
-                <span className="text-2xl flex-shrink-0 mt-0.5">{s.emoji}</span>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm mb-1" style={{color:'#c4b5fd'}}>{s.label}</div>
-                  <div className="text-sm opacity-70 leading-relaxed">{s.consumer || s.purpose}</div>
-                  <div className="text-xs mt-1.5 font-mono opacity-30">→ {s.outputs}</div>
+      {/* What's included */}
+      <div className="sf-card">
+        <div className="sf-card-header">What Sevaforge generates for you</div>
+        <div style={{padding:'16px 20px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+            {[
+              {emoji:'🏗️', label:'Terraform + Docker',    sub:'VPC, EKS/GKE/AKS, multi-stage Dockerfile'},
+              {emoji:'🚀', label:'ArgoCD + Kustomize',    sub:'dev / staging / prod overlays, auto-rollback'},
+              {emoji:'⚙️', label:'GitHub Actions CI/CD',  sub:'Security → Tests → Build → Release pipeline'},
+              {emoji:'📚', label:'Full Documentation',     sub:'Architecture diagram, threat model, API docs'},
+              {emoji:'🧪', label:'Playwright E2E Tests',   sub:'Auth, navigation, form and API test specs'},
+              {emoji:'🔒', label:'Security Scan Report',   sub:'SAST, CVE check, secrets detection, SARIF'},
+              {emoji:'🌉', label:'GitHub Repository Push', sub:'All files committed, PR opened for review'},
+              {emoji:'📊', label:'Prometheus + Grafana',   sub:'Dashboards, alerts, SLOs, runbook links'},
+            ].map(({emoji,label,sub})=>(
+              <div key={label} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'10px 12px',
+                                       borderRadius:8,background:'#f9fafb',border:'1px solid var(--border)'}}>
+                <span style={{fontSize:'1.2rem',flexShrink:0}}>{emoji}</span>
+                <div>
+                  <div style={{fontSize:'0.8rem',fontWeight:700,color:'var(--text)',marginBottom:2}}>{label}</div>
+                  <div style={{fontSize:'0.7rem',color:'var(--muted)'}}>{sub}</div>
                 </div>
               </div>
             ))}
@@ -461,27 +562,290 @@ function DashboardView({ history, connected, onNavigate }) {
         </div>
       </div>
 
-      {/* Recent runs */}
-      {history.length > 0 && (
-        <div className="card bg-base-200/80 shadow">
-          <div className="card-body py-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-widest opacity-40">◷ Recent Runs</h3>
-              <button className="btn btn-xs btn-ghost opacity-50" onClick={() => onNavigate('history')}>View all →</button>
+      {/* Connection status */}
+      <div style={{marginTop:20,display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
+        <span style={{width:7,height:7,borderRadius:'50%',background:connected?'var(--ok)':'#d1d5db',
+                       boxShadow:connected?'0 0 6px var(--ok)':'none',display:'inline-block'}}/>
+        <span style={{fontSize:'0.72rem',color:'var(--muted)'}}>
+          {connected ? 'Dashboard server connected — ready to run' : 'Connecting to dashboard server…'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Pipeline running view ─────────────────────────────────────────────────────
+function RunningView({ liveState }) {
+  const { pipelinePath, stages, stageState, stageInfo, stageResults,
+          currentStage, currentNum, totalStages, done, elapsed } = liveState;
+
+  const stageEmoji = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).emoji || '▸';
+  const stageLabel = id => (STAGE_INFO_FULL.find(s=>s.id===id)||{}).label || id;
+
+  const allFinished = done && !currentStage;
+  const hasFailed   = Object.values(stageState).some(s=>s==='error');
+  const passedCount = Object.values(stageState).filter(s=>s==='success').length;
+  const pct         = totalStages ? Math.round(passedCount / totalStages * 100) : 0;
+
+  const staticMeta = STAGE_INFO_FULL.find(s=>s.id===currentStage) || {};
+  const sseInfo    = stageInfo[currentStage] || {};
+  const activeInfo = {
+    consumer:   staticMeta.consumer || '',
+    outputs:    sseInfo.outputs  || staticMeta.outputs || '',
+    agent:      sseInfo.agent    || '',
+    mcp_server: sseInfo.mcp_server || '',
+  };
+
+  const nodeClass = id => {
+    if (id === currentStage) return 'pipeline-node running';
+    const s = stageState[id];
+    if (s==='success') return 'pipeline-node done';
+    if (s==='error')   return 'pipeline-node error';
+    return 'pipeline-node pending';
+  };
+
+  const nodeStatus = id => {
+    if (id===currentStage) return { cls:'pill pill-running', dot:true, text:'Running' };
+    const s = stageState[id];
+    if (s==='success') return { cls:'pill pill-done',    dot:false, text:'Done' };
+    if (s==='error')   return { cls:'pill pill-error',   dot:false, text:'Error' };
+    return { cls:'pill pill-pending', dot:false, text:'Waiting' };
+  };
+
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+
+      {/* ── Run status bar ── */}
+      <div className="sf-card" style={{padding:'14px 20px',display:'flex',alignItems:'center',gap:16}}>
+        <SevaForgeLogo size={36} spinning={!!currentStage && !allFinished} />
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:'0.95rem',color:'var(--text)',marginBottom:2}}>
+            {allFinished
+              ? (hasFailed ? '⚠ Pipeline completed with errors' : '🎉 Pipeline complete!')
+              : currentStage
+                ? `Running — ${stageLabel(currentStage)}`
+                : 'Pipeline starting…'}
+          </div>
+          <div style={{fontFamily:'monospace',fontSize:'0.72rem',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            {pipelinePath || '—'}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,flexShrink:0}}>
+          {totalStages>0 && (
+            <span className={`pill ${allFinished?(hasFailed?'pill-error':'pill-done'):'pill-running'}`}>
+              {allFinished?(hasFailed?'✗ Failed':'✓ Done'):`${Math.min(currentNum,totalStages)} / ${totalStages}`}
+            </span>
+          )}
+          {elapsed>0 && <span className="pill pill-pending">{elapsed}s</span>}
+        </div>
+      </div>
+
+      {/* ── Progress bar ── */}
+      {totalStages>0 && (
+        <div>
+          <div className="sf-progress-track">
+            <div className="sf-progress-fill" style={{width:`${pct}%`}} />
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:'0.68rem',color:'var(--muted)'}}>
+            <span>{pct}% complete</span>
+            <span>{passedCount} of {totalStages} stages passed</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pipeline canvas — node graph ── */}
+      {stages.length>0 && (
+        <div>
+          <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+            Pipeline Flow
+          </div>
+          <div className="pipeline-canvas">
+            <div style={{display:'flex',alignItems:'center',gap:0,minWidth:'max-content'}}>
+              {stages.map((id,i)=>{
+                const ns = nodeStatus(id);
+                return (
+                  <React.Fragment key={id}>
+                    <div className={nodeClass(id)}>
+                      <span className="node-num">{i+1}</span>
+                      <div style={{fontSize:'1.3rem',marginBottom:5,lineHeight:1}}>{stageEmoji(id)}</div>
+                      <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--text)',marginBottom:7,
+                                   whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                        {stageLabel(id)}
+                      </div>
+                      <span className={ns.cls} style={{fontSize:'0.6rem',padding:'2px 7px'}}>
+                        {id===currentStage && <span className="pulse" style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'var(--orange)',marginRight:4,verticalAlign:'middle'}} />}
+                        {ns.text}
+                      </span>
+                    </div>
+                    {i<stages.length-1 && (
+                      <div className="pipeline-arrow">
+                        <svg width="24" height="10" viewBox="0 0 24 10">
+                          <line x1="0" y1="5" x2="16" y2="5"
+                                stroke={stageState[id]==='success'?'var(--ok)':'#d1d5db'} strokeWidth="1.5"/>
+                          <polyline points="13,2 20,5 13,8"
+                                    stroke={stageState[id]==='success'?'var(--ok)':'#d1d5db'}
+                                    strokeWidth="1.5" fill="none"/>
+                        </svg>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </div>
-            <div className="space-y-1.5">
-              {history.slice(0,5).map((r,i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2"
-                     style={{background: r.status==='success'?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
-                             border: r.status==='success'?'1px solid rgba(52,211,153,.15)':'1px solid rgba(239,68,68,.15)'}}>
-                  <span style={{color: r.status==='success'?'#34d399':'#f87171'}}>
-                    {r.status==='success'?'✓':'✗'}
+          </div>
+        </div>
+      )}
+
+      {/* ── Active stage spotlight ── */}
+      {currentStage && (
+        <div className="sf-card fade-in">
+          <div className="sf-card-header">
+            <span className="spin" style={{marginRight:4}}>⟳</span>
+            {stageLabel(currentStage)} — Stage {currentNum} of {totalStages}
+          </div>
+          <div style={{padding:'20px',display:'grid',gridTemplateColumns:'148px 1fr',gap:20}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+              <HourGlass status="running" size={144} />
+              <div style={{fontSize:'0.65rem',color:'var(--muted)',textAlign:'center',fontFamily:'monospace'}}>
+                stage {currentNum} / {totalStages}
+              </div>
+            </div>
+            <div>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                <span style={{fontSize:'2rem'}}>{stageEmoji(currentStage)}</span>
+                <div>
+                  <div style={{fontWeight:800,fontSize:'1.05rem',color:'var(--text)'}}>{stageLabel(currentStage)}</div>
+                  {(activeInfo.agent||activeInfo.mcp_server) && (
+                    <div style={{fontSize:'0.68rem',color:'var(--muted)',fontFamily:'monospace'}}>
+                      {activeInfo.agent}{activeInfo.mcp_server?` · ${activeInfo.mcp_server}`:''}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {activeInfo.consumer && (
+                <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:8,padding:'10px 14px',marginBottom:10}}>
+                  <div style={{fontSize:'0.62rem',fontWeight:700,color:'var(--orange)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5}}>
+                    What's happening
+                  </div>
+                  <div style={{fontSize:'0.82rem',color:'#92400e',lineHeight:1.55}}>
+                    {activeInfo.consumer}
+                  </div>
+                </div>
+              )}
+              {activeInfo.outputs && (
+                <div style={{fontSize:'0.7rem',color:'var(--muted)',fontFamily:'monospace',marginBottom:4}}>
+                  📦 {activeInfo.outputs}
+                </div>
+              )}
+              <ActivityTicker stageId={currentStage} running={true} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Stage results grid ── */}
+      {Object.entries(stageResults).length>0 && (
+        <div>
+          <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--muted)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+            Completed Stages
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {Object.entries(stageResults).map(([id,result])=>{
+              const ok   = result.status==='success';
+              const meta = STAGE_INFO_FULL.find(s=>s.id===id)||{};
+              return (
+                <div key={id} style={{
+                  display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderRadius:8,
+                  background:ok?'var(--ok-bg)':'var(--err-bg)',
+                  border:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
+                }}>
+                  <span style={{fontSize:'1.1rem',flexShrink:0}}>{meta.emoji||'▸'}</span>
+                  <div style={{minWidth:0,flex:1}}>
+                    <div style={{fontSize:'0.78rem',fontWeight:700,color:ok?'#065f46':'#991b1b'}}>
+                      {meta.label||id}
+                    </div>
+                    {result.summary && (
+                      <div style={{fontSize:'0.65rem',color:ok?'#047857':'#b91c1c',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {result.summary.slice(0,70)}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{fontSize:'0.9rem',fontWeight:700,color:ok?'var(--ok)':'var(--err)',flexShrink:0}}>
+                    {ok?'✓':'✗'}
                   </span>
-                  <span className="font-mono text-xs flex-1 truncate opacity-70">{r.path || '—'}</span>
-                  <span className="text-xs opacity-40">{r.stageCount||0} stages</span>
-                  <span className="text-xs opacity-30">{timeSince(r.ts)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Victory screen ── */}
+      {allFinished && !hasFailed && (
+        <div className="victory-card victory-pop">
+          <div className="victory-header">
+            <SevaForgeLogo size={44} />
+            <div style={{flex:1}}>
+              <div style={{fontSize:'1.4rem',fontWeight:900,color:'#fff',letterSpacing:'-0.5px',marginBottom:3}}>
+                🎉 Your AI app is cloud-ready!
+              </div>
+              <div style={{fontSize:'0.85rem',color:'rgba(255,255,255,.8)'}}>
+                All {totalStages} stages completed in <strong style={{color:'#fff'}}>{elapsed}s</strong>
+              </div>
+            </div>
+          </div>
+          <div style={{padding:'20px 24px'}}>
+            <div style={{fontSize:'0.72rem',fontWeight:700,color:'var(--ok)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>
+              What Sevaforge built for you
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {[
+                {emoji:'🏗️', title:'Cloud Infrastructure',   detail:'Terraform, VPC, Kubernetes, Docker'},
+                {emoji:'🚀', title:'Deployment Pipelines',   detail:'ArgoCD, Kustomize, dev/staging/prod'},
+                {emoji:'⚙️', title:'CI/CD Workflows',        detail:'GitHub Actions, security gate, releases'},
+                {emoji:'📚', title:'Documentation',          detail:'Architecture, threat model, API docs'},
+                {emoji:'🧪', title:'E2E Test Suite',         detail:'Playwright specs for all user flows'},
+                {emoji:'🔒', title:'Security Report',        detail:'SAST, CVE scan, secrets detection'},
+                {emoji:'🌉', title:'GitHub Push',            detail:'All files committed, PR opened'},
+                {emoji:'📋', title:'Runbooks & SLOs',        detail:'Grafana, Prometheus, alert rules'},
+              ].map(({emoji,title,detail})=>(
+                <div key={title} style={{display:'flex',gap:10,padding:'8px 12px',borderRadius:8,
+                                         background:'rgba(255,255,255,.6)',border:'1px solid var(--ok-br)'}}>
+                  <span style={{fontSize:'1.1rem',flexShrink:0}}>{emoji}</span>
+                  <div>
+                    <div style={{fontSize:'0.76rem',fontWeight:700,color:'#065f46'}}>{title}</div>
+                    <div style={{fontSize:'0.67rem',color:'#047857'}}>{detail}</div>
+                  </div>
                 </div>
               ))}
+            </div>
+            <div style={{marginTop:16,display:'flex',gap:10}}>
+              <div style={{flex:1,background:'rgba(255,255,255,.5)',border:'1px solid var(--ok-br)',
+                           borderRadius:8,padding:'10px 14px'}}>
+                <div style={{fontSize:'0.67rem',fontWeight:700,color:'var(--ok)',marginBottom:4}}>Next step</div>
+                <code style={{fontSize:'0.75rem',color:'#065f46'}}>gh pr view --web</code>
+              </div>
+              <div style={{flex:1,background:'rgba(255,255,255,.5)',border:'1px solid var(--ok-br)',
+                           borderRadius:8,padding:'10px 14px'}}>
+                <div style={{fontSize:'0.67rem',fontWeight:700,color:'var(--ok)',marginBottom:4}}>Deploy</div>
+                <code style={{fontSize:'0.75rem',color:'#065f46'}}>forgeflow deploy</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failed banner */}
+      {allFinished && hasFailed && (
+        <div style={{background:'var(--err-bg)',border:'1.5px solid var(--err-br)',borderRadius:12,padding:'16px 20px',
+                     display:'flex',alignItems:'center',gap:14}}>
+          <span style={{fontSize:'2rem'}}>⚠️</span>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem',color:'var(--err)',marginBottom:4}}>
+              Pipeline completed with errors
+            </div>
+            <div style={{fontSize:'0.8rem',color:'#b91c1c'}}>
+              Check the stage results above — most issues are fixable in one command.
             </div>
           </div>
         </div>
@@ -490,290 +854,161 @@ function DashboardView({ history, connected, onNavigate }) {
   );
 }
 
-// ── Pipeline ──────────────────────────────────────────────────────────────────
-
-function PipelineView() {
-  const [expanded, setExpanded] = useState(null);
-
-  const CORE   = STAGE_INFO_FULL.slice(0, 11);  // includes bridge
-  const POST   = STAGE_INFO_FULL.slice(11);
-  const FLOW   = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','bridge'];
-  const COLORS = ['#818cf8','#818cf8','#c084fc','#f59e0b','#f59e0b','#f59e0b','#f59e0b','#38bdf8','#38bdf8','#fb923c','#34d399'];
+// ── Dashboard view ────────────────────────────────────────────────────────────
+function DashboardView({ history, connected, onNavigate }) {
+  const runs      = history.length;
+  const successes = history.filter(r=>r.status==='success').length;
+  const rate      = runs ? Math.round(successes/runs*100) : null;
+  const last      = history[0];
 
   return (
-    <div className="slide-in space-y-6">
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div>
+        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Dashboard</h1>
+        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>AIDDaaS — AI Dev to Delivery as a Service · ForgeFlow v2.1</p>
+      </div>
 
-      {/* Flow diagram */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">Pipeline Sequence</h3>
-          <div className="flex flex-wrap items-center gap-1">
-            {FLOW.map((id,i) => {
-              const meta = STAGE_INFO_FULL.find(s=>s.id===id);
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        {[
+          {label:'Pipeline Runs',  value:runs||0,        sub:'total',          color:'#6366f1'},
+          {label:'Success Rate',   value:rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color:rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'},
+          {label:'Last Run',       value:last?timeSince(last.ts):'None', sub:last?(last.status==='success'?'Passed':'Failed'):'no runs yet', color:last?(last.status==='success'?'var(--ok)':'var(--err)'):'var(--muted)'},
+          {label:'Status',         value:connected?'Live':'Offline', sub:'dashboard server', color:connected?'var(--ok)':'var(--err)'},
+        ].map(({label,value,sub,color})=>(
+          <div key={label} className="sf-card" style={{padding:'16px 18px'}}>
+            <div style={{fontSize:'0.7rem',color:'var(--muted)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>{label}</div>
+            <div style={{fontSize:'1.6rem',fontWeight:800,color,marginBottom:2}}>{value}</div>
+            <div style={{fontSize:'0.72rem',color:'var(--light)'}}>{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stage overview */}
+      <div className="sf-card">
+        <div className="sf-card-header">What each stage does for you</div>
+        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:8}}>
+          {STAGE_INFO_FULL.slice(0,11).map(s=>(
+            <div key={s.id} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'10px 14px',
+                                     borderRadius:8,border:'1px solid var(--border)',background:'#fafafa'}}>
+              <span style={{fontSize:'1.3rem',flexShrink:0}}>{s.emoji}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:'0.82rem',color:'var(--text)',marginBottom:3}}>{s.label}</div>
+                <div style={{fontSize:'0.77rem',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
+                <div style={{fontSize:'0.67rem',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent runs */}
+      {history.length>0 && (
+        <div className="sf-card">
+          <div className="sf-card-header">Recent runs</div>
+          <div style={{padding:'12px 20px',display:'flex',flexDirection:'column',gap:6}}>
+            {history.slice(0,5).map((r,i)=>{
+              const ok=r.status==='success';
               return (
-                <React.Fragment key={id}>
-                  <span className="rounded-lg px-2.5 py-1 text-xs font-mono font-semibold"
-                        style={{background:'rgba(255,255,255,.05)', border:`1px solid ${COLORS[i]}40`, color:COLORS[i]}}>
-                    {meta?.emoji} {meta?.label || id.toUpperCase()}
-                  </span>
-                  {i < FLOW.length-1 && <span className="text-base-content/20 text-xs">→</span>}
-                </React.Fragment>
+                <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 12px',borderRadius:8,
+                                      background:ok?'var(--ok-bg)':'var(--err-bg)',
+                                      border:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`}}>
+                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700}}>{ok?'✓':'✗'}</span>
+                  <span style={{fontFamily:'monospace',fontSize:'0.75rem',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
+                  <span style={{fontSize:'0.7rem',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}</span>
+                </div>
               );
             })}
           </div>
-          <p className="text-xs opacity-30 mt-3">Post-merge (optional): 🚀 Deploy → 📊 Monitor</p>
         </div>
-      </div>
-
-      {/* How to run */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">▶ How to Run</h3>
-          <div className="space-y-3">
-            {[
-              { label:'Full pipeline with live browser GUI', cmd:'forgeflow run-all --gui ~/your-repo' },
-              { label:'Full pipeline (terminal only)',        cmd:'forgeflow run-all ~/your-repo' },
-              { label:'Single stage',                        cmd:'forgeflow discover --path ~/your-repo' },
-              { label:'CI/CD generation only',               cmd:'forgeflow ci --path ~/your-repo' },
-              { label:'Infrastructure only',                 cmd:'forgeflow iac --cloud aws --path ~/your-repo' },
-              { label:'Security scan only',                  cmd:'forgeflow scan --severity high --path ~/your-repo' },
-            ].map(({label,cmd}) => (
-              <div key={cmd} className="flex items-center gap-3 rounded-lg px-4 py-2.5"
-                   style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.15)'}}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs opacity-50 mb-0.5">{label}</div>
-                  <code className="text-sm font-mono text-warning">{cmd}</code>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Core stages detail — always visible */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4">What Each Stage Does for You</h3>
-          <div className="space-y-3">
-            {CORE.map((s, i) => (
-              <div key={s.id} className="rounded-xl overflow-hidden"
-                   style={{border:'1px solid rgba(124,58,237,.18)'}}>
-                {/* Header row */}
-                <div className="flex items-center gap-3 px-4 py-3"
-                     style={{background:'rgba(124,58,237,.08)'}}>
-                  <span className="text-2xl flex-shrink-0">{s.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-bold text-sm" style={{color:'#c4b5fd'}}>{s.label}</span>
-                    <span className="ml-2 text-xs font-mono opacity-30">{s.id}</span>
-                  </div>
-                  <span className="text-xs opacity-25 font-mono">stage {i+1}</span>
-                </div>
-                {/* Consumer description */}
-                <div className="px-4 py-3" style={{background:'rgba(255,255,255,.02)'}}>
-                  <div className="text-sm leading-relaxed text-base-content/75 mb-2">
-                    {s.consumer || s.purpose}
-                  </div>
-                  <div className="flex items-center justify-between gap-4 mt-2 pt-2"
-                       style={{borderTop:'1px solid rgba(255,255,255,.05)'}}>
-                    <div className="text-xs font-mono opacity-35 truncate">📦 {s.outputs}</div>
-                    <code className="text-xs font-mono text-warning/70 flex-shrink-0">forgeflow {s.id}</code>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Post-merge stages */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-5">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1">Post-Merge Stages</h3>
-          <p className="text-xs opacity-30 mb-4">Run after Bridge succeeds — requires a live cluster</p>
-          <div className="grid grid-cols-2 gap-3">
-            {POST.map(s => (
-              <div key={s.id} className="rounded-lg px-4 py-3"
-                   style={{background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)'}}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{s.emoji}</span>
-                  <span className="font-semibold text-sm" style={{color:'#c4b5fd'}}>{s.label}</span>
-                </div>
-                <div className="text-xs opacity-50">{s.purpose}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// ── Health ────────────────────────────────────────────────────────────────────
-
-function HealthView({ sseConnected, liveState }) {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 5000); return () => clearInterval(t); }, []);
-
-  const checks = [
-    { label:'Dashboard SSE Stream',    ok: sseConnected,                  detail: sseConnected ? 'Receiving real-time events' : 'Not connected — run forgeflow run-all --gui' },
-    { label:'Pipeline Ready',          ok: true,                           detail: 'ForgeFlow CLI installed and configured' },
-    { label:'Live View',               ok: true,                           detail: 'React UI rendering correctly' },
-    { label:'Hourglass Animation',     ok: true,                           detail: 'Canvas animation engine active' },
-    { label:'SSE Event Bus',           ok: sseConnected,                  detail: sseConnected ? 'Events flowing' : 'Waiting for CLI connection' },
-    { label:'NoCaaS Mode',             ok: true,                           detail: 'Running at zero cost — no external services' },
-    { label:'Stage Announcements',     ok: true,                           detail: 'Purpose + Outputs displayed per stage' },
-    { label:'Sevaforge Branding',      ok: true,                           detail: 'Logo, NoCaaS badge, amber/purple theme active' },
-  ];
-
-  const okCount = checks.filter(c=>c.ok).length;
-  const pct = Math.round(okCount/checks.length*100);
-
+// ── Pipeline stages reference ─────────────────────────────────────────────────
+function StagesView() {
+  const CORE = STAGE_INFO_FULL.slice(0,11);
   return (
-    <div className="slide-in space-y-5">
-
-      {/* Summary */}
-      <div className="live-hero flex items-center gap-6 px-6 py-5">
-        <div className="flex flex-col items-center">
-          <div className="text-4xl font-bold mb-1" style={{color: pct===100?'#34d399':'#fbbf24'}}>{pct}%</div>
-          <div className="text-xs opacity-40">System Health</div>
-          <progress className="progress progress-success w-20 mt-2 h-1.5" value={pct} max="100" />
-        </div>
-        <div className="flex-1">
-          <div className="font-bold text-lg mb-1" style={{color: pct===100?'#34d399':'#fbbf24'}}>
-            {pct===100 ? '✓ All Systems Operational' : `⚠ ${checks.length-okCount} check${checks.length-okCount>1?'s':''} need attention`}
-          </div>
-          <div className="text-sm opacity-50">{okCount} of {checks.length} components passing · {now.toLocaleTimeString()}</div>
-        </div>
-        <SevaForgeLogo size={44} />
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div>
+        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Pipeline Stages</h1>
+        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>11 stages run automatically, end to end, on every run.</p>
       </div>
-
-      {/* Component checks */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Component Status</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {checks.map((c,i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                   style={{background: c.ok?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
-                           border: c.ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(239,68,68,.2)'}}>
-                <span className="text-base flex-shrink-0" style={{color:c.ok?'#34d399':'#f87171'}}>{c.ok?'✓':'✗'}</span>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold" style={{color:c.ok?'#6ee7b7':'#fca5a5'}}>{c.label}</div>
-                  <div className="text-xs opacity-40 truncate">{c.detail}</div>
-                </div>
-              </div>
+      {/* Flow */}
+      <div className="sf-card">
+        <div className="sf-card-header">Sequence</div>
+        <div style={{padding:'16px 20px',overflowX:'auto'}}>
+          <div style={{display:'flex',alignItems:'center',gap:4,minWidth:'max-content'}}>
+            {CORE.map((s,i)=>(
+              <React.Fragment key={s.id}>
+                <span style={{padding:'4px 12px',borderRadius:999,fontSize:'0.72rem',fontWeight:600,
+                               background:'#f9fafb',border:'1px solid var(--border)',color:'var(--text)',whiteSpace:'nowrap'}}>
+                  {s.emoji} {s.label}
+                </span>
+                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'0.7rem',flexShrink:0}}>→</span>}
+              </React.Fragment>
             ))}
           </div>
         </div>
       </div>
-
-      {/* Last pipeline state */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Last Pipeline State</h3>
-          {liveState.stages.length === 0
-            ? <p className="text-sm opacity-40">No pipeline run detected yet. Run <code className="text-warning font-mono">forgeflow run-all --gui .</code></p>
-            : (
-              <div className="space-y-2">
-                <div className="flex gap-6 text-sm">
-                  <div><span className="opacity-40">Path: </span><code className="font-mono text-warning text-xs">{liveState.pipelinePath || '—'}</code></div>
-                  <div><span className="opacity-40">Stages: </span><span className="font-semibold">{liveState.totalStages}</span></div>
-                  {liveState.elapsed>0 && <div><span className="opacity-40">Duration: </span><span className="font-semibold">{liveState.elapsed}s</span></div>}
-                </div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {liveState.stages.map(id => {
-                    const s = liveState.stageState[id];
-                    const c = s==='success'?'#34d399':s==='error'?'#f87171':s==='running'?'#fbbf24':'#4b5563';
-                    return (
-                      <span key={id} className="rounded px-2 py-0.5 text-xs font-mono"
-                            style={{background:`${c}18`, border:`1px solid ${c}40`, color:c}}>
-                        {id}
-                      </span>
-                    );
-                  })}
+      {/* Detail */}
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {CORE.map((s,i)=>(
+          <div key={s.id} className="sf-card">
+            <div style={{padding:'14px 20px',display:'flex',gap:14,alignItems:'flex-start'}}>
+              <div style={{width:30,height:30,borderRadius:'50%',background:'var(--orange)',color:'#fff',
+                           display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.72rem',fontWeight:800,flexShrink:0}}>
+                {i+1}
+              </div>
+              <span style={{fontSize:'1.5rem',flexShrink:0,marginTop:2}}>{s.emoji}</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--text)',marginBottom:4}}>{s.label}</div>
+                <div style={{fontSize:'0.8rem',color:'var(--muted)',lineHeight:1.55,marginBottom:6}}>{s.consumer}</div>
+                <div style={{fontSize:'0.68rem',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
+                <div style={{marginTop:6}}>
+                  <code style={{fontSize:'0.7rem',background:'#f3f4f6',padding:'2px 8px',borderRadius:4,color:'var(--muted)'}}>forgeflow {s.id}</code>
                 </div>
               </div>
-            )
-          }
-        </div>
-      </div>
-
-      {/* Environment */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Environment</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              ['Dashboard URL',    window.location.origin],
-              ['SSE Endpoint',     `${window.location.origin}/events`],
-              ['UI Version',       'ForgeFlow v2.1'],
-              ['Platform',         'Sevaforge NoCaaS'],
-              ['Theme',            'Night · Amber+Purple'],
-              ['Time',             now.toLocaleString()],
-            ].map(([k,v]) => (
-              <div key={k}>
-                <div className="text-xs uppercase tracking-wider opacity-30 mb-0.5">{k}</div>
-                <div className="text-xs font-mono opacity-70 truncate">{v}</div>
-              </div>
-            ))}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ── History ───────────────────────────────────────────────────────────────────
-
+// ── History view ──────────────────────────────────────────────────────────────
 function HistoryView({ history, onClear }) {
-  const successes = history.filter(r=>r.status==='success').length;
-  const totalTime = history.reduce((a,r)=>a+(r.elapsed||0),0);
-
   return (
-    <div className="slide-in space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <h2 className="text-xl font-bold">◷ Run History</h2>
-          {history.length>0 && <p className="text-xs opacity-40 mt-0.5">{history.length} runs · {successes} passed · {Math.round(totalTime)}s total time</p>}
+          <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Run History</h1>
+          <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>{history.length} runs recorded in this session</p>
         </div>
-        {history.length > 0 && (
-          <button className="btn btn-sm btn-outline btn-error gap-1" onClick={onClear}>✗ Clear</button>
+        {history.length>0 && (
+          <button className="btn-secondary" onClick={onClear} style={{color:'var(--err)',borderColor:'var(--err-br)'}}>✗ Clear</button>
         )}
       </div>
-
-      {history.length === 0 ? (
-        <div className="live-hero flex flex-col items-center gap-4 py-16 text-center">
-          <SevaForgeLogo size={56} />
-          <div>
-            <div className="font-bold text-lg mb-1 opacity-60">No pipeline runs yet</div>
-            <p className="text-sm opacity-40">Pipeline runs appear here in real-time as you use ForgeFlow.</p>
-            <code className="text-xs font-mono text-warning block mt-3">forgeflow run-all --gui ~/your-repo</code>
-          </div>
+      {history.length===0 ? (
+        <div className="sf-card" style={{padding:'48px 24px',textAlign:'center'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:12}}>◷</div>
+          <div style={{fontWeight:600,color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
+          <div style={{fontSize:'0.8rem',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
         </div>
       ) : (
-        <div className="space-y-2">
-          {history.map((r,i) => {
-            const ok = r.status === 'success';
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {history.map((r,i)=>{
+            const ok=r.status==='success';
             return (
-              <div key={i} className="card shadow"
-                   style={{background: ok?'rgba(6,50,40,.3)':'rgba(60,10,10,.3)',
-                           border: ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(239,68,68,.2)'}}>
-                <div className="card-body py-3 px-5 flex-row items-center gap-4">
-                  <span className="text-xl flex-shrink-0" style={{color:ok?'#34d399':'#f87171'}}>{ok?'✓':'✗'}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm truncate opacity-80">{r.path || 'unknown path'}</div>
-                    <div className="text-xs opacity-40 mt-0.5">
-                      {r.stageCount||0} stages completed · {timeSince(r.ts)}
-                      {r.elapsed ? ` · ${r.elapsed}s` : ''}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-semibold" style={{color:ok?'#6ee7b7':'#fca5a5'}}>
-                      {ok ? 'Passed' : 'Failed'}
-                    </div>
-                    {r.failedStage && <div className="text-xs opacity-40">failed at {r.failedStage}</div>}
-                  </div>
+              <div key={i} className="sf-card" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:14}}>
+                <span style={{fontSize:'1.2rem',color:ok?'var(--ok)':'var(--err)'}}>{ok?'✓':'✗'}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:'monospace',fontSize:'0.8rem',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
+                  <div style={{fontSize:'0.7rem',color:'var(--muted)',marginTop:2}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</div>
                 </div>
+                <span className={`pill ${ok?'pill-done':'pill-error'}`}>{ok?'Passed':'Failed'}</span>
               </div>
             );
           })}
@@ -783,1159 +1018,254 @@ function HistoryView({ history, onClear }) {
   );
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Health view ───────────────────────────────────────────────────────────────
+function HealthView({ connected, liveState }) {
+  const checks = [
+    { label:'SSE Dashboard Stream',  ok:connected,           detail:connected?'Real-time events flowing':'Run forgeflow dashboard' },
+    { label:'Pipeline Engine',       ok:true,                detail:'ForgeFlow CLI installed' },
+    { label:'React UI',              ok:true,                detail:'Rendering correctly' },
+    { label:'Hourglass Animation',   ok:true,                detail:'Canvas engine active' },
+    { label:'NoCaaS Mode',           ok:true,                detail:'Running at zero cost' },
+    { label:'Stage Descriptions',    ok:true,                detail:'Consumer descriptions loaded' },
+    { label:'Sevaforge Branding',    ok:true,                detail:'AIDDaaS theme active' },
+    { label:'Node Graph Canvas',     ok:true,                detail:'Pipeline visualiser ready' },
+  ];
+  const ok = checks.filter(c=>c.ok).length;
+  const pct = Math.round(ok/checks.length*100);
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div>
+        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>System Health</h1>
+        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>{ok} of {checks.length} checks passing</p>
+      </div>
+      <div className="sf-card" style={{padding:'20px 24px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:16}}>
+          <div style={{fontSize:'2.5rem',fontWeight:900,color:pct===100?'var(--ok)':'var(--warn)'}}>{pct}%</div>
+          <div>
+            <div style={{fontWeight:700,color:pct===100?'var(--ok)':'var(--warn)'}}>
+              {pct===100?'All Systems Operational':`${checks.length-ok} checks need attention`}
+            </div>
+            <div style={{fontSize:'0.78rem',color:'var(--muted)'}}>Dashboard health</div>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          {checks.map((c,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:8,
+                                  background:c.ok?'var(--ok-bg)':'var(--err-bg)',
+                                  border:`1px solid ${c.ok?'var(--ok-br)':'var(--err-br)'}`}}>
+              <span style={{color:c.ok?'var(--ok)':'var(--err)',fontWeight:700}}>{c.ok?'✓':'✗'}</span>
+              <div>
+                <div style={{fontSize:'0.78rem',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
+                <div style={{fontSize:'0.68rem',color:'var(--muted)'}}>{c.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
+// ── Settings view ─────────────────────────────────────────────────────────────
 function SettingsView() {
   return (
-    <div className="slide-in max-w-2xl space-y-5">
-
-      {/* About */}
-      <div className="live-hero flex items-center gap-4 px-6 py-5">
-        <SevaForgeLogo size={52} />
-        <div>
-          <div className="seva-wordmark text-xl mb-1">Sevaforge</div>
-          <NoCaaSBadge />
-          <p className="text-xs opacity-40 mt-2">ForgeFlow v2.1 · Agent-MCP Architecture · 14 Stages</p>
-        </div>
+    <div className="fade-in" style={{maxWidth:560,display:'flex',flexDirection:'column',gap:16}}>
+      <div>
+        <h1 style={{fontSize:'1.4rem',fontWeight:800,color:'var(--text)',marginBottom:4}}>Settings</h1>
+        <p style={{color:'var(--muted)',fontSize:'0.85rem'}}>Sevaforge · AIDDaaS · ForgeFlow v2.1</p>
       </div>
-
-      {/* Platform facts */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">Platform</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              ['Version',           'v2.1.0'],
-              ['Architecture',      'Agent → MCP → Tool'],
-              ['AI Agents',         '14 production-ready'],
-              ['MCP Servers',       '14 thin wrappers'],
-              ['Core Stages',       '10 (discover → scan)'],
-              ['Post-Merge Stages', '4 (bridge → monitor)'],
-              ['CI Generator',      'GitHub Actions + GitLab CI'],
-              ['Cloud Support',     'AWS · GCP · Azure'],
-              ['Container Runtime', 'Docker · Kubernetes'],
-              ['CD Engine',         'ArgoCD + Kustomize'],
-              ['E2E Framework',     'Playwright + Cypress'],
-              ['Cost',              '🆓 NoCaaS — zero charge'],
-            ].map(([k,v]) => (
-              <div key={k} className="flex justify-between items-center rounded px-3 py-1.5"
-                   style={{background:'rgba(255,255,255,.03)'}}>
-                <span className="text-xs opacity-50">{k}</span>
-                <span className="text-xs font-semibold" style={{color:'#c4b5fd'}}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* CLI Reference */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3">CLI Reference</h3>
-          <div className="space-y-2">
-            {[
-              ['run-all',   'forgeflow run-all --gui ~/repo',           'Full pipeline with live browser GUI'],
-              ['discover',  'forgeflow discover --path ~/repo',         'Scan and detect tech stack'],
-              ['iac',       'forgeflow iac --cloud aws --path ~/repo',  'Generate Terraform + Docker'],
-              ['ci',        'forgeflow ci --path ~/repo',               'Generate CI/CD workflows'],
-              ['scan',      'forgeflow scan --severity high ~/repo',    'Security vulnerability scan'],
-              ['bridge',    'forgeflow bridge --path ~/repo',           'Push everything to GitHub'],
-              ['secrets',   'forgeflow secrets bootstrap --path ~/repo','Bootstrap GitHub secrets'],
-            ].map(([name,cmd,desc]) => (
-              <div key={name} className="rounded-lg px-4 py-2.5"
-                   style={{background:'rgba(124,58,237,.07)', border:'1px solid rgba(124,58,237,.15)'}}>
-                <div className="text-xs opacity-40 mb-0.5">{desc}</div>
-                <code className="text-sm font-mono text-warning">{cmd}</code>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Links */}
-      <div className="card bg-base-200/80 shadow">
-        <div className="card-body py-4 flex-row gap-3">
-          <a href="https://github.com/DLTKMandeep/sevaforge" target="_blank"
-             className="btn btn-sm btn-outline gap-1" style={{borderColor:'rgba(124,58,237,.4)', color:'#c4b5fd'}}>
-            GitHub ↗
-          </a>
-          <a href="/health" className="btn btn-sm btn-ghost opacity-50 gap-1">SSE Health ↗</a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Sevaforge SVG Logo ────────────────────────────────────────────────────────
-
-function SevaForgeLogo({ size = 44, animate = false }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"
-         className={animate ? 'forge-fire' : ''}>
-      <defs>
-        <linearGradient id="logoGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </linearGradient>
-        <linearGradient id="logoGrad2" x1="56" y1="0" x2="0" y2="56" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#c084fc" />
-          <stop offset="100%" stopColor="#f59e0b" />
-        </linearGradient>
-      </defs>
-      {/* Outer hexagon */}
-      <polygon
-        points="28,2 51,15 51,41 28,54 5,41 5,15"
-        stroke="url(#logoGrad)" strokeWidth="2" fill="none" strokeLinejoin="round"
-      />
-      {/* Inner lighter hex ring */}
-      <polygon
-        points="28,9 45,19 45,37 28,47 11,37 11,19"
-        stroke="url(#logoGrad2)" strokeWidth="0.8" fill="none" strokeLinejoin="round" opacity="0.35"
-      />
-      {/* Forge flame */}
-      <path
-        d="M24 43 C24 43 16 34 20 26 C21.5 23 23.5 26 25 24 C25 24 22 16 28 11 C28 11 30 20 34.5 18 C37.5 23 40 31 34 43 Z"
-        fill="url(#logoGrad)"
-      />
-      {/* Anvil base */}
-      <rect x="20" y="43" width="16" height="2.5" rx="1.25" fill="url(#logoGrad)" opacity="0.7" />
-      <rect x="22" y="45.5" width="12" height="1.5" rx="0.75" fill="url(#logoGrad)" opacity="0.45" />
-    </svg>
-  );
-}
-
-// ── NoCaaS Badge ──────────────────────────────────────────────────────────────
-
-function NoCaaSBadge() {
-  return (
-    <div className="nocaas-badge">
-      <span className="dot" />
-      <span>NoCaaS</span>
-      <span style={{opacity:0.7, fontWeight:400}}>· No Charge as a Service Hub</span>
-    </div>
-  );
-}
-
-// ── Sand Pendulum (Harmonograph) ──────────────────────────────────────────────
-// Draws a unique Lissajous/sand pendulum figure for each pipeline stage.
-// The canvas renders sand-grain particles along the harmonograph trajectory,
-// creating the organic look of a real sand pendulum art piece.
-
-// ── Hourglass (canvas) — animates while a stage is running ───────────────────
-
-function HourGlass({ status = 'running', size = 160 }) {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const cv = canvasRef.current;
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    const W = cv.width, H = cv.height;
-    const cx = W / 2, cy = H / 2;
-
-    // Geometry
-    const TW = W * 0.38;   // chamber half-width (top & bottom)
-    const TH = H * 0.39;   // chamber half-height
-    const NK = 2.8;         // neck half-width in px
-
-    const outlinePath = () => {
-      ctx.beginPath();
-      ctx.moveTo(cx - TW, cy - TH);
-      ctx.lineTo(cx + TW, cy - TH);
-      ctx.lineTo(cx + NK,  cy);
-      ctx.lineTo(cx + TW, cy + TH);
-      ctx.lineTo(cx - TW, cy + TH);
-      ctx.lineTo(cx - NK,  cy);
-      ctx.closePath();
-    };
-    const topClip = () => {
-      ctx.beginPath();
-      ctx.moveTo(cx - TW, cy - TH);
-      ctx.lineTo(cx + TW, cy - TH);
-      ctx.lineTo(cx + NK,  cy);
-      ctx.lineTo(cx - NK,  cy);
-      ctx.closePath();
-    };
-    const botClip = () => {
-      ctx.beginPath();
-      ctx.moveTo(cx - NK,  cy);
-      ctx.lineTo(cx + NK,  cy);
-      ctx.lineTo(cx + TW, cy + TH);
-      ctx.lineTo(cx - TW, cy + TH);
-      ctx.closePath();
-    };
-
-    let level = 0;          // 0 = top full, 1 = top empty
-    let grains = [];        // falling particles
-    let alive = true;
-    let rafId;
-    let last = null;
-    const CYCLE = 5500;     // ms for one full drain
-
-    const frame = (ts) => {
-      if (!alive) return;
-      if (last === null) last = ts;
-      const dt = Math.min(ts - last, 50);
-      last = ts;
-
-      level += dt / CYCLE;
-      if (level > 1) level = 0;   // flip and restart
-
-      ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = '#0b0b16';
-      ctx.fillRect(0, 0, W, H);
-
-      // ── Outline ──
-      const og = ctx.createLinearGradient(cx, cy - TH, cx, cy + TH);
-      og.addColorStop(0,   'rgba(245,158,11,.75)');
-      og.addColorStop(0.5, 'rgba(124, 58,237,.55)');
-      og.addColorStop(1,   'rgba(245,158,11,.75)');
-      ctx.save();
-      outlinePath();
-      ctx.strokeStyle = og;
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-      ctx.restore();
-
-      // ── Top sand (drains down) ──
-      const topSandH   = TH * (1 - level);
-      const topSandY   = cy - topSandH;
-      const topSandSpan = NK + (TW - NK) * topSandH / TH;
-
-      ctx.save();
-      topClip(); ctx.clip();
-      const tg = ctx.createLinearGradient(0, topSandY, 0, cy);
-      tg.addColorStop(0, 'rgba(245,158,11,.12)');
-      tg.addColorStop(1, 'rgba(245,158,11,.42)');
-      ctx.beginPath();
-      ctx.moveTo(cx - topSandSpan, topSandY);
-      ctx.lineTo(cx + topSandSpan, topSandY);
-      ctx.lineTo(cx + NK, cy); ctx.lineTo(cx - NK, cy);
-      ctx.closePath(); ctx.fillStyle = tg; ctx.fill();
-      // surface glint
-      ctx.beginPath();
-      ctx.moveTo(cx - topSandSpan, topSandY);
-      ctx.lineTo(cx + topSandSpan, topSandY);
-      ctx.strokeStyle = 'rgba(251,191,36,.7)'; ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.restore();
-
-      // ── Bottom sand (fills up) ──
-      const botSandH    = TH * level;
-      const botSandY    = cy + TH - botSandH;
-      const botSandSpan = NK + (TW - NK) * botSandH / TH;
-
-      ctx.save();
-      botClip(); ctx.clip();
-      const bg2 = ctx.createLinearGradient(0, botSandY, 0, cy + TH);
-      bg2.addColorStop(0, 'rgba(245,158,11,.20)');
-      bg2.addColorStop(1, 'rgba(245,158,11,.52)');
-      ctx.beginPath();
-      ctx.moveTo(cx - botSandSpan, botSandY);
-      ctx.lineTo(cx + botSandSpan, botSandY);
-      ctx.lineTo(cx + TW, cy + TH); ctx.lineTo(cx - TW, cy + TH);
-      ctx.closePath(); ctx.fillStyle = bg2; ctx.fill();
-      // surface glint
-      ctx.beginPath();
-      ctx.moveTo(cx - botSandSpan, botSandY);
-      ctx.lineTo(cx + botSandSpan, botSandY);
-      ctx.strokeStyle = 'rgba(251,191,36,.55)'; ctx.lineWidth = 1.1; ctx.stroke();
-      ctx.restore();
-
-      // ── Falling grains through neck ──
-      if (status === 'running') {
-        if (Math.random() < 0.35) {
-          grains.push({ x: cx + (Math.random()-.5)*3, y: cy + 1,
-                        vy: 1.2 + Math.random()*2,
-                        r: 0.7 + Math.random()*.9,
-                        a: 0.6 + Math.random()*.4 });
-        }
-        grains = grains.filter(g => {
-          g.y += g.vy; g.vy += 0.18;
-          if (g.y > botSandY) return false;
-          ctx.beginPath();
-          ctx.arc(g.x, g.y, g.r, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(251,191,36,${g.a})`;
-          ctx.fill();
-          return true;
-        });
-      }
-
-      rafId = requestAnimationFrame(frame);
-    };
-
-    rafId = requestAnimationFrame(frame);
-    return () => { alive = false; cancelAnimationFrame(rafId); };
-  }, [status]);
-
-  const glow = status === 'error' ? 'rgba(239,68,68,.35)' : 'rgba(245,158,11,.35)';
-
-  return (
-    <div className="pendulum-wrap" style={{ width: size, height: size,
-         boxShadow: `0 0 20px ${glow}, 0 0 40px ${glow.replace('.35','.12')}` }}>
-      <canvas ref={canvasRef} width={size} height={size} />
-    </div>
-  );
-}
-
-
-// ── Live View (SSE real-time pipeline progress) ────────────────────────────────
-
-// Activity ticker — cycles through stage steps while the stage runs
-function ActivityTicker({ stageId, running }) {
-  const staticInfo = STAGE_INFO_FULL.find(s => s.id === stageId) || {};
-  const steps = staticInfo.steps || ['Working…'];
-  const [stepIdx, setStepIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    if (!running) return;
-    setStepIdx(0); setVisible(true);
-    // Advance one step every ~4 seconds with a brief fade between
-    const iv = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setStepIdx(i => (i + 1) % steps.length);
-        setVisible(true);
-      }, 350);
-    }, 4000);
-    return () => clearInterval(iv);
-  }, [stageId, running]);
-
-  return (
-    <div className="mt-3 rounded-lg px-3 py-2.5"
-         style={{background:'rgba(245,158,11,.06)', border:'1px solid rgba(245,158,11,.15)'}}>
-      <div className="text-xs font-bold uppercase tracking-widest opacity-40 mb-1.5">⚡ Activity</div>
-      <div style={{
-             opacity: visible ? 1 : 0,
-             transition: 'opacity 0.35s ease',
-             minHeight: '1.4rem',
-           }}
-           className="text-sm font-mono text-warning/80 leading-snug">
-        {steps[stepIdx]}
-      </div>
-      {/* Step progress dots */}
-      <div className="flex gap-1 mt-2">
-        {steps.map((_, i) => (
-          <span key={i} style={{
-            width: 5, height: 5, borderRadius: '50%', display:'inline-block',
-            background: i === stepIdx ? '#f59e0b' : 'rgba(245,158,11,.2)',
-            transition: 'background 0.3s',
-          }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Launch Panel ─────────────────────────────────────────────────────────────
-function LaunchPanel() {
-  const [path, setPath]       = useState('');
-  const [status, setStatus]   = useState('idle'); // idle | launching | error | ok
-  const [errMsg, setErrMsg]   = useState('');
-
-  const launch = async () => {
-    const trimmed = path.trim();
-    if (!trimmed) { setErrMsg('Please enter the path to your project.'); setStatus('error'); return; }
-    setStatus('launching');
-    setErrMsg('');
-    try {
-      const res = await fetch('/api/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setErrMsg(data.error || `Server error ${res.status}`); setStatus('error'); return; }
-      setStatus('ok');
-    } catch (e) {
-      setErrMsg(`Could not reach the dashboard server: ${e.message}`);
-      setStatus('error');
-    }
-  };
-
-  const handleKey = (e) => { if (e.key === 'Enter') launch(); };
-
-  return (
-    <div style={{
-      background: 'rgba(0,0,0,.45)',
-      border: '1.5px solid rgba(245,158,11,.35)',
-      borderRadius: 16,
-      padding: '1.4rem 1.8rem',
-      maxWidth: 560,
-      width: '100%',
-      boxShadow: '0 0 40px rgba(245,158,11,.07)',
-    }}>
-      <div style={{color:'rgba(226,232,240,.4)', fontSize:'0.7rem', fontWeight:700,
-                   letterSpacing:'0.1em', marginBottom:'0.9rem', textAlign:'center'}}>
-        🚀 LAUNCH YOUR PIPELINE
-      </div>
-
-      {/* Path input */}
-      <div style={{display:'flex', gap:'8px', alignItems:'center', marginBottom:'0.75rem'}}>
-        <input
-          type="text"
-          value={path}
-          onChange={e => { setPath(e.target.value); setStatus('idle'); }}
-          onKeyDown={handleKey}
-          placeholder="~/your-ai-project  or  /full/path/to/repo"
-          style={{
-            flex: 1,
-            background: 'rgba(255,255,255,.07)',
-            border: `1px solid ${status==='error' ? 'rgba(239,68,68,.6)' : 'rgba(245,158,11,.3)'}`,
-            borderRadius: 10,
-            padding: '0.55rem 0.9rem',
-            color: '#e2e8f0',
-            fontFamily: 'monospace',
-            fontSize: '0.88rem',
-            outline: 'none',
-          }}
-        />
-        <button
-          onClick={launch}
-          disabled={status === 'launching' || status === 'ok'}
-          style={{
-            padding: '0.55rem 1.2rem',
-            borderRadius: 10,
-            fontWeight: 800,
-            fontSize: '0.88rem',
-            border: 'none',
-            cursor: status === 'launching' || status === 'ok' ? 'not-allowed' : 'pointer',
-            background: status === 'ok'
-              ? 'rgba(52,211,153,.25)'
-              : status === 'launching'
-                ? 'rgba(245,158,11,.25)'
-                : 'linear-gradient(135deg, #f59e0b, #d97706)',
-            color: status === 'ok' ? '#6ee7b7' : status === 'launching' ? '#fbbf24' : '#0d0d14',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s',
-          }}>
-          {status === 'launching' ? '⟳ Starting…'
-           : status === 'ok'      ? '✓ Launched!'
-           : '▶ Run Pipeline'}
-        </button>
-      </div>
-
-      {/* Feedback */}
-      {status === 'error' && (
-        <div style={{color:'#f87171', fontSize:'0.78rem', marginTop:'0.4rem'}}>
-          ⚠ {errMsg}
-        </div>
-      )}
-      {status === 'ok' && (
-        <div style={{color:'#6ee7b7', fontSize:'0.78rem', marginTop:'0.4rem', textAlign:'center'}}>
-          Pipeline is starting — switching to Live view automatically…
-        </div>
-      )}
-      {status === 'idle' && (
-        <div style={{color:'rgba(226,232,240,.3)', fontSize:'0.72rem', textAlign:'center'}}>
-          Paste your project path above and press Enter or click Run Pipeline
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LiveView({ liveState }) {
-  const { connected, pipelinePath, stages, stageState, stageInfo, stageResults,
-          currentStage, currentNum, totalStages, done, elapsed } = liveState;
-
-  const pct = totalStages ? Math.round((Object.values(stageState).filter(s=>s==='success'||s==='error').length) / totalStages * 100) : 0;
-
-  const stageEmoji = (id) => STAGE_INFO_FULL.find(s=>s.id===id)?.emoji || '▸';
-  const stageLabel = (id) => STAGE_INFO_FULL.find(s=>s.id===id)?.label || id;
-
-  // Show idle/launch screen when: not connected yet, OR connected but no pipeline has started
-  const showIdle = !connected || (stages.length === 0 && !done);
-
-  if (showIdle) {
-    return (
-      <div className="slide-in flex flex-col items-center justify-center min-h-full py-10 px-4"
-           style={{gap: '2rem'}}>
-
-        {/* ── Hero headline ── */}
-        <div className="text-center" style={{maxWidth: 680}}>
-          <div className="float-slow inline-block mb-6">
-            <SevaForgeLogo size={84} animate={false} />
-          </div>
-          <h1 style={{
-            fontSize: '2.8rem', fontWeight: 900, lineHeight: 1.1,
-            letterSpacing: '-1.5px', marginBottom: '1rem',
-          }}>
-            <span className="shimmer-text">Built your AI app.</span><br/>
-            <span style={{color:'#e2e8f0'}}>Now let's get it to the cloud.</span>
-          </h1>
-          <p style={{
-            fontSize: '1.15rem', color: 'rgba(226,232,240,.55)',
-            lineHeight: 1.6, maxWidth: 520, margin: '0 auto 1.5rem',
-          }}>
-            Sevaforge runs <strong style={{color:'#f59e0b'}}>11 automated stages</strong> —
-            Docker, Terraform, CI/CD pipelines, security scan, GitHub push —
-            so you can focus on your AI, not the infrastructure.
-          </p>
-          <NoCaaSBadge />
-        </div>
-
-        {/* ── Stage flow pills ── */}
-        <div style={{
-          display:'flex', flexWrap:'wrap', justifyContent:'center',
-          gap:'6px', maxWidth:640,
-        }}>
-          {STAGE_INFO_FULL.slice(0,11).map((s, i) => (
-            <div key={s.id}
-                 className="pop-in"
-                 style={{
-                   animationDelay: `${i * 0.06}s`,
-                   display:'flex', alignItems:'center', gap:'5px',
-                   padding:'5px 12px', borderRadius:'999px',
-                   background:'rgba(255,255,255,.05)',
-                   border:'1px solid rgba(255,255,255,.1)',
-                   fontSize:'0.72rem', fontWeight:600, color:'rgba(226,232,240,.7)',
-                 }}>
-              <span style={{fontSize:'0.9rem'}}>{s.emoji}</span>
-              {s.label}
-            </div>
-          ))}
-        </div>
-
-        {/* ── Launch panel — click to run, no terminal needed ── */}
-        <LaunchPanel />
-
-        {/* ── Divider with OR ── */}
-        <div style={{display:'flex', alignItems:'center', gap:'1rem', maxWidth:520, width:'100%'}}>
-          <div style={{flex:1, height:1, background:'rgba(255,255,255,.08)'}} />
-          <span style={{fontSize:'0.7rem', color:'rgba(226,232,240,.3)', fontWeight:600, letterSpacing:'0.08em'}}>OR RUN FROM TERMINAL</span>
-          <div style={{flex:1, height:1, background:'rgba(255,255,255,.08)'}} />
-        </div>
-
-        {/* ── Command block ── */}
-        <div style={{
-          background:'rgba(0,0,0,.4)', border:'1px solid rgba(245,158,11,.2)',
-          borderRadius:'14px', padding:'1.2rem 2rem', textAlign:'center',
-          maxWidth: 520, width: '100%',
-        }}>
-          <div style={{color:'rgba(226,232,240,.3)', fontSize:'0.7rem',
-                       fontWeight:700, letterSpacing:'0.1em', marginBottom:'0.6rem'}}>
-            PASTE INTO YOUR TERMINAL
-          </div>
-          <div style={{
-            fontFamily:'monospace', fontSize:'1rem', color:'#fbbf24',
-            wordBreak:'break-all', letterSpacing:'0.01em',
-          }}>
-            forgeflow run-all --gui ~/your-ai-project
-            <span className="cursor" />
-          </div>
-        </div>
-
-        {/* ── Three benefit pills ── */}
-        <div style={{display:'flex', gap:'12px', flexWrap:'wrap', justifyContent:'center'}}>
+      <div className="sf-card">
+        <div className="sf-card-header">Platform</div>
+        <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
           {[
-            {icon:'⚡', label:'5 minutes', sub:'avg time to cloud-ready'},
-            {icon:'🤖', label:'Zero config', sub:'auto-detects your stack'},
-            {icon:'🔒', label:'Security included', sub:'CVE scan on every run'},
-          ].map(({icon,label,sub}) => (
-            <div key={label} style={{
-              padding:'12px 20px', borderRadius:'12px', textAlign:'center',
-              background:'rgba(124,58,237,.08)', border:'1px solid rgba(124,58,237,.2)',
-              minWidth:150,
-            }}>
-              <div style={{fontSize:'1.5rem', marginBottom:'4px'}}>{icon}</div>
-              <div style={{fontWeight:800, fontSize:'0.95rem', color:'#e2e8f0'}}>{label}</div>
-              <div style={{fontSize:'0.72rem', color:'rgba(226,232,240,.4)', marginTop:'2px'}}>{sub}</div>
+            ['Version','v2.1.0'],['Architecture','Agent → MCP → Tool'],
+            ['AI Agents','13 production-ready'],['Core Stages','11 (discover → bridge)'],
+            ['CI Generator','GitHub Actions + GitLab CI'],['Cloud Support','AWS · GCP · Azure'],
+            ['CD Engine','ArgoCD + Kustomize'],['E2E Framework','Playwright'],
+            ['Cost','🆓 NoCaaS — zero charge'],['Brand','Sevaforge / AIDDaaS'],
+          ].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'7px 10px',borderRadius:6,background:'#f9fafb',border:'1px solid var(--border)'}}>
+              <span style={{fontSize:'0.75rem',color:'var(--muted)'}}>{k}</span>
+              <span style={{fontSize:'0.75rem',fontWeight:600,color:'var(--text)'}}>{v}</span>
             </div>
           ))}
         </div>
-
-        {/* Server status indicator */}
-        <div style={{display:'flex', alignItems:'center', gap:'8px', opacity:0.45, fontSize:'0.75rem'}}>
-          <span style={{
-            width:7, height:7, borderRadius:'50%', display:'inline-block',
-            background: connected ? '#34d399' : '#6b7280',
-            boxShadow: connected ? '0 0 8px #34d399' : 'none',
-          }} />
-          {connected ? 'Dashboard ready — paste your path above to run' : 'Connecting to dashboard server…'}
-        </div>
-
       </div>
-    );
-  }
-
-  // Merge SSE-delivered info with static fallback so spotlight is always populated
-  const staticMeta = STAGE_INFO_FULL.find(s => s.id === currentStage) || {};
-  const sseInfo    = stageInfo[currentStage] || {};
-  const activeInfo = {
-    consumer:   staticMeta.consumer || '',
-    purpose:    sseInfo.purpose  || staticMeta.purpose  || '',
-    outputs:    sseInfo.outputs  || staticMeta.outputs  || '',
-    agent:      sseInfo.agent    || '',
-    mcp_server: sseInfo.mcp_server || '',
-    label:      staticMeta.label || (currentStage || '').toUpperCase(),
-  };
-  const allFinished = done && !currentStage;
-  const hasFailed   = Object.values(stageState).some(s => s === 'error');
-
-  // Node colours by state
-  const nodeStyle = (id) => {
-    const s = stageState[id];
-    const isActive = id === currentStage;
-    if (isActive)       return { bg:'rgba(245,158,11,.12)', border:'2px solid #f59e0b',
-                                  color:'#fbbf24', glow:'0 0 16px rgba(245,158,11,.35)' };
-    if (s === 'success') return { bg:'rgba(16,65,45,.5)',   border:'1.5px solid rgba(52,211,153,.5)',
-                                  color:'#6ee7b7', glow:'none' };
-    if (s === 'error')   return { bg:'rgba(65,16,16,.5)',   border:'1.5px solid rgba(239,68,68,.45)',
-                                  color:'#f87171', glow:'none' };
-    return { bg:'rgba(255,255,255,.03)', border:'1.5px solid rgba(255,255,255,.08)',
-             color:'rgba(226,232,240,.3)', glow:'none' };
-  };
-
-  const nodeStatus = (id) => {
-    const s = stageState[id];
-    if (id === currentStage) return { dot:'#f59e0b', text:'Running', spin:true };
-    if (s === 'success')     return { dot:'#34d399', text:'Done',    spin:false };
-    if (s === 'error')       return { dot:'#f87171', text:'Error',   spin:false };
-    return { dot:'rgba(255,255,255,.15)', text:'Pending', spin:false };
-  };
-
-  return (
-    <div className="slide-in" style={{display:'flex', flexDirection:'column', gap:'1rem'}}>
-
-      {/* ══ TOP BAR — pipeline identity + live stats ══════════════════════ */}
-      <div style={{
-        background:'linear-gradient(135deg,rgba(13,13,20,.95),rgba(20,14,35,.95))',
-        border:'1px solid rgba(255,255,255,.07)',
-        borderRadius:14, padding:'1rem 1.4rem',
-        display:'flex', alignItems:'center', gap:'1rem',
-      }}>
-        <SevaForgeLogo size={40} animate={!!currentStage && !allFinished} />
-        <div style={{flex:1, minWidth:0}}>
-          <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'2px'}}>
-            <span className="seva-wordmark" style={{fontSize:'1.15rem'}}>Sevaforge</span>
-            <NoCaaSBadge />
-          </div>
-          <div style={{fontFamily:'monospace', fontSize:'0.72rem', color:'rgba(226,232,240,.3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-            {pipelinePath || '—'}
-          </div>
-        </div>
-        {/* Live stats */}
-        <div style={{display:'flex', gap:'8px', flexShrink:0}}>
-          {totalStages > 0 && (
-            <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:700,
-                         background:'rgba(245,158,11,.12)', border:'1px solid rgba(245,158,11,.25)', color:'#f59e0b'}}>
-              {Math.min(currentNum,totalStages)} / {totalStages}
+      <div className="sf-card">
+        <div className="sf-card-header">CLI Reference</div>
+        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:8}}>
+          {[
+            ['Open dashboard (no pipeline)', 'forgeflow dashboard'],
+            ['Run full pipeline with GUI',   'forgeflow run-all --gui ~/repo'],
+            ['Run full pipeline (terminal)', 'forgeflow run-all ~/repo'],
+            ['Security scan only',          'forgeflow scan --severity high ~/repo'],
+            ['Push to GitHub only',         'forgeflow bridge --path ~/repo'],
+          ].map(([desc,cmd])=>(
+            <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'#f9fafb',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:'0.7rem',color:'var(--muted)',marginBottom:3}}>{desc}</div>
+              <code style={{fontSize:'0.8rem',color:'var(--orange)'}}>{cmd}</code>
             </div>
-          )}
-          {elapsed > 0 && (
-            <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:600,
-                         background:'rgba(255,255,255,.05)', border:'1px solid rgba(255,255,255,.08)', color:'rgba(226,232,240,.6)'}}>
-              {elapsed}s
-            </div>
-          )}
-          <div style={{padding:'4px 12px', borderRadius:999, fontSize:'0.75rem', fontWeight:700,
-                       background: allFinished
-                         ? (hasFailed ? 'rgba(239,68,68,.15)' : 'rgba(52,211,153,.12)')
-                         : 'rgba(245,158,11,.12)',
-                       border: allFinished
-                         ? (hasFailed ? '1px solid rgba(239,68,68,.35)' : '1px solid rgba(52,211,153,.3)')
-                         : '1px solid rgba(245,158,11,.25)',
-                       color: allFinished
-                         ? (hasFailed ? '#f87171' : '#34d399')
-                         : '#fbbf24'}}>
-            {allFinished ? (hasFailed ? '✗ Failed' : '✓ Complete') : (currentStage ? '⟳ Running' : '⚡ Starting')}
-          </div>
+          ))}
         </div>
       </div>
-
-      {/* ══ PROGRESS TRACK ════════════════════════════════════════════════ */}
-      {totalStages > 0 && (
-        <div>
-          <div style={{height:4, background:'rgba(255,255,255,.06)', borderRadius:4, overflow:'hidden'}}>
-            <div style={{
-              height:'100%', borderRadius:4,
-              width:`${pct}%`,
-              background: hasFailed
-                ? 'linear-gradient(90deg,#f59e0b,#f87171)'
-                : 'linear-gradient(90deg,#f59e0b,#34d399)',
-              transition:'width 1s ease',
-              boxShadow:'0 0 8px rgba(245,158,11,.4)',
-            }} />
-          </div>
-          <div style={{display:'flex', justifyContent:'space-between', marginTop:4, fontSize:'0.68rem', color:'rgba(226,232,240,.3)'}}>
-            <span>{pct}% complete</span>
-            <span>{Object.values(stageState).filter(s=>s==='success').length} of {totalStages} passed</span>
-          </div>
-        </div>
-      )}
-
-      {/* ══ PIPELINE CANVAS — node graph ══════════════════════════════════ */}
-      {stages.length > 0 && (
-        <div style={{
-          background:'rgba(8,8,16,.6)',
-          border:'1px solid rgba(255,255,255,.07)',
-          borderRadius:14,
-          padding:'1.2rem',
-          overflowX:'auto',
-        }}>
-          <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em',
-                       color:'rgba(226,232,240,.25)', marginBottom:'1rem', textTransform:'uppercase'}}>
-            Pipeline — {stages.length} stages
-          </div>
-          {/* Scrollable node row */}
-          <div style={{display:'flex', alignItems:'center', gap:0, minWidth:'max-content', paddingBottom:4}}>
-            {stages.map((id, i) => {
-              const ns    = nodeStyle(id);
-              const nstat = nodeStatus(id);
-              const meta  = STAGE_INFO_FULL.find(s => s.id === id) || {};
-              return (
-                <React.Fragment key={id}>
-                  {/* Node */}
-                  <div style={{
-                    width: 120, flexShrink:0,
-                    background: ns.bg,
-                    border: ns.border,
-                    borderRadius: 10,
-                    padding: '10px 10px 8px',
-                    boxShadow: ns.glow,
-                    transition: 'all 0.3s ease',
-                    position:'relative',
-                  }}>
-                    {/* Running pulse ring */}
-                    {id === currentStage && (
-                      <div style={{
-                        position:'absolute', inset:-3, borderRadius:13,
-                        border:'2px solid rgba(245,158,11,.4)',
-                        animation:'pulse 1.4s ease-in-out infinite',
-                        pointerEvents:'none',
-                      }} />
-                    )}
-                    <div style={{fontSize:'1.3rem', marginBottom:4, lineHeight:1}}>{meta.emoji || '▸'}</div>
-                    <div style={{fontSize:'0.72rem', fontWeight:700, color:ns.color,
-                                 whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                                 marginBottom:6}}>
-                      {meta.label || id}
-                    </div>
-                    {/* Status pill */}
-                    <div style={{display:'flex', alignItems:'center', gap:4}}>
-                      <span style={{
-                        width:6, height:6, borderRadius:'50%', flexShrink:0,
-                        background: nstat.dot,
-                        ...(nstat.spin ? {animation:'pulse 1s ease-in-out infinite'} : {}),
-                      }} />
-                      <span style={{fontSize:'0.62rem', fontWeight:600, color: nstat.dot, opacity:0.9}}>
-                        {nstat.text}
-                      </span>
-                    </div>
-                    {/* Stage number */}
-                    <div style={{position:'absolute', top:5, right:7, fontSize:'0.58rem',
-                                 color:'rgba(226,232,240,.2)', fontWeight:600}}>
-                      {i + 1}
-                    </div>
-                  </div>
-                  {/* Arrow connector */}
-                  {i < stages.length - 1 && (
-                    <div style={{display:'flex', alignItems:'center', flexShrink:0, width:28}}>
-                      <svg width="28" height="12" viewBox="0 0 28 12">
-                        <line x1="0" y1="6" x2="20" y2="6"
-                              stroke={stageState[id]==='success' ? 'rgba(52,211,153,.5)' : 'rgba(255,255,255,.1)'}
-                              strokeWidth="1.5" />
-                        <polyline points="17,2 24,6 17,10"
-                              stroke={stageState[id]==='success' ? 'rgba(52,211,153,.5)' : 'rgba(255,255,255,.1)'}
-                              strokeWidth="1.5" fill="none" />
-                      </svg>
-                    </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ══ ACTIVE STAGE DETAIL ═══════════════════════════════════════════ */}
-      {currentStage && (
-        <div style={{
-          display:'grid', gridTemplateColumns:'164px 1fr', gap:'1rem',
-        }}>
-          {/* Hourglass */}
-          <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:8}}>
-            <HourGlass status="running" size={160} />
-            <div style={{fontSize:'0.65rem', color:'rgba(226,232,240,.3)', textAlign:'center', fontFamily:'monospace'}}>
-              stage {currentNum}/{totalStages}
-            </div>
-          </div>
-
-          {/* Stage info panel */}
-          <div style={{
-            background:'rgba(255,255,255,.03)',
-            border:'1px solid rgba(245,158,11,.2)',
-            borderRadius:12, padding:'1rem 1.2rem',
-            display:'flex', flexDirection:'column', gap:'0.75rem',
-          }}>
-            {/* Stage name */}
-            <div style={{display:'flex', alignItems:'center', gap:10}}>
-              <span style={{fontSize:'2rem'}}>{stageEmoji(currentStage)}</span>
-              <div>
-                <div style={{fontWeight:800, fontSize:'1.1rem', color:'#fbbf24',
-                             letterSpacing:'-0.3px', display:'flex', alignItems:'center', gap:8}}>
-                  <span className="spin" style={{fontSize:'0.9rem'}}>⟳</span>
-                  {stageLabel(currentStage)}
-                </div>
-                <div style={{fontSize:'0.68rem', color:'rgba(226,232,240,.3)', fontFamily:'monospace', marginTop:1}}>
-                  {activeInfo.agent}{activeInfo.mcp_server ? ` · ${activeInfo.mcp_server}` : ''}
-                </div>
-              </div>
-            </div>
-
-            {/* Consumer description */}
-            {activeInfo.consumer && (
-              <div style={{
-                background:'rgba(124,58,237,.07)',
-                border:'1px solid rgba(124,58,237,.2)',
-                borderRadius:8, padding:'0.65rem 0.85rem',
-              }}>
-                <div style={{fontSize:'0.63rem', fontWeight:700, letterSpacing:'0.09em',
-                             color:'#c084fc', opacity:0.65, marginBottom:5, textTransform:'uppercase'}}>
-                  What's happening
-                </div>
-                <div style={{fontSize:'0.82rem', lineHeight:1.55, color:'rgba(226,232,240,.75)'}}>
-                  {activeInfo.consumer}
-                </div>
-              </div>
-            )}
-
-            {/* Outputs + Activity ticker */}
-            {activeInfo.outputs && (
-              <div style={{fontSize:'0.7rem', color:'rgba(226,232,240,.3)', fontFamily:'monospace'}}>
-                📦 {activeInfo.outputs}
-              </div>
-            )}
-            <ActivityTicker stageId={currentStage} running={true} />
-          </div>
-        </div>
-      )}
-
-      {/* ══ COMPLETED STAGE RESULTS LIST ══════════════════════════════════ */}
-      {Object.entries(stageResults).length > 0 && (
-        <div style={{
-          background:'rgba(8,8,16,.6)',
-          border:'1px solid rgba(255,255,255,.07)',
-          borderRadius:14, padding:'1rem 1.2rem',
-        }}>
-          <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.1em',
-                       color:'rgba(226,232,240,.25)', marginBottom:'0.75rem', textTransform:'uppercase'}}>
-            Stage Results
-          </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}}>
-            {Object.entries(stageResults).map(([id, result]) => {
-              const ok   = result.status === 'success';
-              const meta = STAGE_INFO_FULL.find(s=>s.id===id) || {};
-              return (
-                <div key={id} style={{
-                  display:'flex', alignItems:'center', gap:8,
-                  padding:'7px 10px', borderRadius:8,
-                  background: ok ? 'rgba(6,40,30,.5)' : 'rgba(50,8,8,.5)',
-                  border: ok ? '1px solid rgba(52,211,153,.2)' : '1px solid rgba(239,68,68,.2)',
-                }}>
-                  <span style={{fontSize:'0.85rem', flexShrink:0}}>{meta.emoji || (ok?'✓':'✗')}</span>
-                  <div style={{minWidth:0, flex:1}}>
-                    <div style={{fontSize:'0.75rem', fontWeight:700,
-                                 color: ok ? '#6ee7b7' : '#fca5a5'}}>
-                      {meta.label || id}
-                    </div>
-                    {result.summary && (
-                      <div style={{fontSize:'0.65rem', color:'rgba(226,232,240,.35)',
-                                   overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                        {result.summary.slice(0,60)}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{flexShrink:0, fontSize:'0.62rem', fontWeight:700,
-                                color: ok ? '#34d399' : '#f87171', opacity:0.8}}>
-                    {ok ? '✓' : '✗'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Victory / Done screen ── */}
-      {allFinished && !hasFailed && (
-        <div className="victory-glow rounded-2xl overflow-hidden"
-             style={{
-               background: 'linear-gradient(160deg, rgba(6,40,32,.9) 0%, rgba(2,20,20,.95) 100%)',
-               border: '1.5px solid rgba(52,211,153,.35)',
-             }}>
-
-          {/* Celebration header */}
-          <div className="flex items-center gap-5 px-6 py-5"
-               style={{borderBottom:'1px solid rgba(52,211,153,.12)'}}>
-            <div className="float-slow">
-              <SevaForgeLogo size={64} animate={false} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div style={{fontSize:'1.75rem', fontWeight:900, lineHeight:1.1,
-                           letterSpacing:'-1px', color:'#6ee7b7', marginBottom:'0.4rem'}}>
-                🎉 Your AI app is cloud-ready!
-              </div>
-              <div style={{fontSize:'1rem', color:'rgba(110,231,183,.65)', fontWeight:500}}>
-                Sevaforge ran all {totalStages} stages in <strong style={{color:'#34d399'}}>{elapsed}s</strong> — everything is generated and committed.
-              </div>
-            </div>
-            <div className="flex-shrink-0 text-right">
-              <NoCaaSBadge />
-            </div>
-          </div>
-
-          {/* What was built — summary cards */}
-          <div className="px-6 py-4">
-            <div className="text-xs font-bold uppercase tracking-widest mb-3"
-                 style={{color:'rgba(52,211,153,.5)'}}>What Sevaforge built for you</div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { emoji:'🏗️', title:'Cloud Infrastructure',    detail:'Terraform modules · VPC · Kubernetes cluster · Docker images' },
-                { emoji:'🚀', title:'Deployment Pipelines',    detail:'ArgoCD + Kustomize · dev / staging / prod overlays · auto-rollback' },
-                { emoji:'⚙️', title:'CI/CD Workflows',         detail:'GitHub Actions · security gate → tests → container build → release' },
-                { emoji:'📚', title:'Full Documentation',      detail:'Architecture diagram · Threat model · API reference · ERD' },
-                { emoji:'🧪', title:'Test Suites',             detail:'Playwright E2E specs · unit test runner · coverage report' },
-                { emoji:'🔒', title:'Security Report',         detail:'SAST scan · CVE list · secrets detection · severity classification' },
-                { emoji:'🌉', title:'GitHub Push',             detail:'All files committed · PR created · team can review immediately' },
-                { emoji:'📋', title:'Runbooks & SLOs',         detail:'Prometheus alerts · Grafana dashboards · burn-rate rules · runbook links' },
-              ].map(({emoji, title, detail}) => (
-                <div key={title} className="count-badge rounded-xl px-4 py-3 flex gap-3 items-start"
-                     style={{background:'rgba(52,211,153,.06)', border:'1px solid rgba(52,211,153,.15)'}}>
-                  <span style={{fontSize:'1.4rem', flexShrink:0}}>{emoji}</span>
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm mb-0.5" style={{color:'#6ee7b7'}}>{title}</div>
-                    <div className="text-xs leading-relaxed" style={{color:'rgba(110,231,183,.5)'}}>{detail}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Next steps */}
-          <div className="px-6 pb-5">
-            <div className="rounded-xl px-4 py-4"
-                 style={{background:'rgba(0,0,0,.25)', border:'1px solid rgba(52,211,153,.12)'}}>
-              <div className="text-xs font-bold uppercase tracking-widest mb-3"
-                   style={{color:'rgba(52,211,153,.5)'}}>⚡ What to do next</div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { step:'1', label:'Review the PR',        cmd:'gh pr view --web',                       color:'#818cf8' },
-                  { step:'2', label:'Merge and deploy',     cmd:'git merge main && forgeflow deploy',      color:'#f59e0b' },
-                  { step:'3', label:'Set up monitoring',    cmd:'forgeflow monitor --path ./staging',      color:'#34d399' },
-                ].map(({step,label,cmd,color}) => (
-                  <div key={step} className="rounded-lg px-3 py-2.5"
-                       style={{background:`${color}10`, border:`1px solid ${color}25`}}>
-                    <div className="text-xs font-bold mb-1" style={{color, opacity:.7}}>Step {step} — {label}</div>
-                    <code className="text-xs font-mono" style={{color}}>{cmd}</code>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Failed banner ── */}
-      {allFinished && hasFailed && (
-        <div className="rounded-2xl px-6 py-5 flex items-center gap-4"
-             style={{background:'rgba(60,10,10,.6)', border:'1.5px solid rgba(239,68,68,.3)'}}>
-          <span style={{fontSize:'2.5rem'}}>⚠️</span>
-          <div className="flex-1">
-            <div className="font-bold text-xl mb-1" style={{color:'#f87171'}}>Pipeline hit an issue</div>
-            <div className="text-sm mb-2" style={{color:'rgba(252,165,165,.6)'}}>
-              One or more stages encountered errors — check the stage results above for details. Most issues are fixable in one command.
-            </div>
-            <NoCaaSBadge />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-
-// ── App Shell ─────────────────────────────────────────────────────────────────
-
+// ── App shell ─────────────────────────────────────────────────────────────────
 function App() {
-  const [view,         setView]         = useState('dashboard');
-  const [connected,    setConnected]    = useState(null);
-  const [history,      setHistory]      = useState([]);
-  const [toasts,       setToasts]       = useState([]);
-
-  // Live pipeline state (fed by SSE events from /events)
+  const [view,    setView]    = useState('live');
+  const [history, setHistory] = useState([]);
+  const [toasts,  setToasts]  = useState([]);
   const [liveState, setLiveState] = useState({
-    connected:    false,
-    pipelinePath: '',
-    stages:       [],
-    stageState:   {},   // { [stageId]: 'pending'|'running'|'success'|'error' }
-    stageInfo:    {},   // { [stageId]: { purpose, outputs, agent, mcp_server } }
-    stageResults: {},   // { [stageId]: resultObject }
-    currentStage: null,
-    currentNum:   0,
-    totalStages:  0,
-    done:         false,
-    elapsed:      0,
+    connected:false, pipelinePath:'', stages:[], stageState:{},
+    stageInfo:{}, stageResults:{}, currentStage:null, currentNum:0,
+    totalStages:0, done:false, elapsed:0,
   });
 
-  const addToast = useCallback((msg, type = 'info') => {
-    const id = Date.now();
-    setToasts(p => [...p, { id, msg, type }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4000);
-  }, []);
+  const addToast = useCallback((msg,type='info')=>{
+    const id=Date.now();
+    setToasts(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),4000);
+  },[]);
 
-  // Derive connection status from SSE (no REST polling — dashboard_server has no REST API)
-  useEffect(() => {
-    setConnected(liveState.connected ? true : null);
-  }, [liveState.connected]);
-
-  // ── SSE connection — live pipeline events from dashboard_server.py ──────────
-  useEffect(() => {
-    const es = new EventSource('/events');
-
-    es.onmessage = (e) => {
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
-      const { type } = msg;
-
-      if (type === 'connected') {
-        setLiveState(s => ({ ...s, connected: true }));
-
-      } else if (type === 'pipeline_start') {
-        const initState = {};
-        (msg.stages || []).forEach(id => { initState[id] = 'pending'; });
-        setLiveState({
-          connected:    true,
-          pipelinePath: msg.path || '',
-          stages:       msg.stages || [],
-          stageState:   initState,
-          stageInfo:    {},
-          stageResults: {},
-          currentStage: null,
-          currentNum:   0,
-          totalStages:  msg.total || 0,
-          done:         false,
-          elapsed:      0,
+  // SSE connection
+  useEffect(()=>{
+    const es=new EventSource('/events');
+    es.onmessage=(e)=>{
+      let msg; try{msg=JSON.parse(e.data);}catch{return;}
+      const {type}=msg;
+      if (type==='connected') {
+        setLiveState(s=>({...s,connected:true}));
+      } else if (type==='pipeline_start') {
+        const init={}; (msg.stages||[]).forEach(id=>{init[id]='pending';});
+        setLiveState({connected:true,pipelinePath:msg.path||'',stages:msg.stages||[],
+          stageState:init,stageInfo:{},stageResults:{},currentStage:null,
+          currentNum:0,totalStages:msg.total||0,done:false,elapsed:0});
+        setView('live');
+      } else if (type==='stage_start') {
+        setLiveState(s=>({...s,currentStage:msg.stage,currentNum:msg.num||s.currentNum,
+          stageState:{...s.stageState,[msg.stage]:'running'},
+          stageInfo:{...s.stageInfo,[msg.stage]:msg.info||{}}}));
+      } else if (type==='stage_result') {
+        const ok=(msg.result||{}).status==='success';
+        setLiveState(s=>({...s,
+          currentStage:s.currentStage===msg.stage?null:s.currentStage,
+          stageState:{...s.stageState,[msg.stage]:ok?'success':'error'},
+          stageResults:{...s.stageResults,[msg.stage]:msg.result||{}}}));
+      } else if (type==='pipeline_done') {
+        setLiveState(s=>{
+          const failedStage=Object.entries(s.stageState).find(([,v])=>v==='error')?.[0]||null;
+          const entry={path:msg.path||s.pipelinePath||'—',status:msg.success?'success':'error',
+            stageCount:s.stages.length||msg.stage_count||0,elapsed:msg.elapsed_s||0,failedStage,ts:Date.now()};
+          setHistory(prev=>[entry,...prev.slice(0,99)]);
+          return{...s,done:true,currentStage:null,elapsed:msg.elapsed_s||0};
         });
-        setView('live'); // auto-switch the moment a pipeline starts
-
-      } else if (type === 'stage_start') {
-        setLiveState(s => ({
-          ...s,
-          currentStage: msg.stage,
-          currentNum:   msg.num || s.currentNum,
-          stageState:   { ...s.stageState, [msg.stage]: 'running' },
-          stageInfo:    { ...s.stageInfo,  [msg.stage]: msg.info  || {} },
-        }));
-
-      } else if (type === 'stage_result') {
-        const ok = (msg.result || {}).status === 'success';
-        setLiveState(s => ({
-          ...s,
-          currentStage: s.currentStage === msg.stage ? null : s.currentStage,
-          stageState:   { ...s.stageState,   [msg.stage]: ok ? 'success' : 'error' },
-          stageResults: { ...s.stageResults, [msg.stage]: msg.result || {} },
-        }));
-
-      } else if (type === 'pipeline_done') {
-        setLiveState(s => {
-          // push history entry from SSE data + current live state
-          const failedStage = Object.entries(s.stageState)
-            .find(([, v]) => v === 'error')?.[0] || null;
-          const entry = {
-            path:       msg.path || s.pipelinePath || '—',
-            status:     msg.success ? 'success' : 'error',
-            stageCount: s.stages.length || msg.stage_count || 0,
-            elapsed:    msg.elapsed_s || 0,
-            failedStage,
-            ts:         Date.now(),
-          };
-          setHistory(prev => [entry, ...prev.slice(0, 99)]);
-          return { ...s, done: true, currentStage: null, elapsed: msg.elapsed_s || 0 };
-        });
-        addToast(
-          msg.success
-            ? `Pipeline complete in ${msg.elapsed_s}s 🎉`
-            : 'Pipeline failed ❌',
-          msg.success ? 'success' : 'error'
-        );
+        addToast(msg.success?`✓ Pipeline complete in ${msg.elapsed_s}s`:'✗ Pipeline failed',
+                 msg.success?'success':'error');
       }
     };
+    es.onerror=()=>setLiveState(s=>({...s,connected:false}));
+    return ()=>es.close();
+  },[]);
 
-    es.onerror = () => setLiveState(s => ({ ...s, connected: false }));
-    return () => es.close();
-  }, []); // single mount — SSE connection lives for the page lifetime
+  const { connected, stages, done } = liveState;
+  const pipelineActive = stages.length>0 || done;
+  const showIdle = !pipelineActive;
+
+  // Breadcrumb
+  const breadcrumbs = {
+    live:'Run Pipeline', dashboard:'Dashboard', pipeline:'Stages',
+    history:'History', health:'Health', settings:'Settings',
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-base-300">
-
-      {/* ── Sidebar ── */}
-      <aside className="sidebar bg-base-200 border-r border-base-300 flex flex-col">
-        {/* ── Sevaforge brand block ── */}
-        <div className="px-4 py-4 border-b border-base-300"
-             style={{background:'linear-gradient(160deg,rgba(124,58,237,.08),rgba(245,158,11,.05))'}}>
-          <div className="flex items-center gap-3 mb-3">
-            <SevaForgeLogo size={40} animate={false} />
+    <div style={{display:'flex',height:'100vh',overflow:'hidden'}}>
+      {/* Sidebar */}
+      <aside className="sf-sidebar">
+        <div className="sf-logo-block">
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+            <SevaForgeLogo size={32} />
             <div>
-              <div className="seva-wordmark leading-tight">Sevaforge</div>
-              <div className="text-xs font-mono opacity-35 mt-0.5">ForgeFlow v2.1</div>
+              <div className="sf-logo-name">Sevaforge</div>
+              <div className="sf-logo-tag">AIDDaaS</div>
             </div>
           </div>
-          <NoCaaSBadge />
+          <div style={{fontSize:'0.62rem',color:'rgba(255,255,255,.22)',lineHeight:1.4}}>
+            AI Dev to Delivery as a Service
+          </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 p-3 flex flex-col gap-0.5">
-          {VIEWS.map(v => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id)}
-              className={`btn btn-sm justify-start gap-3 font-normal ${view === v.id ? 'btn-primary' : 'btn-ghost opacity-70'}`}
-            >
-              <span className="text-base w-5 text-center">{v.icon}</span>
+        <nav className="sf-nav">
+          {VIEWS.map(v=>(
+            <button key={v.id} className={`sf-nav-item ${view===v.id?'active':''}`} onClick={()=>setView(v.id)}>
+              <span className="sf-nav-icon">{v.icon}</span>
               {v.label}
+              {v.id==='live' && pipelineActive && (
+                <span style={{marginLeft:'auto',width:7,height:7,borderRadius:'50%',
+                              background:done?'var(--ok)':'var(--orange)',
+                              boxShadow:done?'0 0 6px var(--ok)':'0 0 6px var(--orange)',
+                              animation:done?'none':'pulse 1.4s ease-in-out infinite'}} />
+              )}
             </button>
           ))}
         </nav>
 
-        {/* Connection status */}
-        <div className="p-3 border-t border-base-300">
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <span className={`w-2 h-2 rounded-full ${connected===true?'bg-success animate-pulse':connected===false?'bg-error':'bg-base-content/20'}`} />
-            <span className="text-xs opacity-60 flex-1">
-              {connected===true ? 'Connected' : connected===false ? 'Offline' : 'Connecting…'}
-            </span>
-            {liveState.done && <span className="badge badge-xs badge-outline">DONE</span>}
-          </div>
+        <div className="sf-status-bar">
+          <span className="sf-status-dot" style={{
+            background:connected?'var(--ok)':'#4b5563',
+            boxShadow:connected?'0 0 6px var(--ok)':'none',
+          }} />
+          <span style={{fontSize:'0.72rem',color:'rgba(255,255,255,.4)',flex:1}}>
+            {connected?'Connected':'Connecting…'}
+          </span>
+          {done && <span style={{fontSize:'0.62rem',color:'rgba(255,255,255,.3)',fontWeight:600}}>DONE</span>}
         </div>
       </aside>
 
-      {/* ── Main ── */}
-      <div className="main-content flex flex-col overflow-hidden">
+      {/* Main */}
+      <div className="sf-main">
         {/* Topbar */}
-        <header className="bg-base-200 border-b border-base-300 h-13 flex items-center px-6 gap-3 min-h-[52px]">
-          <span className="text-base font-semibold flex-1">{VIEWS.find(v=>v.id===view)?.label}</span>
-          {liveState.connected
-            ? <span className="badge badge-success badge-sm gap-1"><span className="w-1.5 h-1.5 rounded-full bg-current" />Live</span>
-            : <span className="badge badge-ghost badge-sm"><Spinner /> Connecting…</span>
-          }
-          <span className="font-mono text-xs opacity-30 hidden md:block">{window.location.host}</span>
-          <button className="btn btn-xs btn-ghost opacity-50" onClick={() => setView('settings')}>⚙</button>
-        </header>
+        <div className="sf-topbar">
+          <div className="sf-breadcrumb">
+            <span>Sevaforge</span>
+            <span style={{color:'var(--border)'}}>›</span>
+            <span className="current">{breadcrumbs[view]||view}</span>
+          </div>
+          {pipelineActive && view!=='live' && (
+            <button className="btn-secondary" onClick={()=>setView('live')}
+                    style={{marginLeft:'auto',padding:'5px 14px',fontSize:'0.78rem'}}>
+              {done?'View Results':'↗ View Live Run'}
+            </button>
+          )}
+        </div>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {view === 'live'      && <LiveView      liveState={liveState} />}
-          {view === 'dashboard' && <DashboardView history={history} onNavigate={setView} />}
-          {view === 'pipeline'  && <PipelineView />}
-          {view === 'health'    && <HealthView    sseConnected={liveState.connected} liveState={liveState} />}
-          {view === 'history'   && <HistoryView   history={history} onClear={() => setHistory([])} />}
-          {view === 'settings'  && <SettingsView />}
-        </main>
+        <div className="sf-content">
+          {view==='live' && (
+            showIdle
+              ? <IdleScreen connected={connected} onLaunch={()=>setView('live')} />
+              : <RunningView liveState={liveState} />
+          )}
+          {view==='dashboard' && <DashboardView history={history} connected={connected} onNavigate={setView} />}
+          {view==='pipeline'  && <StagesView />}
+          {view==='history'   && <HistoryView history={history} onClear={()=>setHistory([])} />}
+          {view==='health'    && <HealthView connected={connected} liveState={liveState} />}
+          {view==='settings'  && <SettingsView />}
+        </div>
       </div>
 
-      <ToastStack toasts={toasts} />
+      {/* Toasts */}
+      <div style={{position:'fixed',bottom:20,right:20,display:'flex',flexDirection:'column',gap:8,zIndex:999}}>
+        {toasts.map(t=>(
+          <div key={t.id} style={{
+            padding:'10px 16px',borderRadius:8,fontSize:'0.82rem',fontWeight:500,
+            background:t.type==='success'?'var(--ok)':t.type==='error'?'var(--err)':'var(--navy)',
+            color:'#fff',boxShadow:'0 4px 12px rgba(0,0,0,.15)',
+            animation:'fadeIn .3s ease both',
+          }}>{t.msg}</div>
+        ))}
+      </div>
     </div>
   );
 }

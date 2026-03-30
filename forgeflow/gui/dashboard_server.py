@@ -77,6 +77,51 @@ class _EventBus:
 
 _bus = _EventBus()
 
+
+def _pick_folder_native() -> Optional[str]:
+    """Open the OS-native folder picker dialog and return the chosen path."""
+    import subprocess, sys as _sys
+
+    # macOS — AppleScript dialog (reliable, no extra deps)
+    if _sys.platform == "darwin":
+        script = 'POSIX path of (choose folder with prompt "Select your AI project folder")'
+        try:
+            r = subprocess.run(["osascript", "-e", script],
+                               capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                return r.stdout.strip()
+            return None   # user cancelled
+        except Exception:
+            pass
+
+    # Linux — zenity (GNOME), kdialog (KDE), or xdg fallback
+    if _sys.platform.startswith("linux"):
+        for cmd in (["zenity", "--file-selection", "--directory",
+                     "--title=Select your AI project folder"],
+                    ["kdialog", "--getexistingdirectory", "."],):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                if r.returncode == 0:
+                    return r.stdout.strip()
+            except FileNotFoundError:
+                continue
+            except Exception:
+                break
+
+    # Universal fallback — tkinter (ships with Python on all platforms)
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes("-topmost", 1)
+        folder = filedialog.askdirectory(title="Select your AI project folder")
+        root.destroy()
+        return folder or None
+    except Exception:
+        return None
+
+
 # Global run-lock: prevents two pipelines running at the same time
 _run_lock = threading.Lock()
 _running  = False   # True while a pipeline is in flight
@@ -156,6 +201,10 @@ class _Handler(BaseHTTPRequestHandler):
         global _running
         parsed_path = urlparse(self.path).path
 
+        if parsed_path == "/api/browse":
+            self._handle_browse()
+            return
+
         if parsed_path != "/api/run":
             self.send_response(404)
             self.end_headers()
@@ -196,6 +245,14 @@ class _Handler(BaseHTTPRequestHandler):
             _run_lock.release()
 
         self._json({"started": True, "path": repo_path})
+
+    # ── /api/browse — open native OS folder picker, return chosen path ────
+    def _handle_browse(self):
+        path = _pick_folder_native()
+        if path:
+            self._json({"path": path})
+        else:
+            self._json({"path": None, "cancelled": True})
 
     # ── File serving ──────────────────────────────────────────────────────
 
