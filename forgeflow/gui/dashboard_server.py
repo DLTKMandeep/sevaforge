@@ -222,6 +222,7 @@ def _spawn_pipeline(
     stages: Optional[List[str]] = None,
     greenfield: bool = False,
     greenfield_config: Optional[Dict[str, Any]] = None,
+    private: bool = False,
 ) -> None:
     """
     Run MissionControl.run_all() in a daemon thread.
@@ -271,7 +272,7 @@ def _spawn_pipeline(
                 )
 
             mc = MissionControl()
-            mc.run_all(path=path, greenfield=greenfield)
+            mc.run_all(path=path, greenfield=greenfield, private=private)
         except Exception as exc:
             _bus.emit("log", {"stage": "server", "message": f"Pipeline error: {exc}"})
             _bus.emit("pipeline_done", {"success": False, "elapsed_s": 0,
@@ -366,6 +367,7 @@ class _Handler(BaseHTTPRequestHandler):
 
         greenfield        = bool(payload.get("greenfield", False))
         greenfield_config = payload.get("config") or {}
+        private_repo      = bool(payload.get("private", False))
 
         if greenfield:
             # Greenfield: caller supplies parent_path + project_name.
@@ -406,6 +408,7 @@ class _Handler(BaseHTTPRequestHandler):
                 repo_path,
                 greenfield=greenfield,
                 greenfield_config=greenfield_config if greenfield else None,
+                private=private_repo,
             )
         finally:
             _run_lock.release()

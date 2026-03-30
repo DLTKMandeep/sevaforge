@@ -263,7 +263,7 @@ class MissionControl:
         }
         return self.execute("bridge", params)
     
-    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False) -> Dict[str, Any]:
+    def run_all(self, path: str = ".", include_post_merge: bool = False, greenfield: bool = False, private: bool = False) -> Dict[str, Any]:
         """
         Run full 11-stage pipeline:
         DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE
@@ -290,7 +290,7 @@ class MissionControl:
             ("review",    lambda: self._execute_stage("review",    path, greenfield)),
             ("test",      lambda: self._execute_stage("test",      path, greenfield)),
             ("scan",      lambda: self._execute_stage("scan",      path, greenfield)),
-            ("bridge",    lambda: self._execute_bridge(path)),                        # Push to GitHub
+            ("bridge",    lambda: self._execute_bridge(path, private=private)),       # Push to GitHub
         ]
 
         total = len(stages)
@@ -443,7 +443,7 @@ class MissionControl:
                 "findings": [str(e)],
             }
 
-    def _execute_bridge(self, path: str) -> Dict[str, Any]:
+    def _execute_bridge(self, path: str, private: bool = False) -> Dict[str, Any]:
         """
         Execute bridge (GitHub push) with the correct params.
 
@@ -461,7 +461,7 @@ class MissionControl:
                 "path":      path,
                 "operation": "create",
                 "message":   "feat: ForgeFlow generated files — all pipeline stages complete",
-                "visibility": "public",
+                "visibility": "private" if private else "public",
             })
             # Downgrade gh-not-available errors to warning so pipeline doesn't abort
             summary = result.get("summary", "")
