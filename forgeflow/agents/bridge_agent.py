@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 
 from .base_agent import BaseAgent
+from .secrets_agent import SecretsAgent
+from .lifecycle_agent import LifecycleAgent
 
 
 class BridgeAgent(BaseAgent):
@@ -99,9 +101,66 @@ class BridgeAgent(BaseAgent):
     # Operations
     # -----------------------------------------------------------------------
 
-    def _op_create(self, repo_path, repo_name, visibility, branch, message, **kw) -> Dict:
-        """Create a new GitHub repo, commit everything, and push."""
-        # Init git if needed
+    def _op_create(self, repo_path, repo_name, visibility, branch, message, params=None, **kw) -> Dict:
+        """Create a new GitHub repo, commit everything, and push.
+
+        Before pushing, this method:
+          1. Runs SecretsAgent to generate docs/DEPLOYMENT_GUIDE.md and
+             scripts/bootstrap-secrets.sh so the user knows which GitHub
+             secrets are required for CI/CD to work.
+          2. Runs LifecycleAgent to generate the three chained GitHub Actions
+             workflows (.github/workflows/{ci,test,cd}.yml) that implement
+             the full CI → Test → CD pipeline after the push.
+        Both agents run in brownfield mode (overwrite=False) so they never
+        clobber files the user has already customised.
+        """
+        params = params or {}
+
+        # ------------------------------------------------------------------
+        # 0. Pre-push: generate secrets guide + lifecycle workflows
+        # ------------------------------------------------------------------
+        lifecycle_findings: list = []
+
+        # 0a. SecretsAgent — DEPLOYMENT_GUIDE.md + bootstrap-secrets.sh
+        try:
+            secrets_result = SecretsAgent().execute({
+                "path": str(repo_path),
+                "overwrite": False,
+            })
+            s_status = secrets_result.get("status", "error")
+            lifecycle_findings.append(
+                f"{'✅' if s_status == 'success' else '⚠️ '} SecretsAgent: "
+                f"{secrets_result.get('summary', 'no summary')}"
+            )
+            self.log(f"SecretsAgent result: {s_status}")
+        except Exception as exc:
+            lifecycle_findings.append(f"⚠️  SecretsAgent skipped: {exc}")
+            self.log(f"SecretsAgent exception: {exc}", level="warning")
+
+        # 0b. LifecycleAgent — ci.yml + test.yml + cd.yml
+        try:
+            lifecycle_result = LifecycleAgent().execute({
+                "path":      str(repo_path),
+                "overwrite": False,
+                "app_name":  params.get("app_name") or repo_name,
+                "domain":    params.get("domain"),
+                "registry":  params.get("registry"),
+                "cloud":     params.get("cloud"),
+                "lang":      params.get("lang"),
+            })
+            lc_status = lifecycle_result.get("status", "error")
+            lifecycle_findings.append(
+                f"{'✅' if lc_status == 'success' else '⚠️ '} LifecycleAgent: "
+                f"{lifecycle_result.get('summary', 'no summary')}"
+            )
+            self.log(f"LifecycleAgent result: {lc_status}")
+        except Exception as exc:
+            lifecycle_findings.append(f"⚠️  LifecycleAgent skipped: {exc}")
+            self.log(f"LifecycleAgent exception: {exc}", level="warning")
+
+        # ------------------------------------------------------------------
+        # 1. Init git if needed
+        # ------------------------------------------------------------------
         if not (repo_path / '.git').exists():
             ok, out = self._run(repo_path, ['git', 'init', '-b', branch])
             if not ok:
@@ -111,12 +170,16 @@ class BridgeAgent(BaseAgent):
             # Ensure we're on the right branch
             self._run(repo_path, ['git', 'checkout', '-B', branch])
 
-        # Stage and commit
+        # ------------------------------------------------------------------
+        # 2. Stage and commit (includes the generated workflow files)
+        # ------------------------------------------------------------------
         commit_result = self._stage_and_commit(repo_path, message)
         if commit_result:
             return commit_result
 
-        # Create GitHub repo and push
+        # ------------------------------------------------------------------
+        # 3. Create GitHub repo and push
+        # ------------------------------------------------------------------
         vis_flag = '--private' if visibility == 'private' else '--public'
         ok, out = self._run(
             repo_path,
@@ -126,15 +189,33 @@ class BridgeAgent(BaseAgent):
         if ok:
             username = self._gh_username()
             repo_url = f"https://github.com/{username}/{repo_name}"
+            findings = [
+                f"✅ Created GitHub repo: {repo_name} ({visibility})",
+                f"✅ Pushed branch: {branch}",
+                f"🔗 {repo_url}",
+                "",
+                "── CI/CD Lifecycle ──────────────────────────────────",
+            ] + lifecycle_findings + [
+                "",
+                "Next steps:",
+                "  1. Run: bash scripts/bootstrap-secrets.sh",
+                "     (follow prompts to set all required GitHub secrets)",
+                "  2. In GitHub repo Settings → Environments:",
+                "     - Create 'staging' environment",
+                "     - Create 'production' environment with required reviewers",
+                "  3. Push any commit to main — CI → Tests → CD will chain automatically.",
+                f"  📖 Full guide: {repo_url}/blob/main/docs/DEPLOYMENT_GUIDE.md",
+            ]
             return self.create_result(
                 status='success',
                 summary=f"Created {visibility} repo and pushed: {repo_url}",
-                data={'repo_name': repo_name, 'repo_url': repo_url, 'visibility': visibility},
-                findings=[
-                    f"✅ Created GitHub repo: {repo_name} ({visibility})",
-                    f"✅ Pushed branch: {branch}",
-                    f"🔗 {repo_url}",
-                ]
+                data={
+                    'repo_name': repo_name,
+                    'repo_url': repo_url,
+                    'visibility': visibility,
+                    'lifecycle': lifecycle_findings,
+                },
+                findings=findings,
             )
 
         # Repo already exists — just push
@@ -142,7 +223,8 @@ class BridgeAgent(BaseAgent):
             self.log("Repo already exists, pushing to existing remote")
             return self._op_push(
                 repo_path=repo_path, repo_name=repo_name,
-                visibility=visibility, branch=branch, message=message, **kw
+                visibility=visibility, branch=branch, message=message,
+                params=params, **kw
             )
 
         return self._error(f"gh repo create failed: {out}", manual=f"gh repo create {repo_name} {vis_flag} --source=. --push")
