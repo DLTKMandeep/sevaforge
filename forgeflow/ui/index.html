@@ -483,6 +483,14 @@ const STAGE_INFO_FULL = [
     consumer:'All generated files — infrastructure, pipelines, tests, docs, security configs — are committed and pushed to your GitHub repo so your team can immediately review and merge.',
     outputs:'GitHub repo · All generated files committed · PR link',
     steps:['Authenticating with GitHub…','Checking if remote repository exists…','Staging all generated files from staging/…','Committing with ForgeFlow message…','Pushing to origin branch…','Opening pull request with summary…','Recording PR URL in pipeline report…'] },
+  { id:'secrets',   emoji:'🔑', label:'Secrets Bootstrap',
+    consumer:'Sevaforge detects every secret your deployment needs — AWS keys, ArgoCD token, Slack webhook, container registry credentials — and generates an interactive bootstrap script so you can fill them in once via the GitHub CLI.',
+    outputs:'docs/DEPLOYMENT_GUIDE.md · scripts/bootstrap-secrets.sh',
+    steps:['Detecting cloud provider from Terraform files…','Scanning workflow YAMLs for secret references…','Building ordered secret manifest (required + optional)…','Generating DEPLOYMENT_GUIDE.md with ASCII pipeline diagram…','Writing bootstrap-secrets.sh with interactive prompts…','Adding prerequisite checks (gh CLI, git, docker)…','Generating secret verification step…'] },
+  { id:'lifecycle', emoji:'🔄', label:'CI/CD Lifecycle',
+    consumer:'Sevaforge wires up your full deployment lifecycle — three GitHub Actions workflows that chain automatically: CI runs on every push, Tests run when CI passes, and CD deploys to staging then production (with an approval gate) only when Tests pass on main.',
+    outputs:'.github/workflows/ci.yml · test.yml · cd.yml',
+    steps:['Detecting language + registry + cloud from repo…','Generating ci.yml — lint · security scan · build · push image…','Generating test.yml — unit · integration (service containers) · E2E · coverage…','Generating cd.yml — staging deploy · health check · smoke tests…','Adding production approval gate (GitHub Environment)…','Adding auto-rollback on failed production validation…','Adding Slack notification on success and failure…'] },
   { id:'deploy',    emoji:'☁️', label:'Deploy',
     consumer:'Your application is deployed to the cloud. Sevaforge applies the infrastructure, pushes your container, and starts it on Kubernetes — with automatic rollback if anything fails.',
     outputs:'Live URL · Health check · Rollback plan',
@@ -986,7 +994,7 @@ const GF_CD       = ['ArgoCD','Flux CD','Spinnaker','GitHub Actions (deploy)','G
 
 // ── Idle / launch screen ──────────────────────────────────────────────────────
 // Ordered list of stage IDs that appear in the 11-stage pipeline (used by the dry-run stage selector)
-const PIPELINE_STAGE_IDS = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','bridge'];
+const PIPELINE_STAGE_IDS = ['discover','normalize','docs','iac','cd','ci','e2e','review','test','scan','bridge','secrets','lifecycle'];
 
 function IdleScreen({ connected, onLaunch }) {
   // mode: 'brownfield' | 'greenfield'
@@ -1009,7 +1017,7 @@ function IdleScreen({ connected, onLaunch }) {
   const [showParentPicker, setShowParentPicker] = useState(false);
   const [privateRepo,    setPrivateRepo]    = useState(true);
   const [dryRun,         setDryRun]         = useState(false);
-  // selectedStages: which of the 11 stages to include in dry run (all by default)
+  // selectedStages: which of the 13 stages to include in dry run (all by default)
   const [selectedStages, setSelectedStages] = useState(PIPELINE_STAGE_IDS.slice());
   const [launching,      setLaunching]      = useState(false);
   const [launchErr,      setLaunchErr]      = useState('');
@@ -1350,8 +1358,8 @@ function IdleScreen({ connected, onLaunch }) {
               border:'1px solid var(--border)',
             }}>
               {mode==='greenfield'
-                ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'
-                : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge'}
+                ? 'scaffold → discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge → secrets → lifecycle'
+                : 'discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge → secrets → lifecycle'}
             </div>
 
             {/* Active path badge */}
@@ -1778,10 +1786,10 @@ function RunningView({ liveState, logs, onReset }) {
                      background:'var(--card)',border:'1px solid var(--border)',
                      borderRadius:12,overflow:'hidden'}}>
           {[
-            {label:'Analyse',  icon:'🔍', stageIds:['discover','normalize','docs'], color:'#6366f1'},
-            {label:'Build',    icon:'🏗️', stageIds:['iac','cd','ci'],               color:'#2563eb'},
-            {label:'Quality',  icon:'🧪', stageIds:['e2e','review','test'],         color:'#059669'},
-            {label:'Ship',     icon:'🚀', stageIds:['scan','bridge'],               color:'#0ea5e9'},
+            {label:'Analyse',  icon:'🔍', stageIds:['discover','normalize','docs'],              color:'#6366f1'},
+            {label:'Build',    icon:'🏗️', stageIds:['iac','cd','ci'],                            color:'#2563eb'},
+            {label:'Quality',  icon:'🧪', stageIds:['e2e','review','test'],                      color:'#059669'},
+            {label:'Ship',     icon:'🚀', stageIds:['scan','bridge','secrets','lifecycle'],       color:'#0ea5e9'},
           ].map(({label,icon,stageIds,color},gi)=>{
             const ph  = stageIds.filter(id=>stages.includes(id));
             const dn  = ph.filter(id=>stageState[id]==='success'||stageState[id]==='preview').length;
@@ -2261,7 +2269,7 @@ function DashboardView({ history, connected, onNavigate }) {
     {label:'Analyse', stages:['discover','normalize','docs'],  color:'#6366f1', icon:'🔍', desc:'Code understanding, normalization, docs'},
     {label:'Build',   stages:['iac','cd','ci'],                color:'#2563eb', icon:'🏗️', desc:'Terraform, ArgoCD, GitHub Actions'},
     {label:'Quality', stages:['e2e','review','test'],          color:'#059669', icon:'🧪', desc:'Playwright E2E, code review, unit tests'},
-    {label:'Ship',    stages:['scan','bridge'],                color:'#0ea5e9', icon:'🚀', desc:'Security SARIF scan, GitHub push'},
+    {label:'Ship',    stages:['scan','bridge','secrets','lifecycle'], color:'#0ea5e9', icon:'🚀', desc:'Security scan, GitHub push, secrets bootstrap, CI/CD lifecycle'},
   ];
 
   return (
@@ -2389,12 +2397,12 @@ function StagesView() {
     {label:'Analyse',  color:'#6366f1', icon:'🔍', ids:['discover','normalize','docs']},
     {label:'Build',    color:'#2563eb', icon:'🏗️', ids:['iac','cd','ci']},
     {label:'Quality',  color:'#059669', icon:'🧪', ids:['e2e','review','test']},
-    {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','bridge']},
+    {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','bridge','secrets','lifecycle']},
   ];
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
       <PageHeader title="Pipeline Stages"
-        sub="11 stages · 4 phases · runs end-to-end on every pipeline launch" />
+        sub="13 stages · 4 phases · runs end-to-end on every pipeline launch" />
 
       {/* Execution order flow strip */}
       <div style={{
@@ -2402,7 +2410,7 @@ function StagesView() {
         padding:'14px 18px',overflowX:'auto',
       }}>
         <div style={{display:'flex',alignItems:'center',gap:4,minWidth:'max-content'}}>
-          {STAGE_INFO_FULL.slice(0,11).map((s,i)=>(
+          {STAGE_INFO_FULL.map((s,i)=>(
             <React.Fragment key={s.id}>
               <button onClick={()=>setExpanded(expanded===s.id?null:s.id)} style={{
                 padding:'5px 12px',borderRadius:20,fontSize:'13px',fontWeight:600,
@@ -2412,7 +2420,7 @@ function StagesView() {
                 whiteSpace:'nowrap',cursor:'pointer',fontFamily:'inherit',
                 display:'flex',alignItems:'center',gap:5,transition:'all .15s',
               }}>{s.emoji} {s.label}</button>
-              {i<10 && <span style={{color:'var(--light)',fontSize:'14px',flexShrink:0}}>→</span>}
+              {i<STAGE_INFO_FULL.length-1 && <span style={{color:'var(--light)',fontSize:'14px',flexShrink:0}}>→</span>}
             </React.Fragment>
           ))}
         </div>
