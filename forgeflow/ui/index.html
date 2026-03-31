@@ -2103,34 +2103,48 @@ function RunningView({ liveState, logs, onReset }) {
 
                   <div style={{display:'flex',flexDirection:'column',gap:7}}>
                     {[
-                      {step:'1', icon:'🔑', label:'Bootstrap GitHub Secrets',
-                       cmd:'bash scripts/bootstrap-secrets.sh',
-                       note:'Interactive script — sets all required secrets via gh CLI'},
-                      {step:'2', icon:'🌿', label:'Create GitHub Environments',
-                       cmd:'GitHub repo → Settings → Environments',
-                       note:'Add "staging" and "production" (production needs required reviewers)'},
+                      {step:'✓', icon:'🔑', label:'GitHub Secrets — auto-detected + set',
+                       cmd:'AWS keys · GCP SA · Docker Hub · env vars → gh secret set',
+                       note:'Done automatically from ~/.aws, ~/.docker, gcloud config and $ENV. Any missing secrets: bash scripts/bootstrap-secrets.sh',
+                       auto:true},
+                      {step:'✓', icon:'🌿', label:'GitHub Environments — auto-created',
+                       cmd:"'staging' + 'production' environments created via gh API",
+                       note:'Production environment has branch policy (main only) and optional required reviewers for the approval gate.',
+                       auto:true},
                       {step:'3', icon:'🔗', label:'Push to main — CI fires automatically',
                        cmd:'git push origin main',
-                       note:'ci.yml triggers → test.yml triggers → cd.yml triggers on success'},
-                      {step:'4', icon:'✅', label:'Approve production gate',
+                       note:'ci.yml triggers → test.yml triggers → cd.yml triggers on success',
+                       auto:false},
+                      {step:'4', icon:'✅', label:'Approve the production gate',
                        cmd:'GitHub Actions → CD workflow → Review deployment',
-                       note:'Staging must pass health checks before the approval gate appears'},
-                    ].map(({step,icon,label,cmd,note})=>(
+                       note:'Staging deploy + health checks must pass first. Reviewer approves in GitHub UI.',
+                       auto:false},
+                    ].map(({step,icon,label,cmd,note,auto})=>(
                       <div key={step} style={{
                         display:'flex',gap:12,padding:'9px 12px',borderRadius:8,
-                        background:'rgba(5,150,105,.06)',border:'1px solid rgba(5,150,105,.18)',
+                        background: auto ? 'rgba(5,150,105,.08)' : 'rgba(5,150,105,.04)',
+                        border: auto ? '1px solid rgba(5,150,105,.3)' : '1px solid rgba(5,150,105,.15)',
                         alignItems:'flex-start',
                       }}>
                         <div style={{
-                          width:24,height:24,borderRadius:'50%',background:'var(--ok)',
-                          color:'#fff',fontSize:'13px',fontWeight:800,
-                          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1,
+                          width:24,height:24,borderRadius:'50%',flexShrink:0,marginTop:1,
+                          background: auto ? 'var(--ok)' : 'rgba(5,150,105,.2)',
+                          color: auto ? '#fff' : 'var(--ok)',
+                          fontSize:'13px',fontWeight:800,
+                          display:'flex',alignItems:'center',justifyContent:'center',
                         }}>{step}</div>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:'15px',fontWeight:700,color:'#065f46',marginBottom:3}}>
-                            {icon} {label}
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                            <div style={{fontSize:'15px',fontWeight:700,color:'#065f46'}}>
+                              {icon} {label}
+                            </div>
+                            {auto && <span style={{
+                              fontSize:'11px',fontWeight:700,color:'var(--ok)',
+                              background:'rgba(5,150,105,.12)',border:'1px solid rgba(5,150,105,.3)',
+                              borderRadius:4,padding:'1px 6px',letterSpacing:'0.05em',
+                            }}>AUTO</span>}
                           </div>
-                          <code style={{fontSize:'14px',color:'#047857',fontWeight:600,display:'block',marginBottom:2}}>{cmd}</code>
+                          <code style={{fontSize:'13px',color:'#047857',fontWeight:600,display:'block',marginBottom:2}}>{cmd}</code>
                           <div style={{fontSize:'13px',color:'#6b7280'}}>{note}</div>
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LifecycleAgent — GitHub Actions CI/CD Lifecycle Workflow Generation.
+LifecycleAgent — GitHub Actions CI/CD Lifecycle Workflow Generation + Automation.
 
 Generates three properly workflow_run-chained GitHub Actions files:
 
@@ -10,14 +10,20 @@ Generates three properly workflow_run-chained GitHub Actions files:
                                   production approval gate → prod deploy → validate →
                                   auto-rollback on failure → Slack notify
 
-This sits downstream of BridgeAgent/SecretsAgent: secrets must be bootstrapped
-(see docs/DEPLOYMENT_GUIDE.md) before these workflows can succeed.
+Also automatically performs:
+  - GitHub Environment creation (staging + production with approval gate) via gh CLI
+  - Secret auto-detection from local credentials (~/.aws, env vars, ~/.docker, gcloud)
+    and auto-set via `gh secret set` for every value that can be found
 
 Architecture:
   forgeflow lifecycle <path> → lifecycle_mcp → LifecycleAgent
 """
+import json
+import os
+import subprocess
+import configparser
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 from .base_agent import BaseAgent
 
@@ -1137,24 +1143,32 @@ class LifecycleAgent(BaseAgent):
 
     def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate the three workflow files.
+        Generate the three workflow files, then automatically:
+          1. Detect + set GitHub secrets from local credentials
+          2. Create GitHub Environments (staging + production) via gh CLI
 
         Params:
-            path         : repo root path (required)
-            overwrite    : overwrite existing workflow files (default: False)
-            app_name     : application name (default: folder name)
-            domain       : production domain hint (default: example.com)
-            registry     : ghcr | ecr | gcr | dockerhub (default: ghcr)
-            cloud        : aws | gcp | azure (default: aws)
-            lang         : python | node | go | java (default: python)
+            path             : repo root path (required)
+            overwrite        : overwrite existing workflow files (default: False)
+            app_name         : application name (default: folder name)
+            domain           : production domain hint (default: example.com)
+            registry         : ghcr | ecr | gcr | dockerhub (default: ghcr)
+            cloud            : aws | gcp | azure (default: aws)
+            lang             : python | node | go | java (default: python)
+            auto_secrets     : attempt to auto-detect + set secrets (default: True)
+            auto_environments: attempt to create GitHub environments (default: True)
+            prod_reviewers   : list of GitHub usernames for production approval gate
         """
-        repo_path = Path(params.get("path", ".") or ".").resolve()
-        overwrite  = params.get("overwrite", False)
-        app_name   = params.get("app_name") or repo_path.name
-        domain     = params.get("domain") or self._detect_domain(repo_path)
-        registry   = params.get("registry") or self._detect_registry(repo_path)
-        cloud      = params.get("cloud") or self._detect_cloud(repo_path)
-        lang       = params.get("lang") or self._detect_lang(repo_path)
+        repo_path        = Path(params.get("path", ".") or ".").resolve()
+        overwrite        = params.get("overwrite", False)
+        app_name         = params.get("app_name") or repo_path.name
+        domain           = params.get("domain") or self._detect_domain(repo_path)
+        registry         = params.get("registry") or self._detect_registry(repo_path)
+        cloud            = params.get("cloud") or self._detect_cloud(repo_path)
+        lang             = params.get("lang") or self._detect_lang(repo_path)
+        auto_secrets     = params.get("auto_secrets", True)
+        auto_environments= params.get("auto_environments", True)
+        prod_reviewers   = params.get("prod_reviewers", [])
 
         self.log(f"Generating lifecycle workflows: lang={lang} cloud={cloud} "
                  f"registry={registry} domain={domain}")
@@ -1162,33 +1176,27 @@ class LifecycleAgent(BaseAgent):
         workflow_dir = repo_path / ".github" / "workflows"
         workflow_dir.mkdir(parents=True, exist_ok=True)
 
-        actions: List[Dict[str, Any]] = []
+        wf_actions: List[Dict[str, Any]] = []
 
         # --- ci.yml ---
         ci_content = self._render_ci(lang, registry)
-        actions.append(self._safe_write(workflow_dir / "ci.yml", ci_content, overwrite))
+        wf_actions.append(self._safe_write(workflow_dir / "ci.yml", ci_content, overwrite))
 
         # --- test.yml ---
         test_content = self._render_test(lang)
-        actions.append(self._safe_write(workflow_dir / "test.yml", test_content, overwrite))
+        wf_actions.append(self._safe_write(workflow_dir / "test.yml", test_content, overwrite))
 
         # --- cd.yml ---
         cd_content = self._render_cd(app_name, domain, registry, cloud)
-        actions.append(self._safe_write(workflow_dir / "cd.yml", cd_content, overwrite))
+        wf_actions.append(self._safe_write(workflow_dir / "cd.yml", cd_content, overwrite))
 
-        created   = [a["file"] for a in actions if a["action"] == "created"]
-        updated   = [a["file"] for a in actions if a["action"] == "updated"]
-        skipped   = [a["file"] for a in actions if a["action"] == "exists"]
+        created = [a["file"] for a in wf_actions if a["action"] == "created"]
+        updated = [a["file"] for a in wf_actions if a["action"] == "updated"]
+        skipped = [a["file"] for a in wf_actions if a["action"] == "exists"]
 
         findings = [
             "📋 CI/CD Lifecycle — three chained GitHub Actions workflows",
-            "",
-            "Workflow chain:",
-            "  push/PR  →  ci.yml  →  test.yml  →  cd.yml",
-            "                                          ↓",
-            "                     staging deploy → validate → prod approval",
-            "                     → prod deploy  → validate → auto-rollback",
-            "                                              → Slack notify",
+            "  push/PR → ci.yml → test.yml → cd.yml (workflow_run chained)",
             "",
         ]
         if created:
@@ -1196,47 +1204,463 @@ class LifecycleAgent(BaseAgent):
         if updated:
             findings.append(f"♻️  Updated: {', '.join(updated)}")
         if skipped:
-            findings.append(f"⏭️  Skipped (already exist): {', '.join(skipped)}")
+            findings.append(f"⏭️  Exists:  {', '.join(skipped)}")
 
-        findings += [
-            "",
-            "Required GitHub Secrets (see docs/DEPLOYMENT_GUIDE.md):",
-            "  ARGOCD_TOKEN, ARGOCD_SERVER — ArgoCD access",
-            "  SLACK_WEBHOOK_URL          — Slack notifications",
-            f"  Cloud secrets for {cloud.upper()} (see SecretsAgent output)",
-            "",
-            "GitHub Environment Setup:",
-            "  1. Go to repo Settings → Environments",
-            "  2. Create 'staging' environment",
-            "  3. Create 'production' environment with required reviewers",
-            "     (this is the manual approval gate before prod deploys)",
-        ]
+        # ── Step 1: Auto-detect and set secrets ──────────────────────────────
+        secrets_summary: Dict[str, Any] = {"auto_set": [], "needs_manual": [], "errors": []}
+        if auto_secrets:
+            self.log("Auto-detecting secrets from local environment…")
+            secrets_summary = self._auto_set_secrets(repo_path, cloud)
+            findings.append("")
+            findings.append("🔑 Secrets Auto-Detection:")
+            if secrets_summary["auto_set"]:
+                findings.append(f"  ✅ Auto-set ({len(secrets_summary['auto_set'])}): "
+                                f"{', '.join(secrets_summary['auto_set'])}")
+            if secrets_summary["needs_manual"]:
+                findings.append(f"  ⚠️  Still needed ({len(secrets_summary['needs_manual'])}): "
+                                f"{', '.join(secrets_summary['needs_manual'])}")
+                findings.append("     Run: bash scripts/bootstrap-secrets.sh")
+            if not secrets_summary["auto_set"] and not secrets_summary["needs_manual"]:
+                findings.append("  ℹ️  gh CLI not available — run bootstrap-secrets.sh manually")
 
+        # ── Step 2: Auto-create GitHub Environments ───────────────────────────
+        env_summary: Dict[str, Any] = {"created": [], "existed": [], "errors": []}
+        if auto_environments:
+            self.log("Creating GitHub Environments (staging + production)…")
+            env_summary = self._create_github_environments(repo_path, prod_reviewers)
+            findings.append("")
+            findings.append("🌿 GitHub Environments:")
+            for env in env_summary["created"]:
+                findings.append(f"  ✅ Created: {env}")
+            for env in env_summary["existed"]:
+                findings.append(f"  ℹ️  Already exists: {env}")
+            for err in env_summary["errors"]:
+                findings.append(f"  ⚠️  {err}")
+            if not env_summary["created"] and not env_summary["existed"]:
+                findings.append("  ℹ️  gh CLI not available — create environments in repo Settings manually")
+
+        needs_manual = secrets_summary.get("needs_manual", [])
         status = "success" if (created or updated) else "warning"
-        summary = (f"Generated lifecycle workflows: "
-                   f"{len(created)} created, {len(updated)} updated, {len(skipped)} skipped")
+        summary_str = (
+            f"Workflows: {len(created)} created, {len(updated)} updated  |  "
+            f"Secrets: {len(secrets_summary.get('auto_set',[]))} auto-set, "
+            f"{len(needs_manual)} manual  |  "
+            f"Environments: {len(env_summary.get('created',[]))+len(env_summary.get('existed',[]))} ready"
+        )
 
         result = self.create_result(
             status=status,
-            summary=summary,
+            summary=summary_str,
             data={
-                "workflow_dir": str(workflow_dir),
-                "app_name": app_name,
-                "domain": domain,
-                "registry": registry,
-                "cloud": cloud,
-                "lang": lang,
+                "workflow_dir":   str(workflow_dir),
+                "app_name":       app_name,
+                "domain":         domain,
+                "registry":       registry,
+                "cloud":          cloud,
+                "lang":           lang,
                 "files": {
                     "ci":   str(workflow_dir / "ci.yml"),
                     "test": str(workflow_dir / "test.yml"),
                     "cd":   str(workflow_dir / "cd.yml"),
                 },
+                "secrets":      secrets_summary,
+                "environments": env_summary,
             },
             findings=findings,
-            actions=actions,
+            actions=wf_actions,
         )
         self.save_result(result)
         return result
+
+    # -------------------------------------------------------------------------
+    # Automation: GitHub Environments
+    # -------------------------------------------------------------------------
+
+    def _create_github_environments(
+        self,
+        repo_path: Path,
+        prod_reviewers: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Create 'staging' and 'production' GitHub Environments via the gh CLI.
+
+        - staging: no protection rules (deploys automatically)
+        - production: required reviewers = prod_reviewers (approval gate)
+
+        Returns dict with created / existed / errors lists.
+        """
+        result: Dict[str, Any] = {"created": [], "existed": [], "errors": []}
+
+        # Need gh CLI and a git remote to determine owner/repo
+        repo_slug = self._gh_repo_slug(repo_path)
+        if not repo_slug:
+            result["errors"].append(
+                "Could not determine GitHub repo slug — "
+                "make sure 'origin' remote points to github.com"
+            )
+            return result
+
+        if not self._gh_available():
+            result["errors"].append("gh CLI not found or not authenticated")
+            return result
+
+        owner, repo = repo_slug.split("/", 1)
+
+        # ── staging (no protection rules) ──────────────────────────────────
+        ok, out = self._gh_api(
+            f"repos/{owner}/{repo}/environments/staging",
+            method="PUT",
+            fields={"wait_timer": 0},
+        )
+        if ok:
+            if "already" in out.lower() or '"name":"staging"' in out:
+                result["created"].append("staging")
+            else:
+                result["created"].append("staging")
+        else:
+            result["errors"].append(f"staging environment: {out[:120]}")
+
+        # ── production (required reviewers) ────────────────────────────────
+        reviewer_ids = self._resolve_reviewer_ids(owner, prod_reviewers)
+        prod_payload: Dict[str, Any] = {"wait_timer": 0}
+        if reviewer_ids:
+            prod_payload["reviewers"] = [
+                {"type": "User", "id": uid} for uid in reviewer_ids
+            ]
+        # deployment_branch_policy: only main can deploy to production
+        prod_payload["deployment_branch_policy"] = {
+            "protected_branches": False,
+            "custom_branch_policies": True,
+        }
+
+        ok, out = self._gh_api(
+            f"repos/{owner}/{repo}/environments/production",
+            method="PUT",
+            fields=prod_payload,
+        )
+        if ok:
+            result["created"].append("production")
+            if reviewer_ids:
+                result["created"][-1] += f" (approval: {', '.join(prod_reviewers)})"
+
+            # Add branch policy: only 'main' can deploy to production
+            self._gh_api(
+                f"repos/{owner}/{repo}/environments/production/deployment-branch-policies",
+                method="POST",
+                fields={"name": "main", "type": "branch"},
+            )
+        else:
+            result["errors"].append(f"production environment: {out[:120]}")
+
+        return result
+
+    def _gh_api(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        fields: Optional[Dict] = None,
+    ) -> Tuple[bool, str]:
+        """Call the GitHub API via gh CLI."""
+        cmd = ["gh", "api", endpoint, "--method", method]
+        if fields:
+            body = json.dumps(fields)
+            cmd += ["--input", "-"]
+            try:
+                r = subprocess.run(
+                    cmd,
+                    input=body,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                return r.returncode == 0, (r.stdout + r.stderr).strip()
+            except Exception as exc:
+                return False, str(exc)
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            return r.returncode == 0, (r.stdout + r.stderr).strip()
+        except Exception as exc:
+            return False, str(exc)
+
+    def _gh_repo_slug(self, repo_path: Path) -> Optional[str]:
+        """Return 'owner/repo' from git remote origin, or None."""
+        try:
+            r = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=str(repo_path),
+                capture_output=True, text=True, timeout=10,
+            )
+            if r.returncode != 0:
+                return None
+            url = r.stdout.strip()
+            # https://github.com/owner/repo.git  or  git@github.com:owner/repo.git
+            import re
+            m = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$", url)
+            return m.group(1) if m else None
+        except Exception:
+            return None
+
+    def _resolve_reviewer_ids(self, owner: str, usernames: List[str]) -> List[int]:
+        """Resolve GitHub usernames to numeric user IDs."""
+        ids = []
+        for username in usernames:
+            try:
+                r = subprocess.run(
+                    ["gh", "api", f"users/{username}", "--jq", ".id"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if r.returncode == 0:
+                    uid = int(r.stdout.strip())
+                    ids.append(uid)
+            except Exception:
+                pass
+        return ids
+
+    def _gh_available(self) -> bool:
+        """Check if gh CLI is available and authenticated."""
+        try:
+            r = subprocess.run(
+                ["gh", "auth", "status"],
+                capture_output=True, timeout=10,
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    # -------------------------------------------------------------------------
+    # Automation: Secret auto-detection + auto-set
+    # -------------------------------------------------------------------------
+
+    def _auto_set_secrets(self, repo_path: Path, cloud: str) -> Dict[str, Any]:
+        """
+        Detect secret values from the local machine and set them via gh CLI.
+
+        Sources checked (in order):
+          - Environment variables (already exported in shell)
+          - ~/.aws/credentials  (AWS)
+          - ~/.aws/config       (AWS region)
+          - ~/.docker/config.json (registry auth)
+          - gcloud default project (GCP)
+          - git remote origin (GITHUB_TOKEN is automatic, skip)
+
+        Returns dict: {auto_set: [...], needs_manual: [...], errors: [...]}
+        """
+        result: Dict[str, Any] = {"auto_set": [], "needs_manual": [], "errors": []}
+
+        if not self._gh_available():
+            return result
+
+        repo_slug = self._gh_repo_slug(repo_path)
+        if not repo_slug:
+            result["errors"].append("Cannot determine repo slug for gh secret set")
+            return result
+
+        owner, repo = repo_slug.split("/", 1)
+        detected: Dict[str, str] = {}
+
+        # ── AWS ────────────────────────────────────────────────────────────
+        detected.update(self._detect_aws_secrets())
+
+        # ── GCP ────────────────────────────────────────────────────────────
+        detected.update(self._detect_gcp_secrets())
+
+        # ── Docker Hub ─────────────────────────────────────────────────────
+        detected.update(self._detect_dockerhub_secrets())
+
+        # ── Common (from env vars) ─────────────────────────────────────────
+        for var in [
+            "ARGOCD_TOKEN", "ARGOCD_SERVER",
+            "SLACK_WEBHOOK_URL", "CODECOV_TOKEN",
+            "EKS_CLUSTER_NAME", "GKE_CLUSTER_NAME", "AKS_CLUSTER_NAME",
+            "AZURE_RESOURCE_GROUP", "AZURE_CREDENTIALS",
+        ]:
+            val = os.environ.get(var, "")
+            if val:
+                detected[var] = val
+
+        # Determine which secrets this cloud deployment needs
+        required = self._required_secrets_for_cloud(cloud)
+
+        for secret_name, value in detected.items():
+            if not value:
+                continue
+            ok, err = self._gh_secret_set(owner, repo, secret_name, value)
+            if ok:
+                result["auto_set"].append(secret_name)
+                self.log(f"Auto-set secret: {secret_name}")
+            else:
+                result["errors"].append(f"{secret_name}: {err[:80]}")
+
+        # Report what's still needed
+        auto_set_names = set(result["auto_set"])
+        for secret_name in required:
+            if secret_name not in auto_set_names:
+                result["needs_manual"].append(secret_name)
+
+        return result
+
+    def _detect_aws_secrets(self) -> Dict[str, str]:
+        """Read AWS credentials from env vars or ~/.aws/credentials."""
+        found: Dict[str, str] = {}
+
+        # 1. Environment variables take priority
+        for k in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+                  "AWS_REGION", "AWS_DEFAULT_REGION", "AWS_ACCOUNT_ID"]:
+            val = os.environ.get(k, "")
+            if val:
+                target = "AWS_REGION" if k == "AWS_DEFAULT_REGION" else k
+                found[target] = val
+
+        # 2. ~/.aws/credentials
+        creds_path = Path.home() / ".aws" / "credentials"
+        if creds_path.exists() and "AWS_ACCESS_KEY_ID" not in found:
+            try:
+                cfg = configparser.ConfigParser()
+                cfg.read(str(creds_path))
+                profile = os.environ.get("AWS_PROFILE", "default")
+                if profile in cfg:
+                    sec = cfg[profile]
+                    if sec.get("aws_access_key_id"):
+                        found["AWS_ACCESS_KEY_ID"] = sec["aws_access_key_id"]
+                    if sec.get("aws_secret_access_key"):
+                        found["AWS_SECRET_ACCESS_KEY"] = sec["aws_secret_access_key"]
+            except Exception:
+                pass
+
+        # 3. ~/.aws/config for region
+        config_path = Path.home() / ".aws" / "config"
+        if config_path.exists() and "AWS_REGION" not in found:
+            try:
+                cfg = configparser.ConfigParser()
+                cfg.read(str(config_path))
+                profile = os.environ.get("AWS_PROFILE", "default")
+                section = f"profile {profile}" if profile != "default" else "default"
+                for s in [section, profile, "default"]:
+                    if s in cfg and cfg[s].get("region"):
+                        found["AWS_REGION"] = cfg[s]["region"]
+                        break
+            except Exception:
+                pass
+
+        # 4. Account ID via aws CLI (best-effort)
+        if "AWS_ACCOUNT_ID" not in found and (
+            "AWS_ACCESS_KEY_ID" in found or os.environ.get("AWS_ACCESS_KEY_ID")
+        ):
+            try:
+                r = subprocess.run(
+                    ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if r.returncode == 0 and r.stdout.strip().isdigit():
+                    found["AWS_ACCOUNT_ID"] = r.stdout.strip()
+            except Exception:
+                pass
+
+        return found
+
+    def _detect_gcp_secrets(self) -> Dict[str, str]:
+        """Read GCP credentials from env vars or gcloud config."""
+        found: Dict[str, str] = {}
+
+        # Env var
+        sa_key = os.environ.get("GCP_SA_KEY", "")
+        if sa_key:
+            found["GCP_SA_KEY"] = sa_key
+
+        project = os.environ.get("GCP_PROJECT_ID", "") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+        if project:
+            found["GCP_PROJECT_ID"] = project
+
+        zone = os.environ.get("GCP_ZONE", "")
+        if zone:
+            found["GCP_ZONE"] = zone
+
+        # gcloud default project
+        if not project:
+            try:
+                r = subprocess.run(
+                    ["gcloud", "config", "get-value", "project"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    found["GCP_PROJECT_ID"] = r.stdout.strip()
+            except Exception:
+                pass
+
+        # gcloud default zone
+        if not zone:
+            try:
+                r = subprocess.run(
+                    ["gcloud", "config", "get-value", "compute/zone"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if r.returncode == 0 and r.stdout.strip() and r.stdout.strip() != "(unset)":
+                    found["GCP_ZONE"] = r.stdout.strip()
+            except Exception:
+                pass
+
+        # Application Default Credentials path → base64 encode for GCP_SA_KEY
+        if "GCP_SA_KEY" not in found:
+            adc_path = Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+            if adc_path.exists():
+                try:
+                    import base64
+                    raw = adc_path.read_bytes()
+                    found["GCP_SA_KEY"] = base64.b64encode(raw).decode()
+                except Exception:
+                    pass
+
+        return found
+
+    def _detect_dockerhub_secrets(self) -> Dict[str, str]:
+        """Read Docker Hub credentials from ~/.docker/config.json."""
+        found: Dict[str, str] = {}
+        config_path = Path.home() / ".docker" / "config.json"
+        if not config_path.exists():
+            return found
+        try:
+            data = json.loads(config_path.read_text())
+            auths = data.get("auths", {})
+            for registry_key in ["https://index.docker.io/v1/", "registry-1.docker.io"]:
+                if registry_key in auths:
+                    auth_b64 = auths[registry_key].get("auth", "")
+                    if auth_b64:
+                        import base64
+                        decoded = base64.b64decode(auth_b64).decode(errors="ignore")
+                        if ":" in decoded:
+                            username, token = decoded.split(":", 1)
+                            found["DOCKERHUB_USERNAME"] = username.strip()
+                            found["DOCKERHUB_TOKEN"]   = token.strip()
+                    break
+        except Exception:
+            pass
+        return found
+
+    def _required_secrets_for_cloud(self, cloud: str) -> List[str]:
+        """Return the minimal set of secrets needed for this cloud."""
+        base = ["ARGOCD_TOKEN", "ARGOCD_SERVER", "SLACK_WEBHOOK_URL"]
+        cloud_map = {
+            "aws":   ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+                      "AWS_REGION", "AWS_ACCOUNT_ID", "EKS_CLUSTER_NAME"],
+            "gcp":   ["GCP_SA_KEY", "GCP_PROJECT_ID", "GCP_ZONE", "GKE_CLUSTER_NAME"],
+            "azure": ["AZURE_CREDENTIALS", "AZURE_RESOURCE_GROUP", "AKS_CLUSTER_NAME"],
+        }
+        return base + cloud_map.get(cloud, cloud_map["aws"])
+
+    def _gh_secret_set(
+        self, owner: str, repo: str, name: str, value: str
+    ) -> Tuple[bool, str]:
+        """Set a single GitHub Actions secret via gh CLI."""
+        try:
+            r = subprocess.run(
+                ["gh", "secret", "set", name,
+                 "--repo", f"{owner}/{repo}",
+                 "--body", value],
+                capture_output=True, text=True, timeout=15,
+            )
+            return r.returncode == 0, (r.stdout + r.stderr).strip()
+        except Exception as exc:
+            return False, str(exc)
 
     # -------------------------------------------------------------------------
     # Renderers
