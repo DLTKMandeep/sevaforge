@@ -2155,336 +2155,575 @@ function RunningView({ liveState, logs, onReset }) {
 }
 
 // ── Dashboard overview ────────────────────────────────────────────────────────
+// ── Shared page header ────────────────────────────────────────────────────────
+function PageHeader({ title, sub, action }) {
+  return (
+    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',
+                 paddingBottom:16,borderBottom:'1px solid var(--border)',marginBottom:4}}>
+      <div>
+        <div style={{fontSize:'20px',fontWeight:800,color:'var(--text)',letterSpacing:'-0.4px',marginBottom:3}}>{title}</div>
+        <div style={{fontSize:'14px',color:'var(--muted)'}}>{sub}</div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// ── Shared stat card ──────────────────────────────────────────────────────────
+function StatTile({ label, value, sub, color, icon }) {
+  return (
+    <div style={{
+      background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,
+      padding:'18px 20px',boxShadow:'0 1px 3px rgba(15,23,42,.04)',
+    }}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <div style={{fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.07em'}}>{label}</div>
+        {icon && <span style={{fontSize:'18px',opacity:.5}}>{icon}</span>}
+      </div>
+      <div style={{fontSize:'28px',fontWeight:800,lineHeight:1,letterSpacing:'-1px',color:color||'var(--text)',marginBottom:4}}>{value}</div>
+      {sub && <div style={{fontSize:'13px',color:'var(--muted)'}}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── Dashboard — executive overview ────────────────────────────────────────────
 function DashboardView({ history, connected, onNavigate }) {
   const runs      = history.length;
   const successes = history.filter(r=>r.status==='success').length;
+  const failures  = runs - successes;
   const rate      = runs ? Math.round(successes/runs*100) : null;
   const last      = history[0];
+  const avgTime   = runs ? Math.round(history.filter(r=>r.elapsed).reduce((a,r)=>a+r.elapsed,0) / (history.filter(r=>r.elapsed).length||1)) : null;
+
+  const PHASES = [
+    {label:'Analyse', stages:['discover','normalize','docs'],  color:'#6366f1', icon:'🔍', desc:'Code understanding, normalization, docs'},
+    {label:'Build',   stages:['iac','cd','ci'],                color:'#2563eb', icon:'🏗️', desc:'Terraform, ArgoCD, GitHub Actions'},
+    {label:'Quality', stages:['e2e','review','test'],          color:'#059669', icon:'🧪', desc:'Playwright E2E, code review, unit tests'},
+    {label:'Ship',    stages:['scan','bridge'],                color:'#0ea5e9', icon:'🚀', desc:'Security SARIF scan, GitHub push'},
+  ];
 
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
-      <div>
-        <div className="page-title">Dashboard</div>
-        <div className="page-sub">AIDDaaS — AI Dev to Delivery as a Service · ForgeFlow v2.1</div>
-      </div>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Dashboard" sub="AIDDaaS pipeline overview — ForgeFlow v2.1" />
 
-      {/* Stats row */}
+      {/* KPI row */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
-        {[
-          {label:'Pipeline Runs', value:runs||0,        sub:'total runs',    color:'#6366f1'},
-          {label:'Success Rate',  value:rate!=null?`${rate}%`:'—', sub:`${successes} passed`, color:rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'},
-          {label:'Last Run',      value:last?timeSince(last.ts):'None', sub:last?(last.status==='success'?'Passed':'Failed'):'no runs yet', color:last?(last.status==='success'?'var(--ok)':'var(--err)'):'var(--muted)'},
-          {label:'Server Status', value:connected?'Live':'Offline',    sub:'dashboard connection', color:connected?'var(--ok)':'var(--err)'},
-        ].map(({label,value,sub,color})=>(
-          <div key={label} className="stat-card">
-            <div className="stat-label">{label}</div>
-            <div className="stat-value" style={{color}}>{value}</div>
-            <div className="stat-sub">{sub}</div>
-          </div>
-        ))}
+        <StatTile label="Pipeline Runs"  value={runs||0}
+          sub={runs?`${successes} passed · ${failures} failed`:'No runs yet'}
+          color="#6366f1" icon="▶" />
+        <StatTile label="Success Rate"   value={rate!=null?`${rate}%`:'—'}
+          sub={runs?`${successes} of ${runs} passed`:'Run a pipeline first'}
+          color={rate==null?'var(--muted)':rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'} icon="◉" />
+        <StatTile label="Avg Pipeline Time" value={avgTime?`${avgTime}s`:'—'}
+          sub={avgTime?'across all completed runs':'No timing data yet'}
+          color="var(--text)" icon="⏱" />
+        <StatTile label="Server"  value={connected?'Live':'Offline'}
+          sub={connected?'Real-time events active':'Run forgeflow dashboard'}
+          color={connected?'var(--ok)':'var(--err)'} icon="◈" />
       </div>
 
-      {/* Stage overview */}
+      {/* Pipeline phases — what gets built */}
       <div className="sf-card">
-        <div className="sf-card-header">What each stage does for you</div>
-        <div style={{padding:'14px 18px',display:'flex',flexDirection:'column',gap:7}}>
-          {STAGE_INFO_FULL.slice(0,11).map((s,i)=>(
-            <div key={s.id} style={{
-              display:'flex',gap:12,alignItems:'flex-start',padding:'11px 14px',
-              borderRadius:8,border:'1px solid var(--border)',background:'var(--bg2)',
+        <div className="sf-card-header">What the pipeline builds</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)'}}>
+          {PHASES.map(({label,stages,color,icon,desc},gi)=>(
+            <div key={label} style={{
+              padding:'18px 20px',
+              borderRight:gi<3?'1px solid var(--border)':undefined,
             }}>
-              <div style={{
-                width:24,height:24,borderRadius:'50%',background:'var(--blue)',color:'#fff',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'17px',fontWeight:800,
-                flexShrink:0,marginTop:1,
-              }}>{i+1}</div>
-              <span style={{fontSize:'1.15rem',flexShrink:0,marginTop:2}}>{s.emoji}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,fontSize:'17px',color:'var(--text)',marginBottom:3}}>{s.label}</div>
-                <div style={{fontSize:'17px',color:'var(--muted)',lineHeight:1.5}}>{s.consumer}</div>
-                <div style={{fontSize:'17px',color:'var(--light)',fontFamily:'monospace',marginTop:4}}>→ {s.outputs}</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <span style={{
+                  width:32,height:32,borderRadius:8,flexShrink:0,
+                  background:`${color}18`,border:`1px solid ${color}30`,
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',
+                }}>{icon}</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:'14px',color:'var(--text)'}}>{label}</div>
+                  <div style={{fontSize:'12px',color:'var(--muted)'}}>{stages.length} stages</div>
+                </div>
               </div>
-              <div style={{flexShrink:0}}>
-                <code style={{fontSize:'17px',background:' var(--border-lt)',padding:'3px 8px',borderRadius:4,color:'var(--muted)',border:'1px solid var(--border)'}}>
-                  forgeflow {s.id}
-                </code>
+              <div style={{fontSize:'13px',color:'var(--muted)',lineHeight:1.5,marginBottom:10}}>{desc}</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                {stages.map(s=>{
+                  const meta=STAGE_INFO_FULL.find(x=>x.id===s)||{emoji:'▸',label:s};
+                  return (
+                    <span key={s} style={{
+                      fontSize:'12px',fontWeight:600,padding:'2px 8px',borderRadius:20,
+                      background:`${color}10`,color,border:`1px solid ${color}25`,
+                    }}>{meta.emoji} {meta.label}</span>
+                  );
+                })}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Recent runs */}
-      {history.length>0 && (
-        <div className="sf-card">
-          <div className="sf-card-header">Recent runs</div>
-          <div style={{padding:'12px 18px',display:'flex',flexDirection:'column',gap:6}}>
-            {history.slice(0,5).map((r,i)=>{
+      {/* Recent activity table */}
+      <div className="sf-card" style={{overflow:'hidden'}}>
+        <div className="sf-card-header" style={{justifyContent:'space-between'}}>
+          <span>Recent runs</span>
+          {history.length>0 && (
+            <button onClick={()=>onNavigate('history')} style={{
+              background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',
+              fontSize:'13px',color:'var(--blue)',fontWeight:600,padding:0,
+            }}>View all →</button>
+          )}
+        </div>
+        {history.length===0 ? (
+          <div style={{padding:'40px 24px',textAlign:'center',color:'var(--muted)',fontSize:'15px'}}>
+            No runs yet — launch a pipeline from the Pipeline tab.
+          </div>
+        ) : (
+          <div>
+            {/* Table header */}
+            <div style={{display:'grid',gridTemplateColumns:'32px 1fr 80px 80px 100px',
+                         padding:'8px 18px',background:'#fafbfc',borderBottom:'1px solid var(--border)',
+                         fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.07em',gap:12}}>
+              <div/>
+              <div>Project</div><div>Stages</div><div>Time</div><div style={{textAlign:'right'}}>Status</div>
+            </div>
+            {history.slice(0,6).map((r,i)=>{
               const ok=r.status==='success';
+              const proj=(r.path||'—').split('/').filter(Boolean).pop()||'—';
               return (
-                <div key={i} className={`stage-result-row ${ok?'ok':'fail'}`}>
-                  <span style={{color:ok?'var(--ok)':'var(--err)',fontWeight:700,fontSize:'17px'}}>{ok?'✓':'✗'}</span>
-                  <span style={{fontFamily:'monospace',fontSize:'17px',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{r.path||'—'}</span>
-                  <span style={{fontSize:'17px',color:'var(--muted)',flexShrink:0}}>{r.stageCount||0} stages · {timeSince(r.ts)}{r.elapsed?` · ${r.elapsed}s`:''}</span>
-                  <span className={`pill ${ok?'pill-done':'pill-error'}`}>{ok?'Passed':'Failed'}</span>
+                <div key={i} style={{
+                  display:'grid',gridTemplateColumns:'32px 1fr 80px 80px 100px',
+                  padding:'12px 18px',gap:12,alignItems:'center',
+                  borderBottom:i<Math.min(history.length,6)-1?'1px solid var(--border-lt)':undefined,
+                }}>
+                  <div style={{
+                    width:22,height:22,borderRadius:'50%',
+                    background:ok?'var(--ok-bg)':'var(--err-bg)',
+                    border:`1.5px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:'12px',color:ok?'var(--ok)':'var(--err)',fontWeight:800,
+                  }}>{ok?'✓':'✗'}</div>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:'14px',color:'var(--text)',lineHeight:1.2}}>{proj}</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)',fontFamily:'monospace',
+                                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
+                  </div>
+                  <div style={{fontSize:'14px',color:'var(--text2)',fontWeight:500}}>{r.stageCount||0} stages</div>
+                  <div style={{fontSize:'14px',color:'var(--text2)',fontWeight:500}}>{r.elapsed?`${r.elapsed}s`:'—'}</div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:'13px',fontWeight:700,color:ok?'var(--ok)':'var(--err)'}}>{ok?'PASSED':'FAILED'}</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Pipeline stages reference ─────────────────────────────────────────────────
-function StagesView() {
-  const CORE = STAGE_INFO_FULL.slice(0,11);
-  return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
-      <div>
-        <div className="page-title">Pipeline Stages</div>
-        <div className="page-sub">11 stages run automatically in sequence on every pipeline run.</div>
-      </div>
-      {/* Flow chip sequence */}
-      <div className="sf-card">
-        <div className="sf-card-header">Execution Order</div>
-        <div style={{padding:'16px 18px',overflowX:'auto'}}>
-          <div style={{display:'flex',alignItems:'center',gap:5,minWidth:'max-content'}}>
-            {CORE.map((s,i)=>(
-              <React.Fragment key={s.id}>
-                <span style={{
-                  padding:'5px 13px',borderRadius:20,fontSize:'17px',fontWeight:600,
-                  background:'var(--bg2)',border:'1.5px solid var(--border)',
-                  color:'var(--text)',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5,
-                }}>
-                  {s.emoji} {s.label}
-                </span>
-                {i<CORE.length-1 && <span style={{color:'var(--light)',fontSize:'17px',flexShrink:0}}>→</span>}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </div>
-      {/* Detail cards */}
-      <div style={{display:'flex',flexDirection:'column',gap:9}}>
-        {CORE.map((s,i)=>(
-          <div key={s.id} className="sf-card">
-            <div style={{padding:'15px 18px',display:'flex',gap:14,alignItems:'flex-start'}}>
-              <div style={{
-                width:28,height:28,borderRadius:'50%',background:'var(--blue)',color:'#fff',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'17px',fontWeight:800,
-                flexShrink:0,marginTop:1,
-              }}>{i+1}</div>
-              <span style={{fontSize:'1.5rem',flexShrink:0,marginTop:1}}>{s.emoji}</span>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:'17px',color:'var(--text)',marginBottom:5}}>{s.label}</div>
-                <div style={{fontSize:'17px',color:'var(--muted)',lineHeight:1.55,marginBottom:7}}>{s.consumer}</div>
-                <div style={{fontSize:'17px',color:'var(--light)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
-              </div>
-              <code style={{fontSize:'17px',background:'var(--bg2)',padding:'4px 10px',borderRadius:6,color:'var(--muted)',border:'1px solid var(--border)',flexShrink:0,fontFamily:'monospace',fontWeight:500}}>
-                forgeflow {s.id}
-              </code>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── History view ──────────────────────────────────────────────────────────────
-function HistoryView({ history, onClear }) {
-  const successes = history.filter(r=>r.status==='success').length;
-  const rate = history.length ? Math.round(successes/history.length*100) : null;
-
-  return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-        <div>
-          <div className="page-title">Run History</div>
-          <div className="page-sub">{history.length} runs · saved to ~/.sevaforge/run_history.json</div>
-        </div>
-        {history.length>0 && (
-          <button className="btn-secondary" onClick={onClear}
-                  style={{color:'var(--err)',borderColor:'var(--err-br)',flexShrink:0}}>
-            ✗ Clear history
-          </button>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Stats strip */}
-      {history.length>0 && (
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-          {[
-            {label:'Total Runs',    value:history.length,                         color:'#6366f1'},
-            {label:'Success Rate',  value:rate!=null?`${rate}%`:'—',              color:rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)'},
-            {label:'Last Run',      value:history[0]?timeSince(history[0].ts):'—',color:'var(--muted)'},
-          ].map(({label,value,color})=>(
-            <div key={label} className="stat-card" style={{padding:'12px 14px'}}>
-              <div className="stat-label">{label}</div>
-              <div className="stat-value" style={{color,fontSize:'22px'}}>{value}</div>
-            </div>
+// ── Stages — pipeline reference, grouped by phase ─────────────────────────────
+function StagesView() {
+  const [expanded, setExpanded] = React.useState(null);
+  const PHASES = [
+    {label:'Analyse',  color:'#6366f1', icon:'🔍', ids:['discover','normalize','docs']},
+    {label:'Build',    color:'#2563eb', icon:'🏗️', ids:['iac','cd','ci']},
+    {label:'Quality',  color:'#059669', icon:'🧪', ids:['e2e','review','test']},
+    {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','bridge']},
+  ];
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Pipeline Stages"
+        sub="11 stages · 4 phases · runs end-to-end on every pipeline launch" />
+
+      {/* Execution order flow strip */}
+      <div style={{
+        background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,
+        padding:'14px 18px',overflowX:'auto',
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:4,minWidth:'max-content'}}>
+          {STAGE_INFO_FULL.slice(0,11).map((s,i)=>(
+            <React.Fragment key={s.id}>
+              <button onClick={()=>setExpanded(expanded===s.id?null:s.id)} style={{
+                padding:'5px 12px',borderRadius:20,fontSize:'13px',fontWeight:600,
+                background: expanded===s.id ? 'var(--blue)' : 'var(--bg2)',
+                color:       expanded===s.id ? '#fff' : 'var(--text)',
+                border:`1.5px solid ${expanded===s.id?'var(--blue)':'var(--border)'}`,
+                whiteSpace:'nowrap',cursor:'pointer',fontFamily:'inherit',
+                display:'flex',alignItems:'center',gap:5,transition:'all .15s',
+              }}>{s.emoji} {s.label}</button>
+              {i<10 && <span style={{color:'var(--light)',fontSize:'14px',flexShrink:0}}>→</span>}
+            </React.Fragment>
           ))}
         </div>
+        {expanded && (() => {
+          const s = STAGE_INFO_FULL.find(x=>x.id===expanded);
+          if (!s) return null;
+          return (
+            <div style={{
+              marginTop:14,padding:'14px 16px',borderRadius:9,
+              background:'var(--blue-lt)',border:'1px solid var(--blue-br)',
+            }}>
+              <div style={{fontWeight:700,fontSize:'15px',color:'var(--blue)',marginBottom:5}}>
+                {s.emoji} {s.label} — what it does
+              </div>
+              <div style={{fontSize:'14px',color:'var(--text2)',lineHeight:1.6,marginBottom:8}}>{s.consumer}</div>
+              <div style={{fontSize:'13px',color:'var(--blue)',fontFamily:'monospace'}}>📦 {s.outputs}</div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Phase groups */}
+      {PHASES.map(({label,color,icon,ids})=>{
+        const stages = ids.map(id=>STAGE_INFO_FULL.find(s=>s.id===id)).filter(Boolean);
+        return (
+          <div key={label}>
+            {/* Phase header */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <div style={{
+                width:30,height:30,borderRadius:8,flexShrink:0,
+                background:`${color}15`,border:`1px solid ${color}30`,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px',
+              }}>{icon}</div>
+              <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)'}}>{label} Phase</div>
+              <div style={{fontSize:'13px',color:'var(--muted)'}}>{stages.length} stages</div>
+              <div style={{flex:1,height:1,background:'var(--border)',marginLeft:4}}/>
+            </div>
+            {/* Stage rows */}
+            <div className="sf-card" style={{overflow:'hidden'}}>
+              {stages.map((s,si)=>(
+                <div key={s.id} style={{
+                  display:'grid',gridTemplateColumns:'36px 36px 1fr auto',
+                  padding:'14px 18px',gap:12,alignItems:'start',
+                  borderBottom:si<stages.length-1?'1px solid var(--border-lt)':undefined,
+                }}>
+                  <div style={{
+                    width:26,height:26,borderRadius:'50%',
+                    background:color+'18',border:`1.5px solid ${color}30`,
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:'13px',fontWeight:800,color,
+                  }}>{STAGE_INFO_FULL.indexOf(s)+1}</div>
+                  <span style={{fontSize:'1.3rem',marginTop:2}}>{s.emoji}</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:'15px',color:'var(--text)',marginBottom:4}}>{s.label}</div>
+                    <div style={{fontSize:'13.5px',color:'var(--muted)',lineHeight:1.55,marginBottom:6}}>{s.consumer}</div>
+                    <div style={{fontSize:'13px',color:'var(--light)',fontFamily:'monospace'}}>→ {s.outputs}</div>
+                  </div>
+                  <code style={{
+                    fontSize:'13px',background:'var(--bg2)',padding:'4px 10px',
+                    borderRadius:6,color:'var(--muted)',border:'1px solid var(--border)',
+                    whiteSpace:'nowrap',flexShrink:0,fontWeight:500,
+                  }}>forgeflow {s.id}</code>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── History — full run log as a sortable table ─────────────────────────────────
+function HistoryView({ history, onClear }) {
+  const [filter, setFilter] = React.useState('all'); // all | passed | failed
+  const successes = history.filter(r=>r.status==='success').length;
+  const failures  = history.length - successes;
+  const rate      = history.length ? Math.round(successes/history.length*100) : null;
+  const avgTime   = history.filter(r=>r.elapsed).length
+    ? Math.round(history.filter(r=>r.elapsed).reduce((a,r)=>a+r.elapsed,0)/history.filter(r=>r.elapsed).length)
+    : null;
+
+  const filtered = history.filter(r=>
+    filter==='all' ? true : filter==='passed' ? r.status==='success' : r.status!=='success'
+  );
+
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Run History"
+        sub={`${history.length} runs saved to ~/.sevaforge/run_history.json`}
+        action={history.length>0 && (
+          <button className="btn-secondary" onClick={onClear}
+                  style={{color:'var(--err)',borderColor:'var(--err-br)',fontSize:'14px',padding:'7px 14px'}}>
+            ✗ Clear all
+          </button>
+        )} />
+
+      {history.length>0 && (
+        <>
+          {/* Breakdown bar */}
+          <div style={{
+            background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,
+            padding:'18px 20px',display:'flex',alignItems:'center',gap:24,
+          }}>
+            <div>
+              <div style={{fontSize:'36px',fontWeight:900,letterSpacing:'-2px',
+                           color:rate==null?'var(--muted)':rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--err)',lineHeight:1}}>
+                {rate!=null?`${rate}%`:'—'}
+              </div>
+              <div style={{fontSize:'13px',color:'var(--muted)',marginTop:4}}>success rate</div>
+            </div>
+            <div style={{flex:1}}>
+              {/* Stacked bar */}
+              <div style={{height:10,borderRadius:6,background:'var(--err-bg)',border:'1px solid var(--err-br)',overflow:'hidden',marginBottom:8}}>
+                <div style={{height:'100%',borderRadius:6,background:'var(--ok)',
+                             width:rate!=null?`${rate}%`:'0%',transition:'width 1s ease'}}/>
+              </div>
+              <div style={{display:'flex',gap:16,fontSize:'13px'}}>
+                <span style={{color:'var(--ok)',fontWeight:600}}>✓ {successes} passed</span>
+                <span style={{color:'var(--err)',fontWeight:600}}>✗ {failures} failed</span>
+                {avgTime && <span style={{color:'var(--muted)'}}>⏱ avg {avgTime}s</span>}
+              </div>
+            </div>
+            {/* Filter pills */}
+            <div style={{display:'flex',background:'var(--bg2)',borderRadius:8,padding:3,gap:2,flexShrink:0}}>
+              {[['all','All'],['passed','Passed'],['failed','Failed']].map(([f,lbl])=>(
+                <button key={f} onClick={()=>setFilter(f)} style={{
+                  padding:'5px 13px',borderRadius:6,border:'none',cursor:'pointer',
+                  fontSize:'13px',fontWeight:600,fontFamily:'inherit',transition:'all .15s',
+                  background:filter===f?'#fff':'transparent',
+                  color:filter===f?'var(--text)':'var(--muted)',
+                  boxShadow:filter===f?'0 1px 3px rgba(0,0,0,.1)':undefined,
+                }}>{lbl}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="sf-card" style={{overflow:'hidden'}}>
+            <div style={{display:'grid',gridTemplateColumns:'28px 1fr 80px 70px 120px 110px',
+                         padding:'9px 18px',background:'#fafbfc',borderBottom:'1px solid var(--border)',
+                         fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',
+                         letterSpacing:'0.07em',gap:12,alignItems:'center'}}>
+              <div/><div>Project</div><div>Stages</div><div>Time</div>
+              <div>Failed at</div><div style={{textAlign:'right'}}>When</div>
+            </div>
+            {filtered.length===0 ? (
+              <div style={{padding:'32px',textAlign:'center',color:'var(--muted)',fontSize:'15px'}}>
+                No {filter} runs.
+              </div>
+            ) : filtered.map((r,i)=>{
+              const ok=r.status==='success';
+              const proj=(r.path||'—').split('/').filter(Boolean).pop()||'—';
+              return (
+                <div key={i} style={{
+                  display:'grid',gridTemplateColumns:'28px 1fr 80px 70px 120px 110px',
+                  padding:'13px 18px',gap:12,alignItems:'center',
+                  borderBottom:i<filtered.length-1?'1px solid var(--border-lt)':undefined,
+                  background:!ok?'rgba(220,38,38,.02)':undefined,
+                }}>
+                  <div style={{
+                    width:20,height:20,borderRadius:'50%',
+                    background:ok?'var(--ok-bg)':'var(--err-bg)',
+                    border:`1.5px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:'11px',color:ok?'var(--ok)':'var(--err)',fontWeight:800,
+                  }}>{ok?'✓':'✗'}</div>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:'14px',color:'var(--text)'}}>{proj}</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)',fontFamily:'monospace',
+                                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
+                  </div>
+                  <div style={{fontSize:'14px',color:'var(--text2)'}}>{r.stageCount||0}</div>
+                  <div style={{fontSize:'14px',color:'var(--text2)'}}>{r.elapsed?`${r.elapsed}s`:'—'}</div>
+                  <div style={{fontSize:'13px',color:r.failedStage?'var(--err)':'var(--light)',fontFamily:'monospace'}}>
+                    {r.failedStage||'—'}
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:'13px',fontWeight:600,color:ok?'var(--ok)':'var(--err)'}}>{ok?'Passed':'Failed'}</div>
+                    <div style={{fontSize:'12px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
-      {history.length===0 ? (
-        <div className="sf-card" style={{padding:'56px 24px',textAlign:'center'}}>
+      {history.length===0 && (
+        <div className="sf-card" style={{padding:'60px 24px',textAlign:'center'}}>
           <div style={{fontSize:'2.5rem',marginBottom:14}}>⊙</div>
           <div style={{fontWeight:600,fontSize:'17px',color:'var(--muted)',marginBottom:6}}>No pipeline runs yet</div>
-          <div style={{fontSize:'17px',color:'var(--light)'}}>Run a pipeline from the Run Pipeline tab to see history here.</div>
-        </div>
-      ) : (
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {history.map((r,i)=>{
-            const ok=r.status==='success';
-            const projName = (r.path||'—').split('/').pop() || r.path || '—';
-            return (
-              <div key={i} style={{
-                borderRadius:9,border:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
-                background: ok?'var(--ok-bg)':'var(--err-bg)',overflow:'hidden',
-              }}>
-                {/* Main row */}
-                <div style={{padding:'11px 14px',display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{
-                    width:32,height:32,borderRadius:'50%',flexShrink:0,
-                    background: ok?'rgba(5,150,105,.15)':'rgba(220,38,38,.15)',
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    fontSize:'17px',fontWeight:800,color:ok?'var(--ok)':'var(--err)',
-                  }}>{ok?'✓':'✗'}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,fontSize:'17px',color:'var(--text)',marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {projName}
-                    </div>
-                    <div style={{fontFamily:'monospace',fontSize:'17px',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {r.path||'—'}
-                    </div>
-                  </div>
-                  <div style={{flexShrink:0,textAlign:'right'}}>
-                    <span className={`pill ${ok?'pill-done':'pill-error'}`} style={{marginBottom:3,display:'block'}}>
-                      {ok?'✓ Passed':'✗ Failed'}
-                    </span>
-                    <div style={{fontSize:'17px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
-                  </div>
-                </div>
-                {/* Meta strip */}
-                <div style={{
-                  padding:'6px 14px',borderTop:`1px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
-                  display:'flex',gap:16,
-                  background: ok?'rgba(5,150,105,.04)':'rgba(220,38,38,.04)',
-                }}>
-                  {[
-                    {icon:'⚡', val:`${r.stageCount||0} stages`},
-                    {icon:'⏱', val: r.elapsed?`${r.elapsed}s`:'—'},
-                    r.failedStage && {icon:'⛔', val:`Failed at: ${r.failedStage}`},
-                  ].filter(Boolean).map(({icon,val})=>(
-                    <span key={val} style={{fontSize:'17px',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
-                      <span>{icon}</span>{val}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+          <div style={{fontSize:'15px',color:'var(--light)'}}>Run a pipeline from the Pipeline tab to see history here.</div>
         </div>
       )}
     </div>
   );
 }
 
-// ── Health view ───────────────────────────────────────────────────────────────
+// ── Health — system status ────────────────────────────────────────────────────
 function HealthView({ connected, liveState }) {
+  const { stages=[], stageState={}, done=false, elapsed=0, totalStages=0 } = liveState;
+  const passedCount = Object.values(stageState).filter(s=>s==='success'||s==='preview').length;
+  const hasFailed   = Object.values(stageState).some(s=>s==='error');
+
   const checks = [
-    { label:'SSE Dashboard Stream',  ok:connected,  detail:connected?'Real-time events flowing':'Run forgeflow dashboard' },
-    { label:'Pipeline Engine',       ok:true,        detail:'ForgeFlow CLI installed and operational' },
-    { label:'React UI',              ok:true,        detail:'UI rendering correctly' },
-    { label:'Hourglass Animation',   ok:true,        detail:'Canvas engine active' },
-    { label:'NoCaaS Mode',           ok:true,        detail:'Running at zero infrastructure cost' },
-    { label:'Stage Descriptions',    ok:true,        detail:'All 11 consumer descriptions loaded' },
-    { label:'Sevaforge Branding',    ok:true,        detail:'AIDDaaS theme active · Inter font loaded' },
-    { label:'Node Graph Canvas',     ok:true,        detail:'Pipeline visualiser ready' },
+    {category:'Connection', label:'SSE Dashboard Stream', ok:connected,
+     detail:connected?'Real-time events flowing':'Run forgeflow dashboard to connect'},
+    {category:'Connection', label:'Pipeline Engine',      ok:true,
+     detail:'ForgeFlow CLI installed and operational'},
+    {category:'Runtime',    label:'React UI',             ok:true,
+     detail:'UI rendering correctly in browser'},
+    {category:'Runtime',    label:'Hourglass Animation',  ok:true,
+     detail:'Canvas animation engine active'},
+    {category:'Platform',   label:'NoCaaS Mode',          ok:true,
+     detail:'Running at zero infrastructure cost'},
+    {category:'Platform',   label:'Stage Descriptions',   ok:true,
+     detail:`All ${STAGE_INFO_FULL.length} stage descriptions loaded`},
+    {category:'Platform',   label:'Inter Font',           ok:true,
+     detail:'UI font loaded from CDN'},
+    {category:'Pipeline',   label:'Last Pipeline',
+     ok: done ? !hasFailed : stages.length===0,
+     detail: done
+       ? (hasFailed ? `Failed — ${passedCount}/${totalStages} stages passed`
+                    : `Complete — all ${passedCount} stages passed in ${elapsed}s`)
+       : stages.length>0 ? `Running — ${passedCount}/${totalStages} stages done`
+                         : 'No pipeline run in this session'},
   ];
-  const ok = checks.filter(c=>c.ok).length;
-  const pct = Math.round(ok/checks.length*100);
+
+  const passing = checks.filter(c=>c.ok).length;
+  const pct     = Math.round(passing/checks.length*100);
+  const cats    = [...new Set(checks.map(c=>c.category))];
+
   return (
-    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:18}}>
-      <div>
-        <div className="page-title">System Health</div>
-        <div className="page-sub">{ok} of {checks.length} checks passing</div>
-      </div>
-      <div className="sf-card">
-        <div className="sf-card-header">Health checks</div>
-        <div style={{padding:'18px 18px 14px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:20}}>
-            <div style={{fontSize:'40px',fontWeight:900,color:pct===100?'var(--ok)':'var(--warn)',letterSpacing:'-1px'}}>
-              {pct}%
-            </div>
-            <div>
-              <div style={{fontWeight:700,fontSize:'17px',color:pct===100?'var(--ok)':'var(--warn)',marginBottom:3}}>
-                {pct===100?'All Systems Operational':`${checks.length-ok} checks need attention`}
-              </div>
-              <div style={{fontSize:'17px',color:'var(--muted)'}}>Dashboard health status</div>
-            </div>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="System Health" sub={`${passing} of ${checks.length} checks passing`} />
+
+      {/* Score banner */}
+      <div style={{
+        background: pct===100 ? 'linear-gradient(135deg,#ecfdf5,#f0fdf4)' : 'linear-gradient(135deg,#fffbeb,#fef9c3)',
+        border:`1.5px solid ${pct===100?'var(--ok-br)':'#fde68a'}`,
+        borderRadius:14,padding:'20px 24px',
+        display:'flex',alignItems:'center',gap:20,
+      }}>
+        <div style={{
+          fontSize:'48px',fontWeight:900,letterSpacing:'-3px',lineHeight:1,
+          color:pct===100?'var(--ok)':'var(--warn)',
+        }}>{pct}%</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:'17px',color:pct===100?'#065f46':'#92400e',marginBottom:4}}>
+            {pct===100?'All Systems Operational':`${checks.length-passing} check${checks.length-passing!==1?'s':''} need attention`}
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            {checks.map((c,i)=>(
-              <div key={i} className={`stage-result-row ${c.ok?'ok':'fail'}`}>
-                <span style={{color:c.ok?'var(--ok)':'var(--err)',fontWeight:700}}>{c.ok?'✓':'✗'}</span>
-                <div>
-                  <div style={{fontSize:'17px',fontWeight:600,color:c.ok?'#065f46':'#991b1b'}}>{c.label}</div>
-                  <div style={{fontSize:'17px',color:'var(--muted)'}}>{c.detail}</div>
+          <div style={{height:7,borderRadius:4,background:'rgba(0,0,0,.07)',overflow:'hidden'}}>
+            <div style={{height:'100%',borderRadius:4,background:pct===100?'var(--ok)':'var(--warn)',
+                         width:`${pct}%`,transition:'width 1s ease'}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Checks by category */}
+      {cats.map(cat=>(
+        <div key={cat}>
+          <div style={{fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',
+                       letterSpacing:'0.1em',marginBottom:8}}>{cat}</div>
+          <div className="sf-card" style={{overflow:'hidden'}}>
+            {checks.filter(c=>c.category===cat).map((c,i,arr)=>(
+              <div key={c.label} style={{
+                display:'flex',alignItems:'center',gap:14,padding:'13px 18px',
+                borderBottom:i<arr.length-1?'1px solid var(--border-lt)':undefined,
+              }}>
+                <div style={{
+                  width:28,height:28,borderRadius:'50%',flexShrink:0,
+                  background:c.ok?'var(--ok-bg)':'var(--err-bg)',
+                  border:`1.5px solid ${c.ok?'var(--ok-br)':'var(--err-br)'}`,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:'13px',color:c.ok?'var(--ok)':'var(--err)',fontWeight:800,
+                }}>{c.ok?'✓':'✗'}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:'14px',color:'var(--text)',marginBottom:2}}>{c.label}</div>
+                  <div style={{fontSize:'13px',color:'var(--muted)'}}>{c.detail}</div>
                 </div>
+                <span style={{
+                  fontSize:'12px',fontWeight:700,padding:'3px 10px',borderRadius:20,
+                  background:c.ok?'var(--ok-bg)':'var(--err-bg)',
+                  color:c.ok?'var(--ok)':'var(--err)',
+                  border:`1px solid ${c.ok?'var(--ok-br)':'var(--err-br)'}`,
+                }}>{c.ok?'OK':'FAIL'}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
 
-// ── Settings view ─────────────────────────────────────────────────────────────
+// ── Settings — configuration & CLI reference ──────────────────────────────────
 function SettingsView() {
+  const [copied, setCopied] = React.useState(null);
+  const copy = (cmd) => {
+    navigator.clipboard?.writeText(cmd).catch(()=>{});
+    setCopied(cmd); setTimeout(()=>setCopied(null), 1800);
+  };
+
+  const platform = [
+    {k:'Version',        v:'v2.1.0',                    icon:'◈'},
+    {k:'Architecture',   v:'Agent → MCP → Tool',        icon:'⬡'},
+    {k:'AI Agents',      v:'13 production-ready',        icon:'▶'},
+    {k:'Core Stages',    v:'11 (discover → bridge)',     icon:'⚡'},
+    {k:'CI Generator',   v:'GitHub Actions · GitLab CI', icon:'⚙'},
+    {k:'Cloud Support',  v:'AWS · GCP · Azure',          icon:'☁️'},
+    {k:'CD Engine',      v:'ArgoCD + Kustomize',         icon:'🚀'},
+    {k:'E2E Framework',  v:'Playwright',                 icon:'🧪'},
+    {k:'Pricing',        v:'🆓 NoCaaS — zero cost',      icon:'◉'},
+  ];
+
+  const cmds = [
+    {desc:'Open dashboard only',          cmd:'forgeflow dashboard'},
+    {desc:'Run full pipeline with GUI',   cmd:'forgeflow run-all --gui ~/repo'},
+    {desc:'Run full pipeline (terminal)', cmd:'forgeflow run-all ~/repo'},
+    {desc:'Security scan only',           cmd:'forgeflow scan --severity high ~/repo'},
+    {desc:'Infrastructure only',          cmd:'forgeflow iac --cloud aws ~/repo'},
+    {desc:'Push to GitHub only',          cmd:'forgeflow bridge --path ~/repo'},
+    {desc:'Dry run (preview all stages)', cmd:'forgeflow run-all --dry-run ~/repo'},
+  ];
+
   return (
-    <div className="fade-in" style={{maxWidth:580,display:'flex',flexDirection:'column',gap:18}}>
-      <div>
-        <div className="page-title">Settings</div>
-        <div className="page-sub">Sevaforge · AIDDaaS · ForgeFlow v2.1</div>
-      </div>
-      <div className="sf-card">
-        <div className="sf-card-header">Platform details</div>
-        <div style={{padding:'16px 18px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
-          {[
-            ['Version','v2.1.0'],['Architecture','Agent → MCP → Tool'],
-            ['AI Agents','13 production-ready'],['Core Stages','11 (discover → bridge)'],
-            ['CI Generator','GitHub Actions + GitLab CI'],['Cloud Support','AWS · GCP · Azure'],
-            ['CD Engine','ArgoCD + Kustomize'],['E2E Framework','Playwright'],
-            ['Cost','🆓 NoCaaS — zero charge'],['Brand','Sevaforge / AIDDaaS'],
-          ].map(([k,v])=>(
-            <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                                   padding:'8px 11px',borderRadius:7,background:'var(--bg2)',border:'1px solid var(--border)'}}>
-              <span style={{fontSize:'17px',color:'var(--muted)'}}>{k}</span>
-              <span style={{fontSize:'17px',fontWeight:600,color:'var(--text)'}}>{v}</span>
-            </div>
-          ))}
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Settings" sub="Platform configuration · Sevaforge AIDDaaS · ForgeFlow v2.1" />
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,alignItems:'start'}}>
+        {/* Left: Platform info */}
+        <div className="sf-card">
+          <div className="sf-card-header">Platform details</div>
+          <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:6}}>
+            {platform.map(({k,v,icon})=>(
+              <div key={k} style={{
+                display:'flex',alignItems:'center',justifyContent:'space-between',
+                padding:'9px 12px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:'14px',opacity:.55}}>{icon}</span>
+                  <span style={{fontSize:'14px',color:'var(--muted)',fontWeight:500}}>{k}</span>
+                </div>
+                <span style={{fontSize:'14px',fontWeight:700,color:'var(--text)'}}>{v}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="sf-card">
-        <div className="sf-card-header">CLI Reference</div>
-        <div style={{padding:'16px 18px',display:'flex',flexDirection:'column',gap:8}}>
-          {[
-            ['Open dashboard (no pipeline)', 'forgeflow dashboard'],
-            ['Run full pipeline with GUI',   'forgeflow run-all --gui ~/repo'],
-            ['Run full pipeline (terminal)', 'forgeflow run-all ~/repo'],
-            ['Security scan only',          'forgeflow scan --severity high ~/repo'],
-            ['Push to GitHub only',         'forgeflow bridge --path ~/repo'],
-          ].map(([desc,cmd])=>(
-            <div key={cmd} style={{padding:'10px 14px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)'}}>
-              <div style={{fontSize:'17px',color:'var(--muted)',marginBottom:4,fontWeight:500}}>{desc}</div>
-              <code style={{fontSize:'17px',color:'var(--blue)',fontWeight:600}}>{cmd}</code>
-            </div>
-          ))}
+
+        {/* Right: CLI commands */}
+        <div className="sf-card">
+          <div className="sf-card-header">CLI Reference</div>
+          <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:6}}>
+            {cmds.map(({desc,cmd})=>(
+              <div key={cmd} style={{
+                padding:'10px 13px',borderRadius:8,background:'var(--bg2)',
+                border:'1px solid var(--border)',cursor:'pointer',transition:'border-color .15s',
+              }}
+              onClick={()=>copy(cmd)}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--blue-br)'}
+              onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+              >
+                <div style={{fontSize:'13px',color:'var(--muted)',marginBottom:4}}>{desc}</div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                  <code style={{fontSize:'13.5px',color:'var(--blue)',fontWeight:600,fontFamily:'monospace'}}>{cmd}</code>
+                  <span style={{fontSize:'12px',color:copied===cmd?'var(--ok)':'var(--light)',fontWeight:600,flexShrink:0}}>
+                    {copied===cmd?'✓ Copied':'Copy'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
