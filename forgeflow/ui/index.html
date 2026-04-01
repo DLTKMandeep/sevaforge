@@ -1701,6 +1701,230 @@ function LiveConsole({ logs, currentStage }) {
 }
 
 // ── Running / pipeline live view ──────────────────────────────────────────────
+// ── File-diff split-panel (GitHub compare style) ──────────────────────────────
+
+/** Convert [{path, size, status}] into a nested tree object. */
+function buildFileTree(files) {
+  const root = {};
+  (files||[]).forEach(({path, size=0, status}) => {
+    const parts = path.split('/');
+    let node = root;
+    parts.forEach((part, i) => {
+      if (i < parts.length - 1) {
+        if (!node[part]) node[part] = {__dir:true, __ch:{}};
+        node = node[part].__ch;
+      } else {
+        node[part] = {__file:true, path, size, status};
+      }
+    });
+  });
+  return root;
+}
+
+function fmtBytes(n) {
+  if (!n || n <= 0) return '';
+  if (n >= 1048576) return (n/1048576).toFixed(1)+' MB';
+  if (n >= 1024)    return (n/1024).toFixed(1)+' KB';
+  return n+' B';
+}
+
+/** Renders one entry (file or directory) in the tree — recurses for dirs. */
+function FileTreeEntry({name, node, depth}) {
+  const [open, setOpen] = React.useState(true);
+  const indent = depth * 14;
+
+  if (!node) return null;
+
+  if (node.__file) {
+    const colMap = {added:'#10b981', modified:'#d97706', deleted:'#f87171'};
+    const bgMap  = {added:'rgba(16,185,129,.09)', modified:'rgba(217,119,6,.09)', deleted:'rgba(248,113,113,.09)'};
+    const badgeMap = {added:'+', modified:'~', deleted:'−'};
+    const c  = colMap[node.status]  || '#94a3b8';
+    const bg = bgMap[node.status]   || 'transparent';
+    const bd = badgeMap[node.status]|| ' ';
+    return (
+      <div style={{
+        display:'flex',alignItems:'center',gap:5,
+        paddingLeft:indent+2,paddingTop:1,paddingBottom:1,paddingRight:6,
+        borderRadius:4,background:bg,marginBottom:1,
+      }}>
+        <span style={{color:c,fontWeight:800,fontSize:11,width:11,flexShrink:0,fontFamily:'monospace',textAlign:'center'}}>{bd}</span>
+        <span style={{color:c,fontSize:12,fontFamily:'monospace',flex:1,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name}</span>
+        {node.size>0 && <span style={{color:'#94a3b8',fontSize:10,flexShrink:0}}>{fmtBytes(node.size)}</span>}
+      </div>
+    );
+  }
+
+  if (node.__dir) {
+    const entries = Object.entries(node.__ch||{}).sort(([,a],[,b])=>{
+      if(a.__dir&&!b.__dir) return -1;
+      if(!a.__dir&&b.__dir) return 1;
+      return 0;
+    });
+    return (
+      <div>
+        <div
+          onClick={()=>setOpen(o=>!o)}
+          style={{display:'flex',alignItems:'center',gap:4,paddingLeft:indent,
+                  paddingTop:2,paddingBottom:2,cursor:'pointer',userSelect:'none',
+                  color:'#64748b',fontSize:12}}
+        >
+          <span style={{fontSize:9,width:10,color:'#94a3b8'}}>{open?'▾':'▸'}</span>
+          <span style={{fontFamily:'monospace'}}>📁 {name}/</span>
+        </div>
+        {open && entries.map(([cn,cn_node])=>(
+          <FileTreeEntry key={cn} name={cn} node={cn_node} depth={depth+1} />
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
+/** Renders a full tree (root-level entries) at a given depth offset. */
+function FileTree({tree, depth=0}) {
+  const entries = Object.entries(tree||{}).sort(([,a],[,b])=>{
+    if(a.__dir&&!b.__dir) return -1;
+    if(!a.__dir&&b.__dir) return 1;
+    return 0;
+  });
+  return (
+    <div>
+      {entries.map(([name,node])=>(
+        <FileTreeEntry key={name} name={name} node={{...node,__name:name}} depth={depth} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * StageDiffView — GitHub compare-style Before | After split panel.
+ * Renders from the {added, modified, deleted} payload emitted by mission_control.
+ */
+function StageDiffView({diff}) {
+  const [collapsed, setCollapsed] = React.useState(false);
+  if (!diff) return null;
+  const {added=[], modified=[], deleted=[]} = diff;
+  const total = added.length + modified.length + deleted.length;
+
+  if (total === 0) return (
+    <div style={{padding:'5px 10px',color:'#94a3b8',fontSize:12,fontStyle:'italic'}}>
+      No file changes this stage
+    </div>
+  );
+
+  const beforeFiles = [
+    ...deleted.map(f=>({...f,status:'deleted'})),
+    ...modified.map(f=>({...f,status:'modified'})),
+  ];
+  const afterFiles = [
+    ...added.map(f=>({...f,status:'added'})),
+    ...modified.map(f=>({...f,status:'modified'})),
+  ];
+  const beforeTree = buildFileTree(beforeFiles);
+  const afterTree  = buildFileTree(afterFiles);
+
+  return (
+    <div style={{
+      borderRadius:8,border:'1.5px solid rgba(148,163,184,.25)',
+      overflow:'hidden',fontSize:12,
+    }}>
+      {/* ── Header bar ── */}
+      <div
+        onClick={()=>setCollapsed(c=>!c)}
+        style={{
+          display:'flex',alignItems:'center',gap:10,
+          padding:'7px 12px',cursor:'pointer',
+          background:'rgba(15,23,42,.035)',
+          borderBottom:collapsed?'none':'1.5px solid rgba(148,163,184,.2)',
+          userSelect:'none',
+        }}
+      >
+        <span style={{fontSize:11,fontWeight:700,color:'#475569',
+                      textTransform:'uppercase',letterSpacing:'0.07em'}}>
+          📄 Files Changed
+        </span>
+        {added.length>0 && (
+          <span style={{
+            background:'rgba(16,185,129,.12)',color:'#059669',
+            fontWeight:700,fontSize:11,padding:'1px 7px',borderRadius:20,
+            border:'1px solid rgba(16,185,129,.3)',
+          }}>+{added.length} added</span>
+        )}
+        {modified.length>0 && (
+          <span style={{
+            background:'rgba(217,119,6,.12)',color:'#b45309',
+            fontWeight:700,fontSize:11,padding:'1px 7px',borderRadius:20,
+            border:'1px solid rgba(217,119,6,.3)',
+          }}>~{modified.length} modified</span>
+        )}
+        {deleted.length>0 && (
+          <span style={{
+            background:'rgba(239,68,68,.12)',color:'#dc2626',
+            fontWeight:700,fontSize:11,padding:'1px 7px',borderRadius:20,
+            border:'1px solid rgba(239,68,68,.3)',
+          }}>−{deleted.length} deleted</span>
+        )}
+        <span style={{marginLeft:'auto',color:'#94a3b8',fontSize:11}}>
+          {total} file{total!==1?'s':''} {collapsed?'▸':'▾'}
+        </span>
+      </div>
+
+      {!collapsed && (
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr'}}>
+
+          {/* ── BEFORE ── */}
+          <div style={{
+            padding:'10px 12px',
+            borderRight:'1.5px solid rgba(148,163,184,.2)',
+            background:'rgba(239,68,68,.025)',
+            minHeight:48,
+          }}>
+            <div style={{
+              fontSize:10,fontWeight:700,textTransform:'uppercase',
+              letterSpacing:'0.08em',color:'#94a3b8',marginBottom:7,
+              display:'flex',alignItems:'center',gap:5,
+            }}>
+              <span style={{width:7,height:7,borderRadius:'50%',
+                            background:'#f87171',display:'inline-block',flexShrink:0}}/>
+              Before
+            </div>
+            {beforeFiles.length===0
+              ? <div style={{color:'#cbd5e1',fontSize:11,fontStyle:'italic',paddingLeft:4}}>— nothing existed yet</div>
+              : <FileTree tree={beforeTree} depth={0} />
+            }
+          </div>
+
+          {/* ── AFTER ── */}
+          <div style={{
+            padding:'10px 12px',
+            background:'rgba(16,185,129,.025)',
+            minHeight:48,
+          }}>
+            <div style={{
+              fontSize:10,fontWeight:700,textTransform:'uppercase',
+              letterSpacing:'0.08em',color:'#94a3b8',marginBottom:7,
+              display:'flex',alignItems:'center',gap:5,
+            }}>
+              <span style={{width:7,height:7,borderRadius:'50%',
+                            background:'#10b981',display:'inline-block',flexShrink:0}}/>
+              After
+            </div>
+            {afterFiles.length===0
+              ? <div style={{color:'#cbd5e1',fontSize:11,fontStyle:'italic',paddingLeft:4}}>— no changes</div>
+              : <FileTree tree={afterTree} depth={0} />
+            }
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── End file-diff components ───────────────────────────────────────────────────
+
 function RunningView({ liveState, logs, onReset }) {
   const { pipelinePath, stages, stageState, stageInfo, stageResults,
           currentStage, currentNum, totalStages, done, elapsed, dryRun } = liveState;
@@ -1892,11 +2116,15 @@ function RunningView({ liveState, logs, onReset }) {
             const isSk = stageState[id]==='skipped';
             const isPr = stageState[id]==='preview';
             const tc   = stColors[ns.cls.replace('pill ','')] || 'var(--muted)';
+            const hasDiff = isDn && !isPr && res?.file_diff &&
+              (res.file_diff.added?.length||0)+(res.file_diff.modified?.length||0)+(res.file_diff.deleted?.length||0) > 0;
             return (
               <div key={id} style={{
+                borderBottom:i<stages.length-1?'1px solid var(--border-lt)':undefined,
+              }}>
+              <div style={{
                 display:'grid',gridTemplateColumns:'44px 1fr 110px 130px 200px',
                 padding:'14px 18px',gap:12,alignItems:'center',
-                borderBottom:i<stages.length-1?'1px solid var(--border-lt)':undefined,
                 background:isRun?'#f0f6ff':isFl?'var(--err-bg)':undefined,
                 transition:'background .25s',
               }}>
@@ -1994,7 +2222,19 @@ function RunningView({ liveState, logs, onReset }) {
                      !isDn && !isRun ? 'Not started yet' : ''}
                   </div>
                 </div>
-              </div>
+              </div>{/* ── end inner grid row ── */}
+
+              {/* ── File-diff split panel (Before | After) ── */}
+              {hasDiff && (
+                <div style={{
+                  padding:'0 18px 14px 18px',
+                  background:isFl?'var(--err-bg)':'transparent',
+                }}>
+                  <StageDiffView diff={res.file_diff} />
+                </div>
+              )}
+
+              </div>{/* ── end outer stage wrapper ── */}
             );
           })}
         </div>

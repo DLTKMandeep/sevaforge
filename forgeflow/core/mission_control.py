@@ -25,7 +25,105 @@ import json
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
+
+
+# =============================================================================
+# File-diff helpers — snapshot the repo before/after each stage so the GUI can
+# render a GitHub-style "Before | After" split panel showing exactly what
+# each pipeline stage created or modified.
+# =============================================================================
+
+# Directories / suffixes to skip when snapshotting (too noisy / not generated)
+_SNAP_EXCLUDE_DIRS = frozenset({
+    '.git', '__pycache__', 'node_modules', '.venv', 'venv', 'env',
+    '.env', 'staging', 'dist', 'build', '.eggs', '.tox', '.mypy_cache',
+})
+_SNAP_EXCLUDE_SUFFIXES = frozenset({'.pyc', '.pyo', '.egg-info', '.DS_Store'})
+
+
+def _snapshot_dir(root: str) -> Dict[str, Tuple[int, float]]:
+    """
+    Walk *root* and return {relative_path: (size_bytes, mtime)} for every
+    file that is not inside an excluded directory.
+
+    Deliberately fast: uses os.scandir() recursively so we avoid the overhead
+    of Path.rglob() for large repos.
+    """
+    result: Dict[str, Tuple[int, float]] = {}
+    p = Path(root)
+    if not p.is_dir():
+        return result
+
+    def _walk(dirpath: Path, rel_prefix: str) -> None:
+        try:
+            with os.scandir(dirpath) as it:
+                for entry in it:
+                    name = entry.name
+                    # Skip hidden dirs (except .github) and excluded names
+                    if entry.is_dir(follow_symlinks=False):
+                        if name in _SNAP_EXCLUDE_DIRS:
+                            continue
+                        if name.startswith('.') and name not in ('.github',):
+                            continue
+                        _walk(Path(entry.path), f"{rel_prefix}{name}/")
+                    elif entry.is_file(follow_symlinks=False):
+                        if any(name.endswith(s) for s in _SNAP_EXCLUDE_SUFFIXES):
+                            continue
+                        try:
+                            st = entry.stat()
+                            result[f"{rel_prefix}{name}"] = (st.st_size, st.st_mtime)
+                        except OSError:
+                            pass
+        except PermissionError:
+            pass
+
+    _walk(p, "")
+    return result
+
+
+def _diff_snapshots(
+    before: Dict[str, Tuple[int, float]],
+    after:  Dict[str, Tuple[int, float]],
+) -> Dict[str, Any]:
+    """
+    Compute added / modified / deleted files between two snapshots.
+
+    Returns a dict compatible with the SSE *file_diff* payload:
+      {
+        "added":    [{"path": str, "size": int}, ...],
+        "modified": [{"path": str, "size": int}, ...],
+        "deleted":  [{"path": str, "size": int}, ...],
+      }
+
+    Change detection uses (size, mtime) — if either differs, the file is
+    marked modified.  This is fast and correct for generated files.
+    """
+    added:    list = []
+    modified: list = []
+    deleted:  list = []
+
+    for path, (size, mtime) in sorted(after.items()):
+        if path not in before:
+            added.append({"path": path, "size": size})
+        else:
+            b_size, b_mtime = before[path]
+            if size != b_size or abs(mtime - b_mtime) > 0.01:
+                modified.append({"path": path, "size": size})
+
+    for path, (size, _) in sorted(before.items()):
+        if path not in after:
+            deleted.append({"path": path, "size": size})
+
+    return {"added": added, "modified": modified, "deleted": deleted}
+
+
+def _fmt_bytes(n: int) -> str:
+    if n >= 1_048_576:
+        return f"{n/1_048_576:.1f} MB"
+    if n >= 1_024:
+        return f"{n/1_024:.1f} KB"
+    return f"{n} B"
 
 from .orchestrator import MCPOrchestrator
 from .display import (
@@ -545,7 +643,39 @@ class MissionControl:
 
             # ── Normal execution ──────────────────────────────────────────────────
             _log(f"   Running agent… (this may take a while)", stage_name)
+
+            # Snapshot filesystem before stage so we can show a Before/After diff
+            before_snap = _snapshot_dir(path)
+
             result = stage_fn()
+
+            # Snapshot after and compute file diff for the GUI split panel
+            after_snap = _snapshot_dir(path)
+            file_diff  = _diff_snapshots(before_snap, after_snap)
+
+            # Print compact diff to console
+            _n_add = len(file_diff["added"])
+            _n_mod = len(file_diff["modified"])
+            _n_del = len(file_diff["deleted"])
+            if _n_add + _n_mod + _n_del:
+                _parts = []
+                if _n_add: _parts.append(f"[green]+{_n_add} added[/]")
+                if _n_mod: _parts.append(f"[yellow]~{_n_mod} modified[/]")
+                if _n_del: _parts.append(f"[red]-{_n_del} deleted[/]")
+                console.print(f"  [dim]Files: {' · '.join(_parts)}[/]")
+                _shown, _limit = 0, 12
+                for _f in file_diff["added"][:_limit]:
+                    console.print(f"  [green]  + {_f['path']}[/] [dim]{_fmt_bytes(_f['size'])}[/]")
+                    _shown += 1
+                for _f in file_diff["modified"][:max(0, _limit - _shown)]:
+                    console.print(f"  [yellow]  ~ {_f['path']}[/]")
+                    _shown += 1
+                for _f in file_diff["deleted"][:max(0, _limit - _shown)]:
+                    console.print(f"  [red]  - {_f['path']}[/]")
+                _total_shown = min(_n_add + _n_mod + _n_del, _limit)
+                _remaining   = _n_add + _n_mod + _n_del - _total_shown
+                if _remaining > 0:
+                    console.print(f"  [dim]  … and {_remaining} more[/]")
 
             # Normalise "already done" results so the pipeline never stops early
             raw_status = result.get("status", "error")
@@ -566,12 +696,13 @@ class MissionControl:
             final_status = result.get("status", "error")
             summary      = result.get("summary", "")
 
-            # Emit stage_result to browser
+            # Emit stage_result to browser (includes file diff for split panel)
             if dash:
                 dash.emit_stage_result(stage_name, {
-                    "status":   final_status,
-                    "summary":  summary,
-                    "findings": result.get("findings", []),
+                    "status":    final_status,
+                    "summary":   summary,
+                    "findings":  result.get("findings", []),
+                    "file_diff": file_diff,
                 })
                 if final_status in ("success", "warning"):
                     _log(f"✓  {stage_name.upper()} complete — {summary[:120]}" if summary else f"✓  {stage_name.upper()} complete", stage_name)
