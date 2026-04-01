@@ -67,7 +67,9 @@ PIPELINE_STAGES = [
     "e2e",       # E2E Testing (Playwright, Cypress)
     "review",
     "test",
-    "scan"
+    "scan",
+    "secrets",   # Secrets bootstrap guide + script (before bridge so it gets committed)
+    "lifecycle", # CI/CD lifecycle workflows: ci.yml → test.yml → cd.yml
 ]
 
 # Post-merge stages (optional)
@@ -175,6 +177,32 @@ DRY_RUN_PREVIEWS: Dict[str, Dict[str, Any]] = {
             "Would scan the dependency tree for known CVEs",
             "Would detect hardcoded secrets and tokens",
             "Would generate SARIF report with severity-classified findings",
+        ],
+    },
+    "secrets": {
+        "status": "success",
+        "summary": "[DRY RUN] Would detect cloud provider + tooling, generate docs/DEPLOYMENT_GUIDE.md, scripts/bootstrap-secrets.sh, docs/IAM_POLICIES.md, and all IAM policy files.",
+        "findings": [
+            "Would detect cloud provider (AWS/GCP/Azure) from Terraform files and workflows",
+            "Would detect tooling: ArgoCD, ESO, Helm, cert-manager, ingress-nginx",
+            "Would generate docs/DEPLOYMENT_GUIDE.md — complete pre-flight to production guide",
+            "Would generate scripts/bootstrap-secrets.sh — interactive secret-setting script",
+            "Would generate docs/IAM_POLICIES.md — service account matrix with all permissions",
+            "Would generate infrastructure/iam/{cloud}/ — policy JSON/TF/ARM files",
+            "Would generate scripts/verify-iam.sh — IAM verification script",
+        ],
+    },
+    "lifecycle": {
+        "status": "success",
+        "summary": "[DRY RUN] Would generate .github/workflows/ci.yml → test.yml → cd.yml with staging auto-deploy, production approval gate, auto-rollback, and Slack notification.",
+        "findings": [
+            "Would detect language-specific lint/test/integration/E2E commands",
+            "Would configure container registry login (ECR/GCR/ACR/GHCR based on cloud)",
+            "Would wire ci.yml → test.yml → cd.yml via workflow_run triggers",
+            "Would auto-create GitHub Environments: staging (auto) + production (approval gate)",
+            "Would auto-detect and set GitHub secrets from ~/.aws, ~/.docker, gcloud config",
+            "Would configure ArgoCD sync commands for staging and production deploy steps",
+            "Would configure auto-rollback on production health check failure",
         ],
     },
     "bridge": {
@@ -379,9 +407,12 @@ class MissionControl:
                private: bool = False, dry_run: bool = False,
                selected_stages: Optional[List[str]] = None) -> Dict[str, Any]:
         """
-        Run full 11-stage pipeline:
-        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE
+        Run full 13-stage pipeline:
+        DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN
+        → SECRETS → LIFECYCLE → BRIDGE
 
+        Secrets generates the deployment guide, IAM policies, and bootstrap scripts.
+        Lifecycle wires up the three GitHub Actions workflows (ci → test → cd).
         Bridge (GitHub push) is now a first-class pipeline stage — no manual
         approval prompt.  Post-merge stages (DEPLOY → MONITOR) are optional.
 
@@ -410,13 +441,15 @@ class MissionControl:
             ("review",    lambda: self._execute_stage("review",    path, greenfield)),
             ("test",      lambda: self._execute_stage("test",      path, greenfield)),
             ("scan",      lambda: self._execute_stage("scan",      path, greenfield)),
+            ("secrets",   lambda: self._execute_secrets(path)),      # Guide + IAM policies + bootstrap script
+            ("lifecycle", lambda: self._execute_lifecycle(path)),    # ci.yml → test.yml → cd.yml
             ("bridge",    lambda: self._execute_bridge(path, private=private)),       # Push to GitHub
         ]
 
         total = len(stages)
         mode_label = "DRY RUN PIPELINE" if dry_run else "RUN-ALL PIPELINE"
         print_pipeline_header(mode_label, self.mode)
-        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE[/]")
+        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → SECRETS → LIFECYCLE → BRIDGE[/]")
         if dry_run:
             console.print("  [bold yellow]⚠  DRY RUN MODE — no files will be written[/]")
         console.print()
@@ -584,7 +617,7 @@ class MissionControl:
             _log("    No files were written. Run without Dry Run to apply changes.", "bridge")
         else:
             print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
-            _log("🎉  All 11 stages complete — pipeline finished successfully!", "bridge")
+            _log("🎉  All 13 stages complete — pipeline finished successfully!", "bridge")
             _log("    Infrastructure, CI/CD, docs, tests, and security scan generated.", "bridge")
             _log("    Code pushed to GitHub — check your PR.", "bridge")
 
@@ -706,6 +739,54 @@ class MissionControl:
                 ],
             }
     
+    def _execute_secrets(self, path: str) -> Dict[str, Any]:
+        """
+        Execute SecretsAgent directly (bypasses MCP) so the agent runs inline.
+
+        Generates:
+          docs/DEPLOYMENT_GUIDE.md      — comprehensive pre-flight → production guide
+          docs/IAM_POLICIES.md          — service account matrix + policy documents
+          scripts/bootstrap-secrets.sh  — interactive GitHub secrets setup script
+          scripts/verify-iam.sh         — IAM verification script
+          infrastructure/iam/           — policy JSON/Terraform/ARM files per cloud
+        """
+        try:
+            from ..agents.secrets_agent import SecretsAgent
+            agent = SecretsAgent()
+            return agent.execute({"path": path})
+        except Exception as e:
+            return {
+                "status": "warning",
+                "mission": "secrets",
+                "summary": f"Secrets stage skipped — {e}. Run scripts/bootstrap-secrets.sh manually.",
+                "findings": [str(e)],
+            }
+
+    def _execute_lifecycle(self, path: str) -> Dict[str, Any]:
+        """
+        Execute LifecycleAgent directly (bypasses MCP) so the agent runs inline.
+
+        Generates:
+          .github/workflows/ci.yml      — lint · security scan · build · push image
+          .github/workflows/test.yml    — unit · integration · E2E · coverage
+          .github/workflows/cd.yml      — staging deploy · validate · prod approval gate ·
+                                          prod deploy · validate · auto-rollback · Slack notify
+        Also:
+          - Auto-creates GitHub Environments (staging + production) via gh API
+          - Auto-detects and sets GitHub secrets from ~/.aws, ~/.docker, gcloud config
+        """
+        try:
+            from ..agents.lifecycle_agent import LifecycleAgent
+            agent = LifecycleAgent()
+            return agent.execute({"repo_path": path})
+        except Exception as e:
+            return {
+                "status": "warning",
+                "mission": "lifecycle",
+                "summary": f"Lifecycle stage skipped — {e}. Workflows not generated.",
+                "findings": [str(e)],
+            }
+
     def status(self, path: str = ".") -> Dict[str, Any]:
         """Check pipeline status (standalone agent)."""
         return self.execute("status", {"path": path})

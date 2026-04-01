@@ -54,6 +54,7 @@ from .ci_agent import CIAgent
 from .e2e_agent import E2ETestingAgent
 from .secrets_agent import SecretsAgent
 from .lifecycle_agent import LifecycleAgent
+from .iam_agent import IAMAgent
 
 __all__ = [
     'BaseAgent',
@@ -74,4 +75,5 @@ __all__ = [
     'E2ETestingAgent',
     'SecretsAgent',
     'LifecycleAgent',
+    'IAMAgent',
 ]

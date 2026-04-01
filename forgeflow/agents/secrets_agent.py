@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .base_agent import BaseAgent
+from .iam_agent import IAMAgent
 
 
 # ── Secret definitions ─────────────────────────────────────────────────────────
@@ -450,6 +451,570 @@ echo "${{GRN}}Bootstrap complete!${{NC}}"
 """
 
 
+# =============================================================================
+# COMPREHENSIVE DEPLOYMENT GUIDE SECTIONS
+# (appended to the base DEPLOYMENT_GUIDE_TEMPLATE at render time)
+# =============================================================================
+
+_PRE_FLIGHT_AWS = """\
+### Cloud accounts & access
+
+- [ ] AWS Account with **IAM admin** access (to create service accounts and roles)
+- [ ] AWS credentials working locally: `aws sts get-caller-identity`
+- [ ] Note your **12-digit AWS Account ID** — needed for ECR URLs and IAM ARNs
+- [ ] Decide: OIDC role federation (recommended, no long-lived keys) OR IAM user with access keys
+
+"""
+
+_PRE_FLIGHT_GCP = """\
+### Cloud accounts & access
+
+- [ ] GCP Project created with billing enabled
+- [ ] **Owner** or **Project IAM Admin** role on the project
+- [ ] gcloud authenticated: `gcloud auth login && gcloud auth application-default login`
+- [ ] Note your **Project ID** (not the project name): `gcloud config get-value project`
+- [ ] Decide: Workload Identity federation (recommended) OR service account JSON key
+
+"""
+
+_PRE_FLIGHT_AZURE = """\
+### Cloud accounts & access
+
+- [ ] Azure Subscription with **Owner** role
+- [ ] Azure CLI authenticated: `az login`
+- [ ] Note your **Subscription ID**: `az account show --query id -o tsv`
+- [ ] Decide: Federated credentials (recommended) OR service principal client secret
+
+"""
+
+_IAM_QUICKSTART_AWS = """\
+
+---
+
+## 🏗️ AWS IAM Setup (complete BEFORE running Terraform)
+
+Create these service accounts in order — each subsequent one depends on
+infrastructure that the previous one provisions.
+
+### 1 · terraform-deployer  (do this FIRST — Terraform runs as this identity)
+
+**Option A — OIDC Role (no long-lived keys, recommended for production)**
+```bash
+# One-time per AWS account: register GitHub as a trusted OIDC provider
+aws iam create-open-id-connect-provider \\
+  --url https://token.actions.githubusercontent.com \\
+  --client-id-list sts.amazonaws.com \\
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+# Create the IAM role with the GitHub Actions trust policy
+aws iam create-role \\
+  --role-name terraform-deployer \\
+  --assume-role-policy-document file://infrastructure/iam/aws/terraform-deployer-trust.json
+
+# Attach the inline policy (EKS + ECR + ACM + SecretsManager + CloudWatch)
+aws iam put-role-policy \\
+  --role-name terraform-deployer \\
+  --policy-name TerraformDeployerPolicy \\
+  --policy-document file://infrastructure/iam/aws/terraform-deployer-inline.json
+
+# Add broad AWS managed policies needed for cluster + networking provisioning
+for policy in AmazonEKSClusterPolicy AmazonVPCFullAccess AmazonEC2FullAccess \\
+              ElasticLoadBalancingFullAccess AmazonRoute53FullAccess \\
+              AmazonS3FullAccess IAMFullAccess; do
+  aws iam attach-role-policy --role-name terraform-deployer \\
+    --policy-arn arn:aws:iam::aws:policy/$policy
+done
+
+# Get the Role ARN — store as GitHub secret AWS_ROLE_ARN
+aws iam get-role --role-name terraform-deployer --query 'Role.Arn' --output text
+```
+
+**Option B — IAM User (simpler setup, but uses long-lived access keys)**
+```bash
+aws iam create-user --user-name terraform-deployer
+aws iam put-user-policy \\
+  --user-name terraform-deployer \\
+  --policy-name TerraformDeployerPolicy \\
+  --policy-document file://infrastructure/iam/aws/terraform-deployer-inline.json
+
+# Create keys — output contains AccessKeyId and SecretAccessKey
+aws iam create-access-key --user-name terraform-deployer
+# Store AccessKeyId → AWS_ACCESS_KEY_ID, SecretAccessKey → AWS_SECRET_ACCESS_KEY
+```
+
+### 2 · cicd-image-pusher  (CI builds and pushes Docker images as this identity)
+```bash
+# OIDC role (recommended)
+aws iam create-role \\
+  --role-name cicd-image-pusher \\
+  --assume-role-policy-document file://infrastructure/iam/aws/cicd-image-pusher-trust.json
+
+aws iam put-role-policy \\
+  --role-name cicd-image-pusher \\
+  --policy-name ECRPushPolicy \\
+  --policy-document file://infrastructure/iam/aws/cicd-image-pusher-inline.json
+```
+
+### 3 · eks-node-role  (automatically created by Terraform — review before apply)
+```bash
+# Review the managed policy list in:
+cat infrastructure/iam/aws/eks-node-role-managed.json
+
+# After terraform apply, verify:
+aws iam get-role --role-name <app-name>-eks-node-role
+```
+
+### 4 · external-secrets-operator  (after EKS cluster exists — uses IRSA)
+This role is created automatically by your Terraform EKS module using IRSA
+(IAM Roles for Service Accounts). It allows the ESO pod to read from
+AWS Secrets Manager without any secrets stored in the cluster.
+```bash
+# After terraform apply, verify IRSA annotation:
+kubectl get sa external-secrets -n external-secrets-system -o yaml | grep eks.amazonaws.com
+```
+
+### 5 · app-workload  (after EKS cluster + namespace exists — uses IRSA)
+Fine-grained S3/SQS/DynamoDB access for your application pods.
+Terraform creates this role. Scope the ARNs to your specific resources.
+```bash
+# After terraform apply + namespace created:
+kubectl get sa <app-name> -n <app-name>-production -o yaml | grep eks.amazonaws.com
+```
+
+### Verify all IAM setup
+```bash
+bash scripts/verify-iam.sh
+```
+
+> Full policy documents with exact JSON: `docs/IAM_POLICIES.md`
+> Policy files: `infrastructure/iam/aws/`
+
+"""
+
+_IAM_QUICKSTART_GCP = """\
+
+---
+
+## 🏗️ GCP IAM Setup (complete BEFORE running Terraform)
+
+### 1 · terraform-deployer  (FIRST — Terraform runs as this service account)
+
+**Option A — Workload Identity (no JSON key, recommended)**
+```bash
+# Create the service account
+gcloud iam service-accounts create terraform-deployer \\
+  --display-name "ForgeFlow Terraform Deployer" \\
+  --project $GCP_PROJECT_ID
+
+# Grant all required roles (see infrastructure/iam/gcp/terraform-deployer.tf)
+for role in roles/container.admin roles/compute.admin roles/iam.serviceAccountAdmin \\
+            roles/iam.workloadIdentityUser roles/storage.admin \\
+            roles/artifactregistry.admin roles/secretmanager.admin \\
+            roles/dns.admin roles/certificatemanager.admin \\
+            roles/resourcemanager.projectIamAdmin roles/monitoring.admin; do
+  gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \\
+    --member serviceAccount:terraform-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com \\
+    --role $role
+done
+
+# Bind to the GitHub Actions workload identity pool
+gcloud iam service-accounts add-iam-policy-binding \\
+  terraform-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com \\
+  --role roles/iam.workloadIdentityUser \\
+  --member "principalSet://iam.googleapis.com/projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_ORG/YOUR_REPO"
+```
+
+**Option B — Service Account Key (simpler, use for dev/POC only)**
+```bash
+gcloud iam service-accounts keys create /tmp/terraform-sa.json \\
+  --iam-account terraform-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com
+
+# Base64-encode and store as GCP_SA_KEY
+base64 -i /tmp/terraform-sa.json | tr -d '\\n' | gh secret set GCP_SA_KEY --repo YOUR_ORG/REPO
+rm /tmp/terraform-sa.json  # clean up
+```
+
+### 2 · cicd-image-pusher
+```bash
+gcloud iam service-accounts create cicd-image-pusher \\
+  --display-name "ForgeFlow CI/CD Image Pusher" --project $GCP_PROJECT_ID
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \\
+  --member serviceAccount:cicd-image-pusher@$GCP_PROJECT_ID.iam.gserviceaccount.com \\
+  --role roles/artifactregistry.writer
+```
+
+### 3 · gke-node  (automatically created by Terraform)
+```bash
+cat infrastructure/iam/gcp/gke-node.tf
+```
+
+### 4 · external-secrets  (created by Terraform using Workload Identity)
+```bash
+cat infrastructure/iam/gcp/external-secrets.tf
+```
+
+### Verify
+```bash
+bash scripts/verify-iam.sh
+```
+
+> Full policy documents and Terraform blocks: `docs/IAM_POLICIES.md` and `infrastructure/iam/gcp/`
+
+"""
+
+_IAM_QUICKSTART_AZURE = """\
+
+---
+
+## 🏗️ Azure IAM Setup (complete BEFORE running Terraform)
+
+### 1 · terraform-deployer Service Principal  (FIRST)
+```bash
+# Create service principal — outputs JSON with clientId, clientSecret, tenantId, subscriptionId
+az ad sp create-for-rbac \\
+  --name "forgeflow-terraform-deployer" \\
+  --role "Contributor" \\
+  --scopes /subscriptions/$AZURE_SUBSCRIPTION_ID \\
+  --sdk-auth > /tmp/azure-sp.json
+
+# Store full JSON as AZURE_CREDENTIALS GitHub secret
+cat /tmp/azure-sp.json | gh secret set AZURE_CREDENTIALS --repo YOUR_ORG/REPO
+
+# Add User Access Administrator (needed for AKS RBAC and managed identity assignments)
+APPID=$(cat /tmp/azure-sp.json | python3 -c "import sys,json; print(json.load(sys.stdin)['clientId'])")
+az role assignment create \\
+  --assignee $APPID \\
+  --role "User Access Administrator" \\
+  --scope /subscriptions/$AZURE_SUBSCRIPTION_ID
+
+# Add Key Vault Administrator (needed for Key Vault secret management via Terraform)
+az role assignment create \\
+  --assignee $APPID \\
+  --role "Key Vault Administrator" \\
+  --scope /subscriptions/$AZURE_SUBSCRIPTION_ID
+
+rm /tmp/azure-sp.json  # clean up
+```
+
+### 2 · cicd-image-pusher Service Principal
+```bash
+az ad sp create-for-rbac --name "forgeflow-cicd-image-pusher"
+
+# Grant AcrPush on the ACR resource (get ACR resource ID after terraform apply)
+ACR_ID=$(az acr show --name <your-acr-name> --query id -o tsv)
+az role assignment create --assignee <cicd-pusher-appId> \\
+  --role "AcrPush" --scope $ACR_ID
+```
+
+### 3 · AKS node managed identity  (automatically created by Terraform)
+```bash
+cat infrastructure/iam/azure/aks-managed-identity.json
+```
+
+### 4 · external-secrets User-Assigned Managed Identity  (created by Terraform)
+```bash
+cat infrastructure/iam/azure/external-secrets.json
+```
+
+### Verify
+```bash
+bash scripts/verify-iam.sh
+```
+
+> Full ARM role definitions: `docs/IAM_POLICIES.md` and `infrastructure/iam/azure/`
+
+"""
+
+_ARGOCD_GUIDE = """\
+
+---
+
+## 🔄 ArgoCD Setup Guide
+
+ArgoCD was detected as your GitOps deployment engine. Complete this before the
+first `git push origin main`, otherwise the CD workflow cannot sync your application.
+
+### 1 · Install ArgoCD on your Kubernetes cluster
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f \\
+  https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Wait for all pods to be ready (takes ~2 minutes)
+kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
+kubectl get pods -n argocd
+```
+
+### 2 · Get initial admin password
+```bash
+argocd admin initial-password -n argocd | head -1
+# Change it immediately after first login
+```
+
+### 3 · Access the ArgoCD UI (choose one option)
+```bash
+# Option A — Port-forward (local access, safest)
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+# Open https://localhost:8080  (accept self-signed cert on first visit)
+
+# Option B — LoadBalancer external IP (dev clusters only)
+kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"LoadBalancer"}}'
+kubectl get svc argocd-server -n argocd -w  # wait for EXTERNAL-IP
+
+# Option C — Ingress (recommended for production — apply your ingress manifest)
+kubectl apply -f infrastructure/k8s/argocd/ingress.yaml
+```
+
+### 4 · Login via CLI and change password
+```bash
+argocd login localhost:8080 --username admin --password <initial-password> --insecure
+argocd account update-password
+```
+
+### 5 · Register your GitHub repository with ArgoCD
+```bash
+argocd repo add https://github.com/YOUR_ORG/REPO \\
+  --username git \\
+  --password $GH_PAT  # your GitHub PAT with repo scope
+```
+
+### 6 · Create ArgoCD API token → store as ARGOCD_AUTH_TOKEN GitHub secret
+```bash
+# Create a dedicated ArgoCD account for the CD pipeline (least-privilege)
+argocd account list  # should show 'admin'
+
+# Generate token for the pipeline account
+TOKEN=$(argocd account generate-token --account admin)
+echo $TOKEN | gh secret set ARGOCD_AUTH_TOKEN --repo YOUR_ORG/REPO
+```
+
+### 7 · Store ArgoCD server URL → store as ARGOCD_SERVER GitHub secret
+```bash
+# Use your LoadBalancer IP or ingress hostname (without https://)
+ARGOCD_HOST=$(kubectl get svc argocd-server -n argocd \\
+  -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+# Or for ingress: ARGOCD_HOST="argocd.your-domain.com"
+
+echo "$ARGOCD_HOST" | gh secret set ARGOCD_SERVER --repo YOUR_ORG/REPO
+```
+
+### 8 · Trigger the bootstrap workflow (creates Applications for staging + prod)
+```bash
+gh workflow run bootstrap.yml --repo YOUR_ORG/REPO
+gh run watch --repo YOUR_ORG/REPO  # watch it complete
+```
+
+After bootstrap succeeds, `ARGOCD_SERVER` and `ARGOCD_AUTH_TOKEN` are confirmed
+and your CD workflow can sync applications automatically.
+
+"""
+
+_ESO_GUIDE_TEMPLATE = """\
+
+---
+
+## 🔐 External Secrets Operator (ESO) Setup
+
+ESO was detected in your project. It syncs secrets from {secret_manager} →
+Kubernetes Secrets automatically so your pods never need cloud credentials.
+
+### 1 · Install ESO via Helm
+```bash
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+helm install external-secrets external-secrets/external-secrets \\
+  --namespace external-secrets-system \\
+  --create-namespace \\
+  --set installCRDs=true \\
+  --wait
+```
+
+### 2 · Verify installation
+```bash
+kubectl get pods -n external-secrets-system
+kubectl get crd | grep external-secrets.io
+```
+
+### 3 · Apply the SecretStore (after Terraform + IRSA/Workload Identity are ready)
+```bash
+# The SecretStore is generated by Terraform — apply after terraform apply
+kubectl apply -f infrastructure/k8s/secrets/secret-store.yaml
+kubectl get secretstore -A
+```
+
+### 4 · Apply ExternalSecret manifests
+```bash
+kubectl apply -f infrastructure/k8s/secrets/
+kubectl get externalsecret -A
+```
+
+### 5 · Verify secrets are syncing
+```bash
+# Status should be "SecretSynced"
+kubectl get externalsecret -A -o wide
+
+# Check a specific secret
+kubectl describe externalsecret <name> -n <namespace>
+
+# Verify the Kubernetes Secret was created
+kubectl get secret -n {app_name}-production
+```
+
+### 6 · Force a manual sync if needed
+```bash
+kubectl annotate externalsecret <name> \\
+  force-sync=$(date +%s) --overwrite -n <namespace>
+```
+
+"""
+
+_CERT_MANAGER_GUIDE = """\
+
+---
+
+## 🔒 cert-manager Setup (automated TLS certificates)
+
+cert-manager was detected. It automatically provisions and renews TLS certificates
+from Let's Encrypt, eliminating manual certificate management.
+
+### 1 · Install cert-manager
+```bash
+kubectl apply -f \\
+  https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
+kubectl wait --for=condition=available deployment/cert-manager \\
+  -n cert-manager --timeout=120s
+kubectl get pods -n cert-manager
+```
+
+### 2 · Apply the ClusterIssuer (Let's Encrypt)
+```bash
+# Edit infrastructure/k8s/cert-manager/cluster-issuer.yaml to add your email
+kubectl apply -f infrastructure/k8s/cert-manager/cluster-issuer.yaml
+kubectl get clusterissuer
+```
+
+### 3 · Verify certificate issuance (after ingress is applied)
+```bash
+kubectl get certificate -A
+kubectl describe certificate <app-name>-tls -n <namespace>
+# Status Ready: True means TLS is live
+```
+
+"""
+
+_INGRESS_NGINX_GUIDE = """\
+
+---
+
+## 🌐 ingress-nginx Setup (HTTP/S load balancing)
+
+### 1 · Install ingress-nginx
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install ingress-nginx ingress-nginx/ingress-nginx \\
+  --namespace ingress-nginx \\
+  --create-namespace \\
+  --set controller.service.type=LoadBalancer \\
+  --wait
+```
+
+### 2 · Get external IP (takes ~2 minutes for cloud load balancer to provision)
+```bash
+kubectl get svc ingress-nginx-controller -n ingress-nginx -w
+# Note the EXTERNAL-IP column value
+```
+
+### 3 · Configure DNS
+Point your domain records to the external IP:
+```
+A record:  your-app.your-domain.com          → <EXTERNAL-IP>
+A record:  your-app-staging.your-domain.com  → <EXTERNAL-IP>
+```
+
+### 4 · Apply ingress manifests
+```bash
+kubectl apply -f infrastructure/k8s/base/ingress.yaml
+kubectl get ingress -A
+```
+
+"""
+
+_PROMETHEUS_GUIDE = """\
+
+---
+
+## 📊 Prometheus + Grafana Monitoring Setup
+
+Prometheus monitoring was detected. This installs a full observability stack.
+
+### 1 · Install kube-prometheus-stack
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \\
+  --namespace monitoring \\
+  --create-namespace \\
+  --set grafana.adminPassword=<choose-a-password> \\
+  --wait
+```
+
+### 2 · Access Grafana dashboard
+```bash
+kubectl port-forward svc/kube-prometheus-stack-grafana -n monitoring 3000:80 &
+# Open http://localhost:3000  — user: admin, password: <your-password>
+```
+
+### 3 · Import recommended dashboards
+- Kubernetes Cluster Overview: ID `6417`
+- Node Exporter Full: ID `1860`
+- ArgoCD dashboard: ID `14584` (if using ArgoCD)
+
+### 4 · Verify your app metrics are scraped
+```bash
+kubectl get servicemonitor -A
+kubectl get prometheusrule -A
+```
+
+"""
+
+_K8S_NAMESPACES_GUIDE = """\
+
+---
+
+## ☸️  Kubernetes Cluster Prep (run after terraform apply)
+
+### 1 · Create application namespaces
+```bash
+APP_NAME="<your-app-name>"
+kubectl create namespace ${APP_NAME}-staging   --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace ${APP_NAME}-production --dry-run=client -o yaml | kubectl apply -f -
+kubectl get namespaces | grep $APP_NAME
+```
+
+### 2 · Apply RBAC for ArgoCD (if using ArgoCD GitOps)
+```bash
+kubectl apply -f infrastructure/k8s/rbac/
+kubectl get rolebinding -A | grep argocd
+```
+
+### 3 · Label namespaces for network policies
+```bash
+kubectl label namespace ${APP_NAME}-staging    env=staging
+kubectl label namespace ${APP_NAME}-production env=production
+kubectl label namespace ${APP_NAME}-staging    app=${APP_NAME}
+kubectl label namespace ${APP_NAME}-production app=${APP_NAME}
+```
+
+"""
+
+
+# =============================================================================
+# SecretsAgent class
+# =============================================================================
+
 class SecretsAgent(BaseAgent):
     """
     Analyses generated repository to detect required secrets and generates:
@@ -475,56 +1040,78 @@ class SecretsAgent(BaseAgent):
         has_snyk     = self._has_snyk(repo_path)
         registry     = self._detect_registry(repo_path, cloud)
         domain_hint  = self._detect_domain_hint(repo_path, app_name)
+        tools        = self._detect_tools(repo_path)
 
         self.log(f"Detected cloud provider: {cloud}")
         self.log(f"App name: {app_name}")
+        detected_tools = [k for k, v in tools.items() if v]
+        self.log(f"Tools detected: {', '.join(detected_tools) or 'none'}")
 
         actions = []
 
-        # Generate DEPLOYMENT_GUIDE.md
+        # ── 1. Generate comprehensive DEPLOYMENT_GUIDE.md ─────────────────────
         guide = self._render_guide(
-            app_name, cloud, has_snyk, registry, domain_hint, github_user
+            app_name, cloud, has_snyk, registry, domain_hint, github_user, tools
         )
         docs_path = repo_path / "docs"
         docs_path.mkdir(exist_ok=True)
         actions.append(self._safe_write(docs_path / "DEPLOYMENT_GUIDE.md", guide, overwrite))
 
-        # Generate bootstrap-secrets.sh
+        # ── 2. Generate bootstrap-secrets.sh ──────────────────────────────────
         script = self._render_bootstrap_script(app_name, cloud, github_user)
         scripts_path = repo_path / "scripts"
         scripts_path.mkdir(exist_ok=True)
         script_file = scripts_path / "bootstrap-secrets.sh"
         actions.append(self._safe_write(script_file, script, overwrite))
-
-        # Make bootstrap script executable
         if script_file.exists():
             script_file.chmod(0o755)
 
-        # Collect the secrets manifest for callers (e.g. bridge agent / UI)
+        # ── 3. Generate IAM policies via IAMAgent ──────────────────────────────
+        iam_actions: List[Dict] = []
+        iam_findings: List[str] = []
+        try:
+            iam_agent = IAMAgent()
+            iam_result = iam_agent.execute({"path": str(repo_path), "cloud": cloud})
+            iam_actions = iam_result.get("actions", [])
+            iam_findings = iam_result.get("findings", [])
+            actions.extend(iam_actions)
+        except Exception as iam_err:
+            self.log(f"IAMAgent skipped: {iam_err}")
+            iam_findings = [f"IAM policy generation skipped: {iam_err}"]
+
+        # ── 4. Collect secrets manifest for callers ────────────────────────────
         secrets_manifest = self._build_manifest(cloud, has_snyk)
+
+        req_count = len([s for s in secrets_manifest if not s['optional']])
+        opt_count = len([s for s in secrets_manifest if s['optional']])
 
         findings = [
             f"Cloud provider detected: {cloud}",
             f"Container registry: {registry}",
-            f"Required secrets: {len([s for s in secrets_manifest if not s['optional']])}",
-            f"Optional secrets: {len([s for s in secrets_manifest if s['optional']])}",
-            "Bootstrap script: scripts/bootstrap-secrets.sh",
-            "Deployment guide: docs/DEPLOYMENT_GUIDE.md",
-        ]
+            f"Tools detected: {', '.join(detected_tools) or 'none'}",
+            f"Required secrets: {req_count}",
+            f"Optional secrets: {opt_count}",
+            "Deployment guide:    docs/DEPLOYMENT_GUIDE.md",
+            "IAM policies guide:  docs/IAM_POLICIES.md",
+            "Bootstrap script:    scripts/bootstrap-secrets.sh",
+            "IAM verify script:   scripts/verify-iam.sh",
+            "IAM policy files:    infrastructure/iam/",
+        ] + iam_findings[:5]
 
         return self.create_result(
             status="success",
             summary=(
-                f"Generated deployment guide and secrets bootstrap for {app_name} "
-                f"({cloud} / {registry}). "
-                f"Run scripts/bootstrap-secrets.sh to set GitHub Actions secrets."
+                f"Generated comprehensive deployment guide, IAM policies, and secrets bootstrap "
+                f"for {app_name} ({cloud} / {registry}). "
+                f"Read docs/DEPLOYMENT_GUIDE.md for the full pre-flight → production walkthrough."
             ),
             data={
-                "app_name":        app_name,
-                "cloud_provider":  cloud,
-                "registry":        registry,
+                "app_name":         app_name,
+                "cloud_provider":   cloud,
+                "registry":         registry,
+                "tools_detected":   detected_tools,
                 "secrets_manifest": secrets_manifest,
-                "files_generated": [a["path"] for a in actions if a.get("status") == "created"],
+                "files_generated":  [a["path"] for a in actions if a.get("status") == "created"],
             },
             findings=findings,
             actions=actions,
@@ -595,6 +1182,44 @@ class SecretsAgent(BaseAgent):
                     pass
         return "Amazon ECR"
 
+    def _detect_tools(self, repo_path: Path) -> Dict[str, bool]:
+        """Scan generated files to detect which tools/operators the project uses."""
+        tools: Dict[str, bool] = {
+            'argocd':       False,
+            'helm':         False,
+            'eso':          False,   # External Secrets Operator
+            'cert_manager': False,
+            'kustomize':    False,
+            'ingress_nginx':False,
+            'prometheus':   False,
+            'flux':         False,
+        }
+        # Scan YAML/YML files (cap at 300 to avoid huge repos)
+        yaml_files = list(repo_path.rglob("*.yaml"))[:200] + list(repo_path.rglob("*.yml"))[:100]
+        for f in yaml_files:
+            try:
+                content = f.read_text(errors="ignore")
+                if "argoproj.io" in content or "argocd-server" in content:
+                    tools["argocd"] = True
+                if "external-secrets.io" in content or "kind: ExternalSecret" in content or "kind: SecretStore" in content:
+                    tools["eso"] = True
+                if "cert-manager.io" in content or "kind: ClusterIssuer" in content or "kind: Certificate" in content:
+                    tools["cert_manager"] = True
+                if "kustomize.config.k8s.io" in content:
+                    tools["kustomize"] = True
+                if "nginx.ingress.kubernetes.io" in content or "ingress-nginx" in content:
+                    tools["ingress_nginx"] = True
+                if "monitoring.coreos.com" in content or "kind: ServiceMonitor" in content or "kind: PrometheusRule" in content:
+                    tools["prometheus"] = True
+                if "fluxcd.io" in content or "source.toolkit.fluxcd.io" in content:
+                    tools["flux"] = True
+            except Exception:
+                pass
+        # Helm: check for Chart.yaml
+        if list(repo_path.rglob("Chart.yaml")):
+            tools["helm"] = True
+        return tools
+
     def _detect_domain_hint(self, repo_path: Path, app_name: str) -> str:
         """Try to find configured domain from ingress manifests."""
         for manifest in repo_path.rglob("ingress.yaml"):
@@ -644,8 +1269,12 @@ class SecretsAgent(BaseAgent):
 
     def _render_guide(
         self, app_name: str, cloud: str, has_snyk: bool,
-        registry: str, domain_hint: str, github_user: str
+        registry: str, domain_hint: str, github_user: str,
+        tools: Optional[Dict[str, bool]] = None,
     ) -> str:
+        if tools is None:
+            tools = {}
+
         cloud_secrets = {
             "AWS": AWS_SECRETS, "GCP": GCP_SECRETS, "Azure": AZURE_SECRETS,
         }.get(cloud, AWS_SECRETS)
@@ -654,9 +1283,7 @@ class SecretsAgent(BaseAgent):
         for name, desc, how, used_for, optional in cloud_secrets + COMMON_SECRETS:
             if name in ("ARGOCD_SERVER", "ARGOCD_AUTH_TOKEN"):
                 continue  # shown in auto-populated table
-            req_rows.append(
-                f"| `{name}` | {desc} | {how} |"
-            )
+            req_rows.append(f"| `{name}` | {desc} | {how} |")
 
         opt_rows = []
         for name, desc, how, used_for, optional in OPTIONAL_SECRETS:
@@ -675,13 +1302,98 @@ class SecretsAgent(BaseAgent):
 
         snyk_line = "Snyk" if has_snyk else "Trivy"
 
-        return DEPLOYMENT_GUIDE_TEMPLATE.format(
+        # ── Base template (steps 1–5 + workflow triggers + troubleshooting) ────
+        base = DEPLOYMENT_GUIDE_TEMPLATE.format(
             app_name=app_name,
             snyk_line=snyk_line,
             registry=registry,
             required_secrets_table=req_table,
             optional_secrets_table=opt_table,
             domain_hint=domain_hint,
+        )
+
+        # ── Pre-flight section (inserted right after the title line) ──────────
+        title_end = base.find("\nGenerated by ForgeFlow")
+        after_title = base.find("\n---\n\n## Overview", title_end)
+        pre_flight_cloud = {
+            "AWS": _PRE_FLIGHT_AWS,
+            "GCP": _PRE_FLIGHT_GCP,
+            "Azure": _PRE_FLIGHT_AZURE,
+        }.get(cloud, _PRE_FLIGHT_AWS)
+
+        tools_list = [
+            "- [ ] `terraform` — infrastructure provisioning: `brew install terraform`",
+            "- [ ] `kubectl`   — Kubernetes management: `brew install kubectl`",
+            "- [ ] `helm`      — Kubernetes package manager: `brew install helm`",
+            "- [ ] `gh`        — GitHub CLI (secrets + environments): `brew install gh && gh auth login`",
+        ]
+        cloud_cli = {"AWS": "`aws` CLI: `brew install awscli`",
+                     "GCP": "`gcloud` CLI: `brew install google-cloud-sdk`",
+                     "Azure": "`az` CLI: `brew install azure-cli`"}.get(cloud, "`aws` CLI")
+        tools_list.append(f"- [ ] {cloud_cli}")
+        if tools.get("argocd"):
+            tools_list.append("- [ ] `argocd` CLI — GitOps management: `brew install argocd`")
+
+        detected_tools_str = ", ".join(
+            k.replace("_", "-") for k, v in tools.items() if v
+        ) or "none detected"
+
+        pre_flight = (
+            "\n---\n\n"
+            "## ✅ Pre-flight Checklist\n\n"
+            f"> **Tools detected in this project:** {detected_tools_str}\n\n"
+            "Complete the items below before running any deployment steps.\n\n"
+            "### Tools to install\n\n"
+            + "\n".join(tools_list) + "\n\n"
+            + pre_flight_cloud
+            + "### GitHub access\n\n"
+            "- [ ] GitHub account with admin rights to create and configure repositories\n"
+            "- [ ] Personal Access Token with `repo + write:packages + admin:repo_hook` scopes\n"
+            "- [ ] `gh auth login` completed\n\n"
+            "### IAM service accounts\n\n"
+            "Read **`docs/IAM_POLICIES.md`** for the full matrix. "
+            "At minimum, create **`terraform-deployer`** before running `terraform apply`.\n"
+            "See the IAM Setup section at the bottom of this guide for step-by-step commands.\n"
+        )
+
+        # Insert pre_flight before the first "---" separator
+        if after_title != -1:
+            base = base[:after_title] + pre_flight + base[after_title:]
+        else:
+            base = base + pre_flight
+
+        # ── IAM quickstart (appended at the end) ─────────────────────────────
+        iam_section = {
+            "AWS":   _IAM_QUICKSTART_AWS,
+            "GCP":   _IAM_QUICKSTART_GCP,
+            "Azure": _IAM_QUICKSTART_AZURE,
+        }.get(cloud, "")
+
+        # ── Kubernetes namespace prep (always appended) ───────────────────────
+        k8s_section = _K8S_NAMESPACES_GUIDE
+
+        # ── Tool-specific sections ────────────────────────────────────────────
+        tool_sections = ""
+        if tools.get("argocd"):
+            tool_sections += _ARGOCD_GUIDE
+        if tools.get("eso"):
+            sm_name = {"AWS": "AWS Secrets Manager",
+                       "GCP": "GCP Secret Manager",
+                       "Azure": "Azure Key Vault"}.get(cloud, "Secret Manager")
+            tool_sections += (
+                _ESO_GUIDE_TEMPLATE
+                .replace("{secret_manager}", sm_name)
+                .replace("{app_name}", app_name)
+            )
+        if tools.get("cert_manager"):
+            tool_sections += _CERT_MANAGER_GUIDE
+        if tools.get("ingress_nginx"):
+            tool_sections += _INGRESS_NGINX_GUIDE
+        if tools.get("prometheus"):
+            tool_sections += _PROMETHEUS_GUIDE
+
+        return base + iam_section + k8s_section + tool_sections + (
+            "\n\n---\n\n*Generated by ForgeFlow — AIDDaaS · Sevaforge*\n"
         )
 
     def _render_bootstrap_script(
