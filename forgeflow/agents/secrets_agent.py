@@ -1098,6 +1098,13 @@ class SecretsAgent(BaseAgent):
             "IAM policy files:    infrastructure/iam/",
         ] + iam_findings[:5]
 
+        # Normalise action dicts — IAMAgent uses {"action","file"}, SecretsAgent uses {"status","path"}
+        def _file_path_from_action(a: Dict) -> Optional[str]:
+            return a.get("path") or a.get("file")
+
+        def _is_created(a: Dict) -> bool:
+            return a.get("status") == "created" or a.get("action") == "created"
+
         return self.create_result(
             status="success",
             summary=(
@@ -1111,7 +1118,10 @@ class SecretsAgent(BaseAgent):
                 "registry":         registry,
                 "tools_detected":   detected_tools,
                 "secrets_manifest": secrets_manifest,
-                "files_generated":  [a["path"] for a in actions if a.get("status") == "created"],
+                "files_generated":  [
+                    _file_path_from_action(a) for a in actions
+                    if _is_created(a) and _file_path_from_action(a)
+                ],
             },
             findings=findings,
             actions=actions,
