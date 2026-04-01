@@ -1958,9 +1958,15 @@ function RunningView({ liveState, logs, onReset }) {
     return { cls:'pill pill-pending', text:'Queued' };
   };
 
-  const projectName = pipelinePath
+  const _rawFolder = pipelinePath
     ? (pipelinePath.split('/').filter(Boolean).pop() || pipelinePath)
     : 'your-project';
+  // Strip _cloudready suffix for the human-readable project label —
+  // the output lives in {project}_cloudready but we show the clean name.
+  const projectName = _rawFolder.endsWith('_cloudready')
+    ? _rawFolder.slice(0, -'_cloudready'.length)
+    : _rawFolder;
+  const isCloudready = _rawFolder.endsWith('_cloudready');
 
   const statusInfo = allFinished
     ? (hasFailed ? {cls:'pill-error',text:'FAILED'} : dryRun ? {cls:'pill-preview',text:'PREVIEW'} : {cls:'pill-done',text:'COMPLETE'})
@@ -1982,6 +1988,22 @@ function RunningView({ liveState, logs, onReset }) {
           <span style={{fontSize:'15px',fontWeight:700,color:'#7c3aed'}}>Preview Mode — </span>
           <span style={{fontSize:'15px',color:'var(--muted)'}}>Agents simulate work · no files written to disk</span>
           {skippedCount > 0 && <span className="pill pill-skipped" style={{marginLeft:'auto'}}>{skippedCount} skipped</span>}
+        </div>
+      )}
+
+      {/* ── Cloud-ready output folder notice ── */}
+      {isCloudready && (
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'9px 16px',borderRadius:8,
+                     background:'rgba(37,99,235,.06)',border:'1px solid rgba(37,99,235,.2)'}}>
+          <span>📦</span>
+          <div style={{display:'flex',flexDirection:'column',gap:1}}>
+            <span style={{fontSize:'15px',fontWeight:700,color:'var(--blue)'}}>
+              Output → <code style={{fontFamily:'monospace',fontSize:'14px'}}>{_rawFolder}</code>
+            </span>
+            <span style={{fontSize:'13px',color:'var(--muted)'}}>
+              Generated files are written here — your original <strong>{projectName}</strong> folder is untouched
+            </span>
+          </div>
         </div>
       )}
 
@@ -3187,9 +3209,12 @@ function App() {
     {id:'settings',  symbol:'⚙', label:'Settings'},
   ];
 
-  const projectName = liveState.pipelinePath
+  const _appRawFolder = liveState.pipelinePath
     ? (liveState.pipelinePath.split('/').filter(Boolean).pop() || liveState.pipelinePath)
     : 'your-project';
+  const projectName = _appRawFolder.endsWith('_cloudready')
+    ? _appRawFolder.slice(0, -'_cloudready'.length)
+    : _appRawFolder;
 
   const allFinishedApp = liveState.done && !liveState.currentStage;
   const hasFailedApp   = Object.values(liveState.stageState).some(s=>s==='error');

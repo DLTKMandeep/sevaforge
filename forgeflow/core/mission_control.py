@@ -23,6 +23,7 @@ All "work" is done by MCP servers via the Orchestrator.
 import os
 import json
 import time
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
@@ -528,6 +529,25 @@ class MissionControl:
 
         If any stage fails, the pipeline stops and reports the failure.
         """
+        # ── Create a fresh _cloudready output folder ──────────────────────────
+        # All pipeline stages write into {source}_cloudready, leaving the
+        # original project folder completely untouched.
+        # For the GitHub push (bridge), the repo name is derived from the
+        # source folder name WITHOUT the _cloudready suffix.
+        _src_path    = Path(path).resolve()
+        _output_path = _src_path.parent / (_src_path.name + "_cloudready")
+
+        # Wipe any stale _cloudready from a previous run, then copy fresh.
+        if _output_path.exists():
+            shutil.rmtree(str(_output_path))
+        if _src_path.exists():
+            shutil.copytree(str(_src_path), str(_output_path))
+        else:
+            _output_path.mkdir(parents=True, exist_ok=True)
+
+        # Rebind path — everything below operates on the _cloudready copy.
+        path = str(_output_path)
+
         stages = [
             ("discover",  lambda: self._execute_stage("discover",  path, greenfield)),
             ("normalize", lambda: self._execute_stage("normalize", path, greenfield)),
@@ -838,8 +858,14 @@ class MissionControl:
         to a warning so the rest of the pipeline result still shows success.
         """
         try:
+            # Derive the GitHub repo name from the source project folder,
+            # stripping the _cloudready suffix so the remote repo keeps the
+            # original project name (e.g. "myapp", not "myapp_cloudready").
+            _folder = Path(path).name
+            _repo_name = _folder[:-len("_cloudready")] if _folder.endswith("_cloudready") else _folder
             result = self.orchestrator.run_mission("bridge", {
                 "path":      path,
+                "repo_name": _repo_name,
                 "operation": "create",
                 "message":   "feat: ForgeFlow generated files — all pipeline stages complete",
                 "visibility": "private" if private else "public",
