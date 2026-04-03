@@ -1,0 +1,221 @@
+name: Terraform — Provision OCI Infrastructure
+
+# Run manually from GitHub Actions tab.
+# After "apply" completes it auto-writes OKE_CLUSTER_ID + KUBE_CONFIG
+# back as GitHub secrets so the CD workflow needs zero extra setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to run"
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_WORKING_DIR: infrastructure/oci
+  OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING: "True"
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── 1. Write OCI private key from secret ─────────────────────────────
+      - name: Write OCI private key
+        run: |
+          mkdir -p ~/.oci
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+          chmod 600 ~/.oci/oci_api_key.pem
+
+      # ── 2. Build OCI CLI config file ──────────────────────────────────────
+      - name: Configure OCI CLI
+        run: |
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=${{ secrets.OCI_USER_OCID }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_TENANCY_OCID }}
+          region=${{ secrets.OCI_REGION }}
+          key_file=~/.oci/oci_api_key.pem
+          EOF
+          chmod 600 ~/.oci/config
+
+      # ── 3. Install OCI CLI ────────────────────────────────────────────────
+      - name: Install OCI CLI
+        run: |
+          pip install oci-cli --quiet
+
+      # ── 4. Auto-discover ARM node image OCID ─────────────────────────────
+      # Finds the latest Oracle Linux 8 aarch64 image in your region
+      - name: Find ARM node image OCID
+        id: node_image
+        run: |
+          IMAGE_OCID=$(oci compute image list \
+            --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
+            --operating-system "Oracle Linux" \
+            --operating-system-version "8" \
+            --shape "VM.Standard.A1.Flex" \
+            --sort-by TIMECREATED \
+            --sort-order DESC \
+            --query 'data[0].id' \
+            --raw-output 2>/dev/null)
+
+          if [ -z "$IMAGE_OCID" ] || [ "$IMAGE_OCID" = "null" ]; then
+            # Fallback: list all and grab aarch64
+            IMAGE_OCID=$(oci compute image list \
+              --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
+              --operating-system "Oracle Linux" \
+              --operating-system-version "8" \
+              --sort-by TIMECREATED \
+              --sort-order DESC \
+              --query "data[?contains(\"display-name\", 'aarch64')] | [0].id" \
+              --raw-output 2>/dev/null)
+          fi
+
+          echo "image_ocid=${IMAGE_OCID}" >> "$GITHUB_OUTPUT"
+          echo "ARM node image → ${IMAGE_OCID}"
+
+      # ── 5. Auto-discover Availability Domain ─────────────────────────────
+      - name: Find Availability Domain
+        id: avail_domain
+        run: |
+          AD=$(oci iam availability-domain list \
+            --compartment-id "${{ secrets.OCI_TENANCY_OCID }}" \
+            --query 'data[0].name' \
+            --raw-output 2>/dev/null)
+          echo "ad=${AD}" >> "$GITHUB_OUTPUT"
+          echo "Availability domain → ${AD}"
+
+      # ── 6. Set up Terraform ───────────────────────────────────────────────
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.x"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      # ── 7. Terraform plan ─────────────────────────────────────────────────
+      - name: Terraform plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:              ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:      ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_node_image_id:       ${{ steps.node_image.outputs.image_ocid }}
+        run: |
+          terraform plan -out=tfplan -input=false
+          terraform show -no-color tfplan
+
+      # ── 8. Terraform apply (only when action = apply) ─────────────────────
+      - name: Terraform apply
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:              ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:      ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_node_image_id:       ${{ steps.node_image.outputs.image_ocid }}
+        run: terraform apply -auto-approve -input=false tfplan
+
+      # ── 9. Capture outputs after apply ────────────────────────────────────
+      - name: Capture Terraform outputs
+        if: github.event.inputs.action == 'apply'
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          CLUSTER_ID=$(terraform output -raw cluster_id)
+          echo "cluster_id=${CLUSTER_ID}" >> "$GITHUB_OUTPUT"
+          echo "Cluster ID → ${CLUSTER_ID}"
+
+      # ── 10. Generate kubeconfig ───────────────────────────────────────────
+      - name: Generate kubeconfig
+        if: github.event.inputs.action == 'apply'
+        id: kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          oci ce cluster create-kubeconfig \
+            --cluster-id "${{ steps.tf_outputs.outputs.cluster_id }}" \
+            --region "${{ secrets.OCI_REGION }}" \
+            --token-version 2.0.0 \
+            --file ~/.kube/sevaforge-config
+
+          KUBE_CONFIG_B64=$(base64 -w0 ~/.kube/sevaforge-config)
+          echo "kube_config_b64=${KUBE_CONFIG_B64}" >> "$GITHUB_OUTPUT"
+
+          # Verify cluster is reachable
+          export KUBECONFIG=~/.kube/sevaforge-config
+          kubectl cluster-info || echo "⚠️  Nodes may still be initialising — this is normal"
+
+      # ── 11. Auto-save secrets back to GitHub ─────────────────────────────
+      # GH_TOKEN needs repo + secrets scope (use your existing GH_TOKEN secret)
+      - name: Save OKE_CLUSTER_ID + KUBE_CONFIG as GitHub secrets
+        if: github.event.inputs.action == 'apply'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+
+          gh secret set OKE_CLUSTER_ID \
+            --repo "$REPO" \
+            --body "${{ steps.tf_outputs.outputs.cluster_id }}"
+
+          gh secret set KUBE_CONFIG \
+            --repo "$REPO" \
+            --body "${{ steps.kubeconfig.outputs.kube_config_b64 }}"
+
+          echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved to GitHub secrets"
+
+      # ── 12. Terraform destroy (only when action = destroy) ────────────────
+      - name: Terraform destroy
+        if: github.event.inputs.action == 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:              ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:      ${{ secrets.OCI_COMPARTMENT_ID }}
+          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_node_image_id:       ${{ steps.node_image.outputs.image_ocid }}
+        run: terraform destroy -auto-approve -input=false
+
+      # ── 13. Summary ───────────────────────────────────────────────────────
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Terraform ${{ github.event.inputs.action }} — Summary" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event.inputs.action }}" = "apply" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Output | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Cluster ID | \`${{ steps.tf_outputs.outputs.cluster_id }}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| OCIR endpoint | \`${{ secrets.OCI_REGION_KEY }}.ocir.io\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **OKE_CLUSTER_ID** and **KUBE_CONFIG** have been saved as GitHub secrets." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "**Next:** push to \`main\` — CI builds the image, CD deploys to your cluster automatically." >> "$GITHUB_STEP_SUMMARY"
+          fi
