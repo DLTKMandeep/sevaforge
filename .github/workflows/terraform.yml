@@ -12,11 +12,6 @@ on:
           - plan
           - apply
           - destroy
-      node_image_id:
-        description: |
-          ARM node image OCID — OCI Console → Compute → Images → Platform Images → Oracle Linux 8 → aarch64 → copy OCID
-        required: true
-        default: ""
 
 env:
   TF_WORKING_DIR: forgeflow/infrastructure/oci
@@ -40,12 +35,14 @@ jobs:
       - name: Configure OCI CLI
         run: |
           mkdir -p ~/.oci
-          printf '[DEFAULT]\nuser=%s\nfingerprint=%s\ntenancy=%s\nregion=%s\nkey_file=%s\n' \
-            "${{ secrets.OCI_USER_OCID }}" \
-            "${{ secrets.OCI_FINGERPRINT }}" \
-            "${{ secrets.OCI_TENANCY_OCID }}" \
-            "${{ secrets.OCI_REGION }}" \
-            "$HOME/.oci/oci_api_key.pem" > ~/.oci/config
+          {
+            echo "[DEFAULT]"
+            echo "user=${{ secrets.OCI_USER_OCID }}"
+            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}"
+            echo "tenancy=${{ secrets.OCI_TENANCY_OCID }}"
+            echo "region=${{ secrets.OCI_REGION }}"
+            echo "key_file=$HOME/.oci/oci_api_key.pem"
+          } > ~/.oci/config
           chmod 600 ~/.oci/config
 
       - name: Install OCI CLI
@@ -54,7 +51,7 @@ jobs:
       - name: Verify OCI auth
         run: oci iam region list --output table
 
-      # ── Discover Availability Domain ──────────────────────────────────────
+      # ── Discover Availability Domain (simple IAM call — always works) ─────
       - name: Find Availability Domain
         id: avail_domain
         run: |
@@ -86,7 +83,7 @@ jobs:
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
           TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
-          TF_VAR_node_image_id:       ${{ github.event.inputs.node_image_id }}
+          TF_VAR_node_image_id:       ${{ secrets.OCI_NODE_IMAGE_ID }}
         run: |
           terraform plan -out=tfplan -input=false
           terraform show -no-color tfplan
@@ -102,7 +99,7 @@ jobs:
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
           TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
-          TF_VAR_node_image_id:       ${{ github.event.inputs.node_image_id }}
+          TF_VAR_node_image_id:       ${{ secrets.OCI_NODE_IMAGE_ID }}
         run: terraform apply -auto-approve -input=false tfplan
 
       - name: Capture Terraform outputs
@@ -112,7 +109,6 @@ jobs:
         run: |
           CLUSTER_ID=$(terraform output -raw cluster_id)
           echo "cluster_id=${CLUSTER_ID}" >> "$GITHUB_OUTPUT"
-          echo "Cluster ID → ${CLUSTER_ID}"
 
       - name: Generate kubeconfig
         if: github.event.inputs.action == 'apply'
@@ -124,8 +120,7 @@ jobs:
             --region "${{ secrets.OCI_REGION }}" \
             --token-version 2.0.0 \
             --file ~/.kube/sevaforge-config
-          KUBE_CONFIG_B64=$(base64 -w0 ~/.kube/sevaforge-config)
-          echo "kube_config_b64=${KUBE_CONFIG_B64}" >> "$GITHUB_OUTPUT"
+          echo "kube_config_b64=$(base64 -w0 ~/.kube/sevaforge-config)" >> "$GITHUB_OUTPUT"
           export KUBECONFIG=~/.kube/sevaforge-config
           kubectl cluster-info || echo "⚠️  Nodes may still be initialising"
 
@@ -153,7 +148,7 @@ jobs:
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
           TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
-          TF_VAR_node_image_id:       ${{ github.event.inputs.node_image_id }}
+          TF_VAR_node_image_id:       ${{ secrets.OCI_NODE_IMAGE_ID }}
         run: terraform destroy -auto-approve -input=false
 
       - name: Job summary
@@ -161,10 +156,6 @@ jobs:
         run: |
           echo "## Terraform ${{ github.event.inputs.action }}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ github.event.inputs.action }}" = "apply" ]; then
-            echo "| Output | Value |" >> "$GITHUB_STEP_SUMMARY"
-            echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
             echo "| Cluster ID | \`${{ steps.tf_outputs.outputs.cluster_id }}\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| OCIR | \`${{ secrets.OCI_REGION_KEY }}.ocir.io\` |" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved as GitHub secrets." >> "$GITHUB_STEP_SUMMARY"
-            echo "Push to main — CI builds image, CD deploys automatically." >> "$GITHUB_STEP_SUMMARY"
           fi
