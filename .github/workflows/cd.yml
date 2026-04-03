@@ -68,7 +68,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Apply namespace & base manifests
         run: |
-          kubectl apply -f infrastructure/oci-k8s/namespace.yaml
+          kubectl apply -f forgeflow/infrastructure/oci-k8s/namespace.yaml
 
       # ------------------------------------------------------------------
       # Create / update OCIR pull secret
@@ -102,8 +102,8 @@ jobs:
           echo "Image → ${IMAGE}"
           # Replace placeholder with actual image URI
           sed "s|IMAGE_PLACEHOLDER|${IMAGE}|g" \
-            infrastructure/oci-k8s/deployment.yaml | kubectl apply -f -
-          kubectl apply -f infrastructure/oci-k8s/service.yaml
+            forgeflow/infrastructure/oci-k8s/deployment.yaml | kubectl apply -f -
+          kubectl apply -f forgeflow/infrastructure/oci-k8s/service.yaml
 
       # ------------------------------------------------------------------
       # Wait for rollout

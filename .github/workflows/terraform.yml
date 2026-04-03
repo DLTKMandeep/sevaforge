@@ -18,7 +18,7 @@ on:
           - destroy
 
 env:
-  TF_WORKING_DIR: infrastructure/oci
+  TF_WORKING_DIR: forgeflow/infrastructure/oci
   OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING: "True"
 
 jobs:

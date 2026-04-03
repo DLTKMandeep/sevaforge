@@ -30,16 +30,16 @@ jobs:
       - name: Install lint dependencies
         run: |
           pip install flake8 black isort
-          pip install -r requirements.txt
+          pip install -r forgeflow/requirements.txt
 
       - name: flake8
-        run: flake8 agents/ core/ cli/ mcp_servers/ --max-line-length=100
+        run: flake8 forgeflow/agents/ forgeflow/core/ forgeflow/cli/ forgeflow/mcp_servers/ --max-line-length=100
 
       - name: black
-        run: black --check --line-length=100 agents/ core/ cli/
+        run: black --check --line-length=100 forgeflow/agents/ forgeflow/core/ forgeflow/cli/
 
       - name: isort
-        run: isort --check-only agents/ core/ cli/
+        run: isort --check-only forgeflow/agents/ forgeflow/core/ forgeflow/cli/
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -58,11 +58,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r forgeflow/requirements.txt
           pip install pytest pytest-cov
 
       - name: Run tests
-        run: pytest tests/ -v --cov=agents --cov=core --cov-report=xml
+        run: pytest forgeflow/tests/ -v --cov=forgeflow/agents --cov=forgeflow/core --cov-report=xml
 
       - name: Upload coverage
         if: matrix.python-version == '3.11'
@@ -80,11 +80,11 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install tools
-        run: pip install bandit safety -r requirements.txt
+        run: pip install bandit safety -r forgeflow/requirements.txt
       - name: bandit
-        run: bandit -r agents/ core/ cli/ -ll
+        run: bandit -r forgeflow/agents/ forgeflow/core/ forgeflow/cli/ -ll
       - name: safety
-        run: safety check -r requirements.txt || true
+        run: safety check -r forgeflow/requirements.txt || true
 
   # ---------------------------------------------------------------------------
   # Multi-arch Docker build → push to OCIR
@@ -132,8 +132,8 @@ jobs:
       - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./forgeflow
+          file: ./forgeflow/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
