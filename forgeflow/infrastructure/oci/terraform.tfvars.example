@@ -1,0 +1,26 @@
+# =============================================================================
+# Sevaforge — OCI Terraform variable values
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars — it contains secrets.
+# =============================================================================
+
+tenancy_ocid        = "ocid1.tenancy.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXX"
+user_ocid           = "ocid1.user.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXX"
+fingerprint         = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path    = "~/.oci/oci_api_key.pem"
+
+# Region — pick the one closest to you
+# us-ashburn-1 | us-phoenix-1 | eu-frankfurt-1 | ap-sydney-1 | ...
+region              = "us-ashburn-1"
+
+# Use tenancy root OCID or a dedicated compartment
+compartment_id      = "ocid1.compartment.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# Find your AD name: oci iam availability-domain list --compartment-id <tenancy_ocid>
+availability_domain = "Uocm:US-ASHBURN-AD-1"
+
+kubernetes_version  = "v1.29.1"
+
+# Find ARM image OCID for your region:
+# Console → Compute → Images → Platform Images → Oracle Linux 8 → ARM
+node_image_id       = "ocid1.image.oc1.iad.aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXX"

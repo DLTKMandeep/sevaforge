@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sevaforge
+  namespace: sevaforge
+  labels:
+    app: sevaforge
+    version: latest
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sevaforge
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0     # Zero-downtime deploys
+  template:
+    metadata:
+      labels:
+        app: sevaforge
+    spec:
+      # -----------------------------------------------------------------------
+      # ARM-only: target the A1.Flex node pool
+      # -----------------------------------------------------------------------
+      nodeSelector:
+        kubernetes.io/arch: arm64
+
+      tolerations:
+        - key: "arm64"
+          operator: "Exists"
+          effect: "NoSchedule"
+
+      # -----------------------------------------------------------------------
+      # OCIR image pull — secret created by CD workflow
+      # -----------------------------------------------------------------------
+      imagePullSecrets:
+        - name: ocir-secret
+
+      containers:
+        - name: sevaforge
+          # IMAGE_PLACEHOLDER is replaced by the CD workflow with the full OCIR URI
+          image: IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+
+          # ------------------------------------------------------------------
+          # Environment
+          # ------------------------------------------------------------------
+          env:
+            - name: FORGEFLOW_MODE
+              value: "production"
+            - name: FORGEFLOW_API_PORT
+              value: "8000"
+            - name: PORT
+              value: "8000"
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sevaforge-secrets
+                  key: anthropic-api-key
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sevaforge-secrets
+                  key: github-token
+
+          # ------------------------------------------------------------------
+          # Health checks
+          # ------------------------------------------------------------------
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # ------------------------------------------------------------------
+          # Resources — sized for VM.Standard.A1.Flex (2 oCPU / 12 GB each)
+          # 2 pods per node × 2 nodes = 4 uvicorn workers total
+          # ------------------------------------------------------------------
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1500m"
+              memory: "3Gi"
+
+          # Persistent scratch space for forgeflow history
+          volumeMounts:
+            - name: sevaforge-history
+              mountPath: /home/sevaforge/.sevaforge
+
+      volumes:
+        - name: sevaforge-history
+          emptyDir: {}          # Replace with PVC for true persistence
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
