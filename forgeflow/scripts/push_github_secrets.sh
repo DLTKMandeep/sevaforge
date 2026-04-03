@@ -1,161 +1,138 @@
 #!/usr/bin/env bash
 # =============================================================================
-# push_github_secrets.sh — Read all OCI values and push to GitHub secrets
-#
-# Usage:
-#   chmod +x scripts/push_github_secrets.sh
-#   ./scripts/push_github_secrets.sh
-#
-# Requirements:
-#   - oci CLI configured (~/.oci/config exists)
-#   - gh CLI installed and logged in (gh auth login)
-#   - Run from inside the sevaforge git repo
+# push_github_secrets.sh — Push all Sevaforge secrets to GitHub
+# Reads directly from ~/.oci/config — no OCI API calls needed.
 # =============================================================================
 
-set -euo pipefail
-
-# ── Colour helpers ────────────────────────────────────────────────────────────
+# No set -e so we never exit silently
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
-ok()   { echo -e "${GREEN}✅ $1${NC}"; }
-warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-die()  { echo -e "${RED}❌ $1${NC}"; exit 1; }
+ok()   { echo -e "${GREEN}✅  $1${NC}"; }
+warn() { echo -e "${YELLOW}⚠️   $1${NC}"; }
+die()  { echo -e "${RED}❌  $1${NC}"; exit 1; }
 
 echo ""
 echo "══════════════════════════════════════════════════"
-echo "  Sevaforge — Push all secrets to GitHub"
+echo "  Sevaforge — Push secrets to GitHub"
 echo "══════════════════════════════════════════════════"
 echo ""
 
-# ── 0. Preflight checks ───────────────────────────────────────────────────────
-command -v oci  &>/dev/null || die "oci CLI not found. Run: brew install oci-cli"
-command -v gh   &>/dev/null || die "gh CLI not found. Run: brew install gh"
-command -v git  &>/dev/null || die "git not found"
+# ── Preflight ─────────────────────────────────────────────────────────────────
+command -v gh  &>/dev/null || die "gh not found — run: brew install gh"
+command -v git &>/dev/null || die "git not found"
+gh auth status &>/dev/null || die "Not logged in — run: gh auth login"
 
-gh auth status &>/dev/null || die "Not logged in to gh. Run: gh auth login"
-
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) \
-  || die "Not inside a GitHub repo. cd into the sevaforge project first."
-
-echo "Repo  → ${REPO}"
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)
+[ -n "$REPO" ] || die "Not inside a GitHub repo. cd into the sevaforge project."
+echo "Repo → ${REPO}"
 echo ""
 
-# ── 1. Read from OCI CLI config ───────────────────────────────────────────────
+# ── Read from ~/.oci/config (no API calls) ────────────────────────────────────
 OCI_CONFIG="$HOME/.oci/config"
-[ -f "$OCI_CONFIG" ] || die "~/.oci/config not found. Run: oci setup config"
+[ -f "$OCI_CONFIG" ] || die "~/.oci/config not found — run: oci setup config"
 
-read_cfg() { grep "^$1" "$OCI_CONFIG" | head -1 | cut -d= -f2 | tr -d ' '; }
+cfg() { grep "^$1" "$OCI_CONFIG" | head -1 | cut -d= -f2 | tr -d ' \t'; }
 
-TENANCY_OCID=$(read_cfg tenancy)
-USER_OCID=$(read_cfg user)
-FINGERPRINT=$(read_cfg fingerprint)
-KEY_FILE=$(read_cfg key_file | sed "s|~|$HOME|g")
-REGION=$(read_cfg region)
-PRIVATE_KEY=$(cat "$KEY_FILE")
+TENANCY_OCID=$(cfg tenancy)
+USER_OCID=$(cfg user)
+FINGERPRINT=$(cfg fingerprint)
+REGION=$(cfg region)
+KEY_FILE=$(cfg key_file | sed "s|~|$HOME|")
+PRIVATE_KEY=$(cat "$KEY_FILE" 2>/dev/null) || die "Cannot read key file: $KEY_FILE"
 
-echo "▶ Read OCI config"
-echo "  tenancy  → ${TENANCY_OCID:0:30}..."
-echo "  user     → ${USER_OCID:0:30}..."
-echo "  region   → ${REGION}"
+# Region → short key map
+case "$REGION" in
+  us-ashburn-1)   REGION_KEY=iad ;;
+  us-phoenix-1)   REGION_KEY=phx ;;
+  us-chicago-1)   REGION_KEY=ord ;;
+  eu-frankfurt-1) REGION_KEY=fra ;;
+  eu-amsterdam-1) REGION_KEY=ams ;;
+  ap-sydney-1)    REGION_KEY=syd ;;
+  ap-tokyo-1)     REGION_KEY=nrt ;;
+  ap-singapore-1) REGION_KEY=sin ;;
+  ap-mumbai-1)    REGION_KEY=bom ;;
+  uk-london-1)    REGION_KEY=lhr ;;
+  ca-toronto-1)   REGION_KEY=yyz ;;
+  *)              REGION_KEY="${REGION%%-*}" ;;
+esac
+
+echo "▶ Values read from ~/.oci/config"
+echo "  tenancy     → ${TENANCY_OCID:0:32}..."
+echo "  user        → ${USER_OCID:0:32}..."
+echo "  fingerprint → ${FINGERPRINT}"
+echo "  region      → ${REGION} (key: ${REGION_KEY})"
+echo "  key file    → ${KEY_FILE}"
 echo ""
 
-# ── 2. Pull live values from OCI ──────────────────────────────────────────────
-echo "▶ Querying OCI for namespace, compartment, auth token..."
-
-# Try three fallback methods to get the object storage namespace
-OBJ_NAMESPACE=$(oci os ns get --compartment-id "$TENANCY_OCID" --query 'data' --raw-output 2>/dev/null)
-
-if [ -z "$OBJ_NAMESPACE" ] || [ "$OBJ_NAMESPACE" = "null" ]; then
-  # Fallback 1: read from tenancy record
-  OBJ_NAMESPACE=$(oci iam tenancy get \
-    --tenancy-id "$TENANCY_OCID" \
-    --query 'data."object-storage-namespace"' --raw-output 2>/dev/null)
-fi
-
-if [ -z "$OBJ_NAMESPACE" ] || [ "$OBJ_NAMESPACE" = "null" ]; then
-  # Fallback 2: prompt user — find it at Console → Profile → Tenancy
-  warn "Could not auto-fetch namespace. Find it at: OCI Console → top-right avatar → Tenancy → Object Storage Namespace"
-  read -r -p "  Paste Object Storage Namespace: " OBJ_NAMESPACE
-fi
-
-OCI_USERNAME=$(oci iam user get \
-  --user-id "$USER_OCID" \
-  --query 'data.name' --raw-output 2>/dev/null)
-
-# Use tenancy root as compartment (Always Free simplest path)
-COMPARTMENT_ID="$TENANCY_OCID"
-
-# Map region → short key
-declare -A RKEYS=(
-  [us-ashburn-1]=iad   [us-phoenix-1]=phx   [us-chicago-1]=ord
-  [eu-frankfurt-1]=fra [eu-amsterdam-1]=ams  [eu-zurich-1]=zrh
-  [ap-sydney-1]=syd    [ap-tokyo-1]=nrt      [ap-singapore-1]=sin
-  [ap-mumbai-1]=bom    [uk-london-1]=lhr     [ca-toronto-1]=yyz
-  [sa-saopaulo-1]=gru  [me-dubai-1]=dxb
-)
-REGION_KEY="${RKEYS[$REGION]:-${REGION%%-*}}"
-
-echo "  namespace  → ${OBJ_NAMESPACE}"
-echo "  username   → ${OCI_USERNAME}"
-echo "  region key → ${REGION_KEY}"
+# ── Prompt for values that must be entered manually ───────────────────────────
+echo "▶ Enter the following manually (input is hidden):"
 echo ""
 
-# ── 3. Prompt for secrets that can't be auto-read ─────────────────────────────
-echo "▶ A few values need to be entered manually:"
+echo "  [1/5] OCI Object Storage Namespace"
+echo "        → OCI Console ▸ top-right avatar ▸ Tenancy ▸ Object Storage Namespace"
+read -r -p "        Paste value: " OBJ_NAMESPACE
 echo ""
 
-# Auth token (OCI write-only — cannot be read back)
-echo "  OCI Auth Token (from OCI Console → Profile → Auth Tokens)"
-read -r -s -p "  Paste auth token: " OCI_AUTH_TOKEN
-echo ""
-
-# Anthropic API key
-echo "  Anthropic API key (from console.anthropic.com)"
-read -r -s -p "  Paste Anthropic key: " ANTHROPIC_KEY
-echo ""
-
-# GitHub PAT (needs secrets:write + actions:read)
-echo "  GitHub PAT (Settings → Dev settings → Fine-grained token → Secrets: R/W)"
-read -r -s -p "  Paste GitHub token: " GH_TOKEN_VALUE
+echo "  [2/5] OCI Auth Token"
+echo "        → OCI Console ▸ Profile ▸ Auth Tokens ▸ Generate Token"
+read -r -s -p "        Paste value: " OCI_AUTH_TOKEN
 echo ""
 echo ""
 
-# ── 4. Push all secrets ───────────────────────────────────────────────────────
-echo "▶ Pushing secrets to ${REPO}..."
+echo "  [3/5] OCI Username (your login email or IAM username)"
+echo "        → OCI Console ▸ top-right avatar ▸ My Profile ▸ Username"
+read -r -p "        Paste value: " OCI_USERNAME
 echo ""
 
-set_secret() {
-  local name="$1"
-  local value="$2"
-  if [ -z "$value" ]; then
-    warn "Skipping ${name} — empty value"
+echo "  [4/5] Anthropic API Key"
+echo "        → console.anthropic.com ▸ API Keys"
+read -r -s -p "        Paste value: " ANTHROPIC_KEY
+echo ""
+echo ""
+
+echo "  [5/5] GitHub Personal Access Token"
+echo "        → github.com ▸ Settings ▸ Developer settings ▸ Fine-grained tokens"
+echo "        Permissions needed: Secrets = Read & Write, Actions = Read"
+read -r -s -p "        Paste value: " GH_TOKEN_VALUE
+echo ""
+echo ""
+
+# ── Push secrets ──────────────────────────────────────────────────────────────
+echo "▶ Pushing to ${REPO}..."
+echo ""
+
+push() {
+  local NAME="$1" VAL="$2"
+  if [ -z "$VAL" ]; then
+    warn "Skipping ${NAME} — empty value"
     return
   fi
-  gh secret set "$name" --repo "$REPO" --body "$value"
-  ok "$name"
+  if gh secret set "$NAME" --repo "$REPO" --body "$VAL" 2>/dev/null; then
+    ok "$NAME"
+  else
+    warn "FAILED: ${NAME} — check gh auth scopes"
+  fi
 }
 
-set_secret "OCI_TENANCY_OCID"  "$TENANCY_OCID"
-set_secret "OCI_USER_OCID"     "$USER_OCID"
-set_secret "OCI_FINGERPRINT"   "$FINGERPRINT"
-set_secret "OCI_PRIVATE_KEY"   "$PRIVATE_KEY"
-set_secret "OCI_REGION"        "$REGION"
-set_secret "OCI_REGION_KEY"    "$REGION_KEY"
-set_secret "OCI_NAMESPACE"     "$OBJ_NAMESPACE"
-set_secret "OCI_USERNAME"      "$OCI_USERNAME"
-set_secret "OCI_AUTH_TOKEN"    "$OCI_AUTH_TOKEN"
-set_secret "OCI_COMPARTMENT_ID" "$COMPARTMENT_ID"
-set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_KEY"
-set_secret "GH_TOKEN"          "$GH_TOKEN_VALUE"
+push "OCI_TENANCY_OCID"   "$TENANCY_OCID"
+push "OCI_USER_OCID"      "$USER_OCID"
+push "OCI_FINGERPRINT"    "$FINGERPRINT"
+push "OCI_PRIVATE_KEY"    "$PRIVATE_KEY"
+push "OCI_REGION"         "$REGION"
+push "OCI_REGION_KEY"     "$REGION_KEY"
+push "OCI_NAMESPACE"      "$OBJ_NAMESPACE"
+push "OCI_USERNAME"       "$OCI_USERNAME"
+push "OCI_AUTH_TOKEN"     "$OCI_AUTH_TOKEN"
+push "OCI_COMPARTMENT_ID" "$TENANCY_OCID"
+push "ANTHROPIC_API_KEY"  "$ANTHROPIC_KEY"
+push "GH_TOKEN"           "$GH_TOKEN_VALUE"
 
 echo ""
 echo "══════════════════════════════════════════════════"
-ok "All secrets pushed to GitHub!"
+ok "Done! Check GitHub → Settings → Secrets → Actions"
 echo ""
-echo "  Next steps:"
-echo "  1. Push your branch → git push origin gui-polish"
-echo "  2. GitHub Actions → 'Terraform — Provision OCI Infrastructure'"
-echo "     → Run workflow → action: plan  (review)"
-echo "     → Run workflow → action: apply (create cluster)"
-echo "  3. Then push to main — CI → CD runs automatically"
+echo "  Next:"
+echo "  1. git push origin gui-polish"
+echo "  2. Actions tab → Terraform workflow → Run (plan, then apply)"
+echo "  3. Push to main → CI+CD deploys automatically"
 echo "══════════════════════════════════════════════════"
 echo ""
