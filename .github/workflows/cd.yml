@@ -1,0 +1,162 @@
+name: CD — Deploy to OKE
+
+on:
+  # Trigger automatically after CI succeeds on main
+  workflow_run:
+    workflows: ["CI — Build & Push to OCIR"]
+    types: [completed]
+    branches: [main]
+
+  # Allow manual deployment with optional image tag override
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+
+env:
+  OCIR_REGISTRY: ${{ secrets.OCI_REGION_KEY }}.ocir.io
+  IMAGE_FULL: ${{ secrets.OCI_REGION_KEY }}.ocir.io/${{ secrets.OCI_NAMESPACE }}/sevaforge
+
+jobs:
+  deploy:
+    name: Deploy to OKE
+    runs-on: ubuntu-latest
+    # Only run if CI workflow succeeded (for workflow_run trigger)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    environment:
+      name: production
+      url: http://${{ steps.get-lb-ip.outputs.lb_ip }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # Determine which image tag to deploy
+      # ------------------------------------------------------------------
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            # Use the short SHA of the commit that triggered CI
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            TAG="${SHA:0:8}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Deploying image tag: ${TAG}"
+
+      # ------------------------------------------------------------------
+      # Set up kubectl with OKE kubeconfig
+      # ------------------------------------------------------------------
+      - name: Set up kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Verify cluster access
+        run: kubectl cluster-info
+
+      # ------------------------------------------------------------------
+      # Apply base manifests (idempotent)
+      # ------------------------------------------------------------------
+      - name: Apply namespace & base manifests
+        run: |
+          kubectl apply -f infrastructure/oci-k8s/namespace.yaml
+
+      # ------------------------------------------------------------------
+      # Create / update OCIR pull secret
+      # ------------------------------------------------------------------
+      - name: Sync OCIR image pull secret
+        run: |
+          kubectl create secret docker-registry ocir-secret \
+            --namespace sevaforge \
+            --docker-server="${{ env.OCIR_REGISTRY }}" \
+            --docker-username="${{ secrets.OCI_NAMESPACE }}/${{ secrets.OCI_USERNAME }}" \
+            --docker-password="${{ secrets.OCI_AUTH_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ------------------------------------------------------------------
+      # Create / update app secrets (Anthropic key, GitHub token)
+      # ------------------------------------------------------------------
+      - name: Sync app secrets
+        run: |
+          kubectl create secret generic sevaforge-secrets \
+            --namespace sevaforge \
+            --from-literal=anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY }}" \
+            --from-literal=github-token="${{ secrets.GH_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ------------------------------------------------------------------
+      # Patch deployment with the new image tag and apply
+      # ------------------------------------------------------------------
+      - name: Render and apply deployment
+        run: |
+          IMAGE="${{ env.IMAGE_FULL }}:${{ steps.tag.outputs.tag }}"
+          echo "Image → ${IMAGE}"
+          # Replace placeholder with actual image URI
+          sed "s|IMAGE_PLACEHOLDER|${IMAGE}|g" \
+            infrastructure/oci-k8s/deployment.yaml | kubectl apply -f -
+          kubectl apply -f infrastructure/oci-k8s/service.yaml
+
+      # ------------------------------------------------------------------
+      # Wait for rollout
+      # ------------------------------------------------------------------
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/sevaforge \
+            --namespace sevaforge \
+            --timeout=300s
+
+      # ------------------------------------------------------------------
+      # Health check against the OCI Load Balancer
+      # ------------------------------------------------------------------
+      - name: Get Load Balancer IP
+        id: get-lb-ip
+        run: |
+          echo "Waiting for Load Balancer IP..."
+          for i in $(seq 1 30); do
+            LB_IP=$(kubectl get svc sevaforge \
+              --namespace sevaforge \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [ -n "$LB_IP" ]; then
+              echo "lb_ip=${LB_IP}" >> "$GITHUB_OUTPUT"
+              echo "Load Balancer IP: ${LB_IP}"
+              break
+            fi
+            echo "  attempt ${i}/30 — waiting..."
+            sleep 10
+          done
+
+      - name: Health check
+        run: |
+          LB_IP="${{ steps.get-lb-ip.outputs.lb_ip }}"
+          if [ -z "$LB_IP" ]; then
+            echo "⚠️  No LB IP yet — skipping health check (may still be provisioning)"
+            exit 0
+          fi
+          echo "Checking http://${LB_IP}/health ..."
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${LB_IP}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed (HTTP 200)"
+              exit 0
+            fi
+            echo "  attempt ${i}/10 — HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          echo "=== Deploy Summary ==="
+          kubectl get pods --namespace sevaforge
+          kubectl get svc --namespace sevaforge
