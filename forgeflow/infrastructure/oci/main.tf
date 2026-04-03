@@ -179,6 +179,26 @@ resource "oci_containerengine_cluster" "sevaforge" {
 }
 
 # =============================================================================
+# Data source — auto-discover latest Oracle Linux 8 aarch64 image
+# No need to pass image OCID manually — Terraform resolves it at plan time
+# =============================================================================
+
+data "oci_core_images" "ol8_aarch64" {
+  compartment_id           = var.compartment_id
+  operating_system         = "Oracle Linux"
+  operating_system_version = "8"
+  shape                    = "VM.Standard.A1.Flex"
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
+
+  filter {
+    name   = "display_name"
+    values = [".*aarch64.*"]
+    regex  = true
+  }
+}
+
+# =============================================================================
 # ARM Node Pool — 2× VM.Standard.A1.Flex (2 oCPU + 12 GB each)
 # Total: 4 oCPU + 24 GB — exactly at Always Free A1 limit
 # =============================================================================
@@ -207,10 +227,10 @@ resource "oci_containerengine_node_pool" "arm" {
     memory_in_gbs = 12
   }
 
-  # Oracle Linux 8 — ARM compatible
+  # Oracle Linux 8 aarch64 — resolved automatically by data source above
   node_source_details {
     source_type             = "IMAGE"
-    image_id                = var.node_image_id
+    image_id                = data.oci_core_images.ol8_aarch64.images[0].id
     boot_volume_size_in_gbs = 50
   }
 
