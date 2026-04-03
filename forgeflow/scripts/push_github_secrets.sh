@@ -61,8 +61,21 @@ echo ""
 # ── 2. Pull live values from OCI ──────────────────────────────────────────────
 echo "▶ Querying OCI for namespace, compartment, auth token..."
 
-OBJ_NAMESPACE=$(oci os ns get --query 'data' --raw-output 2>/dev/null) \
-  || die "Could not get object storage namespace. Is your OCI config valid?"
+# Try three fallback methods to get the object storage namespace
+OBJ_NAMESPACE=$(oci os ns get --compartment-id "$TENANCY_OCID" --query 'data' --raw-output 2>/dev/null)
+
+if [ -z "$OBJ_NAMESPACE" ] || [ "$OBJ_NAMESPACE" = "null" ]; then
+  # Fallback 1: read from tenancy record
+  OBJ_NAMESPACE=$(oci iam tenancy get \
+    --tenancy-id "$TENANCY_OCID" \
+    --query 'data."object-storage-namespace"' --raw-output 2>/dev/null)
+fi
+
+if [ -z "$OBJ_NAMESPACE" ] || [ "$OBJ_NAMESPACE" = "null" ]; then
+  # Fallback 2: prompt user — find it at Console → Profile → Tenancy
+  warn "Could not auto-fetch namespace. Find it at: OCI Console → top-right avatar → Tenancy → Object Storage Namespace"
+  read -r -p "  Paste Object Storage Namespace: " OBJ_NAMESPACE
+fi
 
 OCI_USERNAME=$(oci iam user get \
   --user-id "$USER_OCID" \
