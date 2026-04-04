@@ -269,9 +269,14 @@ resource "oci_containerengine_node_pool" "arm" {
   node_config_details {
     size = 2
 
-    placement_configs {
-      availability_domain = var.availability_domain
-      subnet_id           = oci_core_subnet.workers.id
+    # Spread placement across every AD in the region so OCI can land nodes
+    # wherever capacity is available — critical for Always Free ARM instances.
+    dynamic "placement_configs" {
+      for_each = var.availability_domains
+      content {
+        availability_domain = placement_configs.value
+        subnet_id           = oci_core_subnet.workers.id
+      }
     }
 
     freeform_tags = local.common_tags

@@ -33,9 +33,9 @@ variable "compartment_id" {
   type        = string
 }
 
-variable "availability_domain" {
-  description = "Availability Domain name (e.g. Uocm:US-ASHBURN-AD-1) — find with: oci iam availability-domain list"
-  type        = string
+variable "availability_domains" {
+  description = "All Availability Domain names in the region — Terraform spreads nodes across all of them to work around OCI capacity limits"
+  type        = list(string)
 }
 
 variable "kubernetes_version" {

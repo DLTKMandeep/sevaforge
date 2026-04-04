@@ -63,16 +63,17 @@ jobs:
       - name: Verify OCI auth
         run: oci iam region list --output table
 
-      # ── Discover Availability Domain (simple IAM call — always works) ─────
-      - name: Find Availability Domain
-        id: avail_domain
+      # ── Discover ALL Availability Domains — pass as JSON list to Terraform ──
+      - name: Find Availability Domains
+        id: avail_domains
         run: |
-          AD=$(oci iam availability-domain list \
+          # Returns a JSON array like ["Uocm:US-ASHBURN-AD-1","Uocm:US-ASHBURN-AD-2","Uocm:US-ASHBURN-AD-3"]
+          ADS=$(oci iam availability-domain list \
             --compartment-id "${{ secrets.OCI_TENANCY_OCID }}" \
-            --query 'data[0].name' \
-            --raw-output)
-          echo "ad=${AD}" >> "$GITHUB_OUTPUT"
-          echo "Availability domain → ${AD}"
+            --query 'data[*].name' \
+            --output json | tr -d '\n')
+          echo "ads=${ADS}" >> "$GITHUB_OUTPUT"
+          echo "Availability domains → ${ADS}"
 
       # ── Terraform ─────────────────────────────────────────────────────────
       - name: Set up Terraform
@@ -94,7 +95,7 @@ jobs:
           TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_availability_domains: ${{ steps.avail_domains.outputs.ads }}
           # TF_VAR_node_image_id not needed — resolved by Terraform data source
         run: |
           terraform plan -out=tfplan -input=false
@@ -110,7 +111,7 @@ jobs:
           TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_availability_domains: ${{ steps.avail_domains.outputs.ads }}
           # TF_VAR_node_image_id not needed — resolved by Terraform data source
         run: terraform apply -auto-approve -input=false tfplan
 
@@ -159,7 +160,7 @@ jobs:
           TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
           TF_VAR_region:              ${{ secrets.OCI_REGION }}
           TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_availability_domain: ${{ steps.avail_domain.outputs.ad }}
+          TF_VAR_availability_domains: ${{ steps.avail_domains.outputs.ads }}
           # TF_VAR_node_image_id not needed — resolved by Terraform data source
         run: terraform destroy -auto-approve -input=false
 
