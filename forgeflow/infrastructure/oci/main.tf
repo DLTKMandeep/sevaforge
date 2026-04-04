@@ -267,7 +267,9 @@ resource "oci_containerengine_node_pool" "arm" {
   kubernetes_version = var.kubernetes_version
 
   node_config_details {
-    size = 2
+    # Start with 1 node — IAD ARM capacity is constrained on Always Free.
+    # Scale to 2 (max Always Free: 4 oCPU / 24 GB) once the cluster is running.
+    size = 1
 
     # Spread placement across every AD in the region so OCI can land nodes
     # wherever capacity is available — critical for Always Free ARM instances.
