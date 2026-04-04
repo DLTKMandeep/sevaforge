@@ -236,6 +236,16 @@ resource "oci_containerengine_cluster" "sevaforge" {
 }
 
 # =============================================================================
+# Data source — auto-discover all Availability Domains in the region
+# Terraform queries OCI directly — no workflow variable passing needed.
+# Spreading placement across all ADs maximises chance of finding ARM capacity.
+# =============================================================================
+
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_ocid
+}
+
+# =============================================================================
 # Data source — auto-discover latest Oracle Linux 8 aarch64 image
 # No need to pass image OCID manually — Terraform resolves it at plan time
 # =============================================================================
@@ -271,12 +281,12 @@ resource "oci_containerengine_node_pool" "arm" {
     # Scale to 2 (max Always Free: 4 oCPU / 24 GB) once the cluster is running.
     size = 1
 
-    # Spread placement across every AD in the region so OCI can land nodes
-    # wherever capacity is available — critical for Always Free ARM instances.
+    # Spread across every AD — Terraform resolves the list via data source,
+    # no variable passing required. OCI picks whichever AD has ARM capacity.
     dynamic "placement_configs" {
-      for_each = var.availability_domains
+      for_each = data.oci_identity_availability_domains.ads.availability_domains
       content {
-        availability_domain = placement_configs.value
+        availability_domain = placement_configs.value.name
         subnet_id           = oci_core_subnet.workers.id
       }
     }

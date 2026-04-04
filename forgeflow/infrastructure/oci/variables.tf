@@ -33,10 +33,8 @@ variable "compartment_id" {
   type        = string
 }
 
-variable "availability_domains" {
-  description = "All Availability Domain names in the region — Terraform spreads nodes across all of them to work around OCI capacity limits"
-  type        = list(string)
-}
+# availability_domains removed — resolved automatically via
+# data "oci_identity_availability_domains" in main.tf
 
 variable "kubernetes_version" {
   description = "OKE Kubernetes version — check supported: oci ce cluster-options get --cluster-option-id all"
