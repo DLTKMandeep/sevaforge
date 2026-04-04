@@ -3,6 +3,17 @@
 # Provisions: VCN · Internet Gateway · Subnets · OKE (BASIC_CLUSTER)
 #             ARM Node Pool (2× A1.Flex) · OCIR
 # All resources fit within OCI Always Free tier limits.
+#
+# Lifecycle policy:
+#   - Network primitives (VCN, IGW, route table, security list, subnets):
+#       prevent_destroy = true  — must be explicitly removed from code first
+#   - OKE cluster:
+#       prevent_destroy = true  — cluster deletion is irreversible
+#   - Node pool:
+#       create_before_destroy = true  — rolling replacement on k8s version bumps
+#       ignore_changes = [kubernetes_version, node_source_details]
+#       prevents Terraform from destroying the pool just because OCI released
+#       a newer image or you bumped the k8s version variable
 # =============================================================================
 
 terraform {
@@ -49,6 +60,12 @@ resource "oci_core_vcn" "sevaforge" {
   dns_label      = local.app
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    # Deleting the VCN would cascade-destroy everything beneath it.
+    # Remove this block explicitly if you truly intend to tear down the network.
+    prevent_destroy = true
+  }
 }
 
 resource "oci_core_internet_gateway" "igw" {
@@ -58,6 +75,10 @@ resource "oci_core_internet_gateway" "igw" {
   enabled        = true
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Route table: public traffic → Internet Gateway
@@ -73,9 +94,13 @@ resource "oci_core_route_table" "public" {
   }
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# Security list — allow inbound HTTP/HTTPS + SSH, all outbound
+# Security list — allow inbound HTTP/HTTPS + app port + k8s API, all outbound
 resource "oci_core_security_list" "public" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.sevaforge.id
@@ -134,9 +159,13 @@ resource "oci_core_security_list" "public" {
   }
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# Public subnet — Load Balancer + worker nodes (Always Free stays simple)
+# Public subnet — Load Balancer + cluster endpoint
 resource "oci_core_subnet" "public" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.sevaforge.id
@@ -147,9 +176,13 @@ resource "oci_core_subnet" "public" {
   security_list_ids = [oci_core_security_list.public.id]
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-# Private subnet — OKE worker nodes (NAT not needed for Always Free; use public subnet)
+# Workers subnet — OKE node pool
 resource "oci_core_subnet" "workers" {
   compartment_id    = var.compartment_id
   vcn_id            = oci_core_vcn.sevaforge.id
@@ -160,6 +193,10 @@ resource "oci_core_subnet" "workers" {
   security_list_ids = [oci_core_security_list.public.id]
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # =============================================================================
@@ -188,6 +225,14 @@ resource "oci_containerengine_cluster" "sevaforge" {
   }
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    # Cluster deletion destroys all workloads — require explicit code removal first.
+    prevent_destroy = true
+    # Ignore k8s version drift: upgrade via OCI Console or a dedicated pipeline step,
+    # not by accident on the next terraform apply.
+    ignore_changes = [kubernetes_version]
+  }
 }
 
 # =============================================================================
@@ -222,7 +267,7 @@ resource "oci_containerengine_node_pool" "arm" {
   kubernetes_version = var.kubernetes_version
 
   node_config_details {
-    size = 2 # 2 nodes
+    size = 2
 
     placement_configs {
       availability_domain = var.availability_domain
@@ -246,11 +291,23 @@ resource "oci_containerengine_node_pool" "arm" {
     boot_volume_size_in_gbs = 50
   }
 
-  # Pass kubeconfig bootstrap token
   initial_node_labels {
     key   = "role"
     value = "worker"
   }
 
   freeform_tags = local.common_tags
+
+  lifecycle {
+    # When updating k8s version or node image: create new pool first, then
+    # destroy old one — prevents a window where 0 nodes are available.
+    create_before_destroy = true
+    # OCI silently updates the image OCID when a new OL8 patch drops.
+    # Without ignore_changes Terraform would see a diff and want to replace
+    # the entire node pool on every plan. Let OCI manage node patching.
+    ignore_changes = [
+      node_source_details,
+      kubernetes_version,
+    ]
+  }
 }
