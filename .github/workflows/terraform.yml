@@ -24,6 +24,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Debug — confirm branch and directory
+        run: |
+          echo "Branch → $(git branch --show-current)"
+          echo "Ref    → ${{ github.ref }}"
+          ls forgeflow/infrastructure/oci/ || echo "❌ directory not found"
 
       # ── OCI credentials ───────────────────────────────────────────────────
       - name: Write OCI private key
