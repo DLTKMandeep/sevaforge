@@ -3,6 +3,10 @@ name: Terraform — Provision OCI Infrastructure
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: "Branch to run from (must contain forgeflow/infrastructure/oci)"
+        required: true
+        default: "gui-polish"
       action:
         description: "Terraform action"
         required: true
@@ -25,13 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.event.inputs.branch }}
 
-      - name: Debug — confirm branch and directory
+      - name: Confirm branch and directory
         run: |
-          echo "Branch → $(git branch --show-current)"
-          echo "Ref    → ${{ github.ref }}"
-          ls forgeflow/infrastructure/oci/ || echo "❌ directory not found"
+          echo "Checked out → $(git branch --show-current)"
+          echo "Commit      → $(git rev-parse --short HEAD)"
+          ls forgeflow/infrastructure/oci/
 
       # ── OCI credentials ───────────────────────────────────────────────────
       - name: Write OCI private key
