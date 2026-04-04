@@ -91,28 +91,40 @@ resource "oci_core_security_list" "public" {
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 80; max = 80 }
+    tcp_options {
+      min = 80
+      max = 80
+    }
   }
 
   # HTTPS
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 443; max = 443 }
+    tcp_options {
+      min = 443
+      max = 443
+    }
   }
 
   # App port (Sevaforge API)
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 8000; max = 8000 }
+    tcp_options {
+      min = 8000
+      max = 8000
+    }
   }
 
   # Kubernetes API
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 6443; max = 6443 }
+    tcp_options {
+      min = 6443
+      max = 6443
+    }
   }
 
   # Inter-node communication (within VCN)
