@@ -24,12 +24,12 @@
 
 terraform {
   backend "s3" {
-    # Values passed at init time — do not hardcode here
-    # bucket, key, region, endpoint, access_key, secret_key
-
+    # All connection values injected via -backend-config=backend.hcl at init time.
+    # Static flags that must live here (cannot be passed via config file in TF 1.7):
     skip_region_validation      = true
     skip_credentials_validation = true
     skip_metadata_api_check     = true
-    force_path_style            = true
+    skip_requesting_account_id  = true  # prevents STS/AWS identity check
+    use_path_style              = true  # required for OCI S3-compatible endpoint
   }
 }

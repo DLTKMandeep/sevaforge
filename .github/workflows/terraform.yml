@@ -72,14 +72,23 @@ jobs:
 
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          OCI_NAMESPACE:          ${{ secrets.OCI_NAMESPACE }}
+          OCI_REGION:             ${{ secrets.OCI_REGION }}
+          OCI_BACKEND_ACCESS_KEY: ${{ secrets.OCI_BACKEND_ACCESS_KEY }}
+          OCI_BACKEND_SECRET_KEY: ${{ secrets.OCI_BACKEND_SECRET_KEY }}
         run: |
-          terraform init \
-            -backend-config="bucket=sevaforge-tfstate" \
-            -backend-config="key=oci/terraform.tfstate" \
-            -backend-config="region=${{ secrets.OCI_REGION }}" \
-            -backend-config="endpoint=https://${{ secrets.OCI_NAMESPACE }}.compat.objectstorage.${{ secrets.OCI_REGION }}.oraclecloud.com" \
-            -backend-config="access_key=${{ secrets.OCI_BACKEND_ACCESS_KEY }}" \
-            -backend-config="secret_key=${{ secrets.OCI_BACKEND_SECRET_KEY }}"
+          # Generate backend config file — avoids shell escaping issues with
+          # the endpoints map and keeps secrets out of the process argument list.
+          cat > backend.hcl <<EOF
+          bucket     = "sevaforge-tfstate"
+          key        = "oci/terraform.tfstate"
+          region     = "${OCI_REGION}"
+          access_key = "${OCI_BACKEND_ACCESS_KEY}"
+          secret_key = "${OCI_BACKEND_SECRET_KEY}"
+          endpoints  = { s3 = "https://${OCI_NAMESPACE}.compat.objectstorage.${OCI_REGION}.oraclecloud.com" }
+          EOF
+          terraform init -backend-config=backend.hcl
 
       - name: Terraform plan
         working-directory: ${{ env.TF_WORKING_DIR }}
