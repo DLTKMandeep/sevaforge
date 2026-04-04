@@ -39,9 +39,9 @@ variable "availability_domain" {
 }
 
 variable "kubernetes_version" {
-  description = "OKE Kubernetes version"
+  description = "OKE Kubernetes version — check supported: oci ce cluster-options get --cluster-option-id all"
   type        = string
-  default     = "v1.29.1"
+  default     = "v1.32.1"
 }
 
 # node_image_id removed — auto-discovered via oci_core_images data source in main.tf
