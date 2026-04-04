@@ -72,7 +72,14 @@ jobs:
 
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=sevaforge-tfstate" \
+            -backend-config="key=oci/terraform.tfstate" \
+            -backend-config="region=${{ secrets.OCI_REGION }}" \
+            -backend-config="endpoint=https://${{ secrets.OCI_NAMESPACE }}.compat.objectstorage.${{ secrets.OCI_REGION }}.oraclecloud.com" \
+            -backend-config="access_key=${{ secrets.OCI_BACKEND_ACCESS_KEY }}" \
+            -backend-config="secret_key=${{ secrets.OCI_BACKEND_SECRET_KEY }}"
 
       - name: Terraform plan
         working-directory: ${{ env.TF_WORKING_DIR }}
