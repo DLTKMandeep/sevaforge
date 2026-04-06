@@ -63,6 +63,19 @@ jobs:
       - name: Verify OCI auth
         run: oci iam region list --output table
 
+      # ── Restore Terraform state from GitHub Secret ────────────────────────
+      - name: Restore Terraform state
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_STATE: ${{ secrets.TF_STATE }}
+        run: |
+          if [ -n "${TF_STATE}" ]; then
+            echo "${TF_STATE}" | base64 -d > terraform.tfstate
+            echo "✅ State restored ($(wc -c < terraform.tfstate) bytes)"
+          else
+            echo "No previous state — fresh run"
+          fi
+
       # ── Terraform ─────────────────────────────────────────────────────────
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -72,33 +85,17 @@ jobs:
 
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          OCI_NAMESPACE:          ${{ secrets.OCI_NAMESPACE }}
-          OCI_REGION:             ${{ secrets.OCI_REGION }}
-          OCI_BACKEND_ACCESS_KEY: ${{ secrets.OCI_BACKEND_ACCESS_KEY }}
-          OCI_BACKEND_SECRET_KEY: ${{ secrets.OCI_BACKEND_SECRET_KEY }}
-        run: |
-          # Generate backend config file — avoids shell escaping issues with
-          # the endpoints map and keeps secrets out of the process argument list.
-          cat > backend.hcl <<EOF
-          bucket     = "sevaforge-tfstate"
-          key        = "oci/terraform.tfstate"
-          region     = "${OCI_REGION}"
-          access_key = "${OCI_BACKEND_ACCESS_KEY}"
-          secret_key = "${OCI_BACKEND_SECRET_KEY}"
-          endpoints  = { s3 = "https://${OCI_NAMESPACE}.compat.objectstorage.${OCI_REGION}.oraclecloud.com" }
-          EOF
-          terraform init -backend-config=backend.hcl
+        run: terraform init
 
       - name: Terraform plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:              ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}          # TF_VAR_node_image_id not needed — resolved by Terraform data source
+          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:           ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
         run: |
           terraform plan -out=tfplan -input=false
           terraform show -no-color tfplan
@@ -107,13 +104,31 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:              ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}          # TF_VAR_node_image_id not needed — resolved by Terraform data source
+          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:           ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
         run: terraform apply -auto-approve -input=false tfplan
+
+      # ── Save state to GitHub Secret after every mutating run ──────────────
+      - name: Save Terraform state
+        if: always() && (github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy')
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          STATE_FILE="terraform.tfstate"
+          # Fall back to errored state if apply partially succeeded
+          [ ! -f "$STATE_FILE" ] && STATE_FILE="errored.tfstate"
+          if [ -f "$STATE_FILE" ]; then
+            STATE_B64=$(base64 -w0 "$STATE_FILE")
+            gh secret set TF_STATE --repo "${{ github.repository }}" --body "$STATE_B64"
+            echo "✅ State saved to GitHub Secret TF_STATE ($(wc -c < $STATE_FILE) bytes)"
+          else
+            echo "⚠️  No state file found — nothing saved"
+          fi
 
       - name: Capture Terraform outputs
         if: github.event.inputs.action == 'apply'
@@ -148,18 +163,18 @@ jobs:
           gh secret set KUBE_CONFIG \
             --repo "${{ github.repository }}" \
             --body "${{ steps.kubeconfig.outputs.kube_config_b64 }}"
-          echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved as GitHub secrets"
+          echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved"
 
       - name: Terraform destroy
         if: github.event.inputs.action == 'destroy'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:        ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:           ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:         ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path:    /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:              ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:      ${{ secrets.OCI_TENANCY_OCID }}          # TF_VAR_node_image_id not needed — resolved by Terraform data source
+          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:           ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
         run: terraform destroy -auto-approve -input=false
 
       - name: Job summary
