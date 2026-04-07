@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to run from (must contain forgeflow/infrastructure/oci)"
+        description: "Branch to deploy from"
         required: true
         default: "gui-polish"
       action:
@@ -33,9 +33,9 @@ jobs:
 
       - name: Confirm branch and directory
         run: |
-          echo "Checked out → $(git branch --show-current)"
-          echo "Commit      → $(git rev-parse --short HEAD)"
-          ls forgeflow/infrastructure/oci/
+          echo "Branch → $(git branch --show-current)"
+          echo "Commit → $(git rev-parse --short HEAD)"
+          ls ${{ env.TF_WORKING_DIR }}/
 
       # ── OCI credentials ───────────────────────────────────────────────────
       - name: Write OCI private key
@@ -63,7 +63,7 @@ jobs:
       - name: Verify OCI auth
         run: oci iam region list --output table
 
-      # ── Restore Terraform state from GitHub Secret ────────────────────────
+      # ── Restore Terraform state ───────────────────────────────────────────
       - name: Restore Terraform state
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
@@ -112,7 +112,7 @@ jobs:
           TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
         run: terraform apply -auto-approve -input=false tfplan
 
-      # ── Save state to GitHub Secret after every mutating run ──────────────
+      # ── Save state immediately after every mutating run ───────────────────
       - name: Save Terraform state
         if: always() && (github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy')
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -120,50 +120,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           STATE_FILE="terraform.tfstate"
-          # Fall back to errored state if apply partially succeeded
           [ ! -f "$STATE_FILE" ] && STATE_FILE="errored.tfstate"
           if [ -f "$STATE_FILE" ]; then
-            STATE_B64=$(base64 -w0 "$STATE_FILE")
-            gh secret set TF_STATE --repo "${{ github.repository }}" --body "$STATE_B64"
-            echo "✅ State saved to GitHub Secret TF_STATE ($(wc -c < $STATE_FILE) bytes)"
-          else
-            echo "⚠️  No state file found — nothing saved"
+            gh secret set TF_STATE \
+              --repo "${{ github.repository }}" \
+              --body "$(base64 -w0 $STATE_FILE)"
+            echo "✅ State saved ($(wc -c < $STATE_FILE) bytes)"
           fi
 
-      - name: Capture Terraform outputs
+      # ── Save outputs as GitHub secrets ────────────────────────────────────
+      - name: Save VM outputs as secrets
         if: github.event.inputs.action == 'apply'
-        id: tf_outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          CLUSTER_ID=$(terraform output -raw cluster_id)
-          echo "cluster_id=${CLUSTER_ID}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate kubeconfig
-        if: github.event.inputs.action == 'apply'
-        id: kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          oci ce cluster create-kubeconfig \
-            --cluster-id "${{ steps.tf_outputs.outputs.cluster_id }}" \
-            --region "${{ secrets.OCI_REGION }}" \
-            --token-version 2.0.0 \
-            --file ~/.kube/sevaforge-config
-          echo "kube_config_b64=$(base64 -w0 ~/.kube/sevaforge-config)" >> "$GITHUB_OUTPUT"
-          export KUBECONFIG=~/.kube/sevaforge-config
-          kubectl cluster-info || echo "⚠️  Nodes may still be initialising"
-
-      - name: Save OKE_CLUSTER_ID + KUBE_CONFIG as GitHub secrets
-        if: github.event.inputs.action == 'apply'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh secret set OKE_CLUSTER_ID \
-            --repo "${{ github.repository }}" \
-            --body "${{ steps.tf_outputs.outputs.cluster_id }}"
-          gh secret set KUBE_CONFIG \
-            --repo "${{ github.repository }}" \
-            --body "${{ steps.kubeconfig.outputs.kube_config_b64 }}"
-          echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved"
+          LB_IP=$(terraform output -raw load_balancer_ip 2>/dev/null || echo "")
+          VM_IPS=$(terraform output -json vm_public_ips 2>/dev/null || echo "[]")
+          SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
+
+          [ -n "$LB_IP" ]  && gh secret set VM_LB_IP      --repo "${{ github.repository }}" --body "$LB_IP"
+          [ -n "$VM_IPS" ] && gh secret set VM_PUBLIC_IPS  --repo "${{ github.repository }}" --body "$VM_IPS"
+          [ -n "$SSH_KEY" ] && gh secret set VM_SSH_KEY    --repo "${{ github.repository }}" --body "$SSH_KEY"
+
+          echo "✅ Load balancer IP: ${LB_IP}"
+          echo "✅ VM IPs: ${VM_IPS}"
+          echo "✅ SSH key saved as VM_SSH_KEY secret"
 
       - name: Terraform destroy
         if: github.event.inputs.action == 'destroy'
@@ -181,7 +163,4 @@ jobs:
         if: always()
         run: |
           echo "## Terraform ${{ github.event.inputs.action }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ github.event.inputs.action }}" = "apply" ]; then
-            echo "| Cluster ID | \`${{ steps.tf_outputs.outputs.cluster_id }}\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "✅ OKE_CLUSTER_ID and KUBE_CONFIG saved as GitHub secrets." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "Branch: ${{ github.event.inputs.branch }}" >> "$GITHUB_STEP_SUMMARY"

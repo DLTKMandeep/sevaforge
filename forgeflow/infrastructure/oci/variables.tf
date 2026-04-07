@@ -18,28 +18,23 @@ variable "fingerprint" {
 }
 
 variable "private_key_path" {
-  description = "Local path to the OCI API private key (.pem)"
+  description = "Path to the OCI API private key"
   type        = string
   default     = "~/.oci/oci_api_key.pem"
 }
 
 variable "region" {
-  description = "OCI region identifier (e.g. us-ashburn-1)"
+  description = "OCI region (e.g. us-ashburn-1)"
   type        = string
 }
 
 variable "compartment_id" {
-  description = "OCID of the compartment to deploy into (use tenancy root for simplicity)"
+  description = "OCID of the compartment (use tenancy root)"
   type        = string
 }
 
-# availability_domains removed — resolved automatically via
-# data "oci_identity_availability_domains" in main.tf
-
-variable "kubernetes_version" {
-  description = "OKE Kubernetes version — check supported: oci ce cluster-options get --cluster-option-id all"
+variable "ocir_image" {
+  description = "Full OCIR image path (e.g. iad.ocir.io/namespace/sevaforge:latest)"
   type        = string
-  default     = "v1.32.1"
+  default     = "iad.ocir.io/placeholder/sevaforge:latest"
 }
-
-# node_image_id removed — auto-discovered via oci_core_images data source in main.tf
