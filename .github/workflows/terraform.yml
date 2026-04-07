@@ -8,14 +8,10 @@ on:
         required: true
         default: "gui-polish"
       action:
-        description: "Terraform action"
         required: true
         default: plan
         type: choice
-        options:
-          - plan
-          - apply
-          - destroy
+        options: [plan, apply, destroy]
 
 env:
   TF_WORKING_DIR: forgeflow/infrastructure/oci
@@ -37,7 +33,6 @@ jobs:
           echo "Commit → $(git rev-parse --short HEAD)"
           ls ${{ env.TF_WORKING_DIR }}/
 
-      # ── OCI credentials ───────────────────────────────────────────────────
       - name: Write OCI private key
         run: |
           mkdir -p ~/.oci
@@ -63,7 +58,6 @@ jobs:
       - name: Verify OCI auth
         run: oci iam region list --output table
 
-      # ── Restore Terraform state ───────────────────────────────────────────
       - name: Restore Terraform state
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
@@ -76,7 +70,6 @@ jobs:
             echo "No previous state — fresh run"
           fi
 
-      # ── Terraform ─────────────────────────────────────────────────────────
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -112,7 +105,6 @@ jobs:
           TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
         run: terraform apply -auto-approve -input=false tfplan
 
-      # ── Save state immediately after every mutating run ───────────────────
       - name: Save Terraform state
         if: always() && (github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy')
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -122,30 +114,37 @@ jobs:
           STATE_FILE="terraform.tfstate"
           [ ! -f "$STATE_FILE" ] && STATE_FILE="errored.tfstate"
           if [ -f "$STATE_FILE" ]; then
-            gh secret set TF_STATE \
-              --repo "${{ github.repository }}" \
-              --body "$(base64 -w0 $STATE_FILE)"
+            gh secret set TF_STATE --repo "${{ github.repository }}" --body "$(base64 -w0 $STATE_FILE)"
             echo "✅ State saved ($(wc -c < $STATE_FILE) bytes)"
           fi
 
-      # ── Save outputs as GitHub secrets ────────────────────────────────────
-      - name: Save VM outputs as secrets
+      - name: Save cluster outputs
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          LB_IP=$(terraform output -raw load_balancer_ip 2>/dev/null || echo "")
-          VM_IPS=$(terraform output -json vm_public_ips 2>/dev/null || echo "[]")
-          SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
+          CLUSTER_ID=$(terraform output -raw cluster_id)
+          gh secret set OKE_CLUSTER_ID --repo "${{ github.repository }}" --body "$CLUSTER_ID"
+          echo "✅ Cluster ID: $CLUSTER_ID"
 
-          [ -n "$LB_IP" ]  && gh secret set VM_LB_IP      --repo "${{ github.repository }}" --body "$LB_IP"
-          [ -n "$VM_IPS" ] && gh secret set VM_PUBLIC_IPS  --repo "${{ github.repository }}" --body "$VM_IPS"
-          [ -n "$SSH_KEY" ] && gh secret set VM_SSH_KEY    --repo "${{ github.repository }}" --body "$SSH_KEY"
-
-          echo "✅ Load balancer IP: ${LB_IP}"
-          echo "✅ VM IPs: ${VM_IPS}"
-          echo "✅ SSH key saved as VM_SSH_KEY secret"
+      - name: Generate and save kubeconfig
+        if: github.event.inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          CLUSTER_ID=$(terraform output -raw cluster_id)
+          mkdir -p ~/.kube
+          oci ce cluster create-kubeconfig \
+            --cluster-id "$CLUSTER_ID" \
+            --region "${{ secrets.OCI_REGION }}" \
+            --token-version 2.0.0 \
+            --file ~/.kube/sevaforge-config
+          gh secret set KUBE_CONFIG \
+            --repo "${{ github.repository }}" \
+            --body "$(base64 -w0 ~/.kube/sevaforge-config)"
+          echo "✅ Kubeconfig saved"
 
       - name: Terraform destroy
         if: github.event.inputs.action == 'destroy'

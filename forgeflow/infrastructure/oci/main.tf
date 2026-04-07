@@ -1,10 +1,7 @@
 # =============================================================================
 # Sevaforge — OCI Always Free Terraform
-# Provisions: VCN · Internet Gateway · Subnets · Security List
-#             2× VM.Standard.A1.Flex (ARM) running Docker Compose
-#
-# NO OKE — VM-based deployment avoids cluster quota issues entirely.
-# Total: 4 oCPU + 24 GB RAM — exactly at Always Free A1 limit.
+# Provisions: VCN · Internet Gateway · Subnets · OKE BASIC_CLUSTER
+#             ARM Node Pool (2× VM.Standard.A1.Flex)
 # =============================================================================
 
 terraform {
@@ -13,10 +10,6 @@ terraform {
     oci = {
       source  = "oracle/oci"
       version = ">= 5.47.0"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
     }
   }
 }
@@ -32,37 +25,10 @@ provider "oci" {
 locals {
   app      = "sevaforge"
   vcn_cidr = "10.0.0.0/16"
-
   common_tags = {
     project   = local.app
     managedBy = "terraform"
   }
-
-  # cloud-init: install Docker, pull image, start Sevaforge on boot
-  cloud_init = <<-CLOUDINIT
-    #cloud-config
-    package_update: true
-    packages:
-      - docker
-      - docker-compose-plugin
-    runcmd:
-      - systemctl enable docker
-      - systemctl start docker
-      - mkdir -p /opt/sevaforge
-      - |
-        cat > /opt/sevaforge/docker-compose.yml <<'EOF'
-        version: "3.9"
-        services:
-          sevaforge:
-            image: ${var.ocir_image}
-            restart: always
-            ports:
-              - "8000:8000"
-            environment:
-              - ENV=production
-        EOF
-      - docker compose -f /opt/sevaforge/docker-compose.yml up -d
-  CLOUDINIT
 }
 
 # =============================================================================
@@ -97,7 +63,6 @@ resource "oci_core_vcn" "sevaforge" {
   cidr_blocks    = [local.vcn_cidr]
   dns_label      = local.app
   freeform_tags  = local.common_tags
-
   lifecycle { prevent_destroy = true }
 }
 
@@ -107,7 +72,6 @@ resource "oci_core_internet_gateway" "igw" {
   display_name   = "${local.app}-igw"
   enabled        = true
   freeform_tags  = local.common_tags
-
   lifecycle { prevent_destroy = true }
 }
 
@@ -116,13 +80,11 @@ resource "oci_core_route_table" "public" {
   vcn_id         = oci_core_vcn.sevaforge.id
   display_name   = "${local.app}-public-rt"
   freeform_tags  = local.common_tags
-
   route_rules {
     network_entity_id = oci_core_internet_gateway.igw.id
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
   }
-
   lifecycle { prevent_destroy = true }
 }
 
@@ -139,17 +101,12 @@ resource "oci_core_security_list" "public" {
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 22; max = 22 }
+    tcp_options { min = 80;   max = 80   }
   }
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 80; max = 80 }
-  }
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 443; max = 443 }
+    tcp_options { min = 443;  max = 443  }
   }
   ingress_security_rules {
     protocol = "6"
@@ -157,10 +114,14 @@ resource "oci_core_security_list" "public" {
     tcp_options { min = 8000; max = 8000 }
   }
   ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options { min = 6443; max = 6443 }
+  }
+  ingress_security_rules {
     protocol = "all"
     source   = local.vcn_cidr
   }
-
   lifecycle { prevent_destroy = true }
 }
 
@@ -173,113 +134,93 @@ resource "oci_core_subnet" "public" {
   route_table_id    = oci_core_route_table.public.id
   security_list_ids = [oci_core_security_list.public.id]
   freeform_tags     = local.common_tags
+  lifecycle { prevent_destroy = true }
+}
 
+resource "oci_core_subnet" "workers" {
+  compartment_id    = var.compartment_id
+  vcn_id            = oci_core_vcn.sevaforge.id
+  display_name      = "${local.app}-workers-subnet"
+  cidr_block        = "10.0.2.0/24"
+  dns_label         = "workers"
+  route_table_id    = oci_core_route_table.public.id
+  security_list_ids = [oci_core_security_list.public.id]
+  freeform_tags     = local.common_tags
   lifecycle { prevent_destroy = true }
 }
 
 # =============================================================================
-# SSH key pair (generated once, stored as GitHub secret by workflow)
+# OKE Cluster — BASIC_CLUSTER (free control plane)
 # =============================================================================
 
-resource "tls_private_key" "ssh" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+resource "oci_containerengine_cluster" "sevaforge" {
+  compartment_id     = var.compartment_id
+  vcn_id             = oci_core_vcn.sevaforge.id
+  name               = "${local.app}-cluster"
+  kubernetes_version = var.kubernetes_version
+  type               = "BASIC_CLUSTER"
+
+  endpoint_config {
+    is_public_ip_enabled = true
+    subnet_id            = oci_core_subnet.public.id
+  }
+  options {
+    service_lb_subnet_ids = [oci_core_subnet.public.id]
+    add_ons {
+      is_kubernetes_dashboard_enabled = false
+      is_tiller_enabled               = false
+    }
+  }
+  freeform_tags = local.common_tags
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [kubernetes_version]
+  }
 }
 
 # =============================================================================
-# ARM VMs — 2× VM.Standard.A1.Flex (2 oCPU + 12 GB each)
-# Spread across ADs for availability
+# ARM Node Pool — spread across all ADs for capacity
 # =============================================================================
 
-resource "oci_core_instance" "sevaforge" {
-  count = 2
+resource "oci_containerengine_node_pool" "arm" {
+  cluster_id         = oci_containerengine_cluster.sevaforge.id
+  compartment_id     = var.compartment_id
+  name               = "${local.app}-arm-pool"
+  kubernetes_version = var.kubernetes_version
 
-  compartment_id      = var.compartment_id
-  display_name        = "${local.app}-vm-${count.index + 1}"
-  availability_domain = data.oci_identity_availability_domains.ads.availability_domains[count.index % length(data.oci_identity_availability_domains.ads.availability_domains)].name
-  shape               = "VM.Standard.A1.Flex"
-  freeform_tags       = local.common_tags
+  node_config_details {
+    size = 1
 
-  shape_config {
+    dynamic "placement_configs" {
+      for_each = data.oci_identity_availability_domains.ads.availability_domains
+      content {
+        availability_domain = placement_configs.value.name
+        subnet_id           = oci_core_subnet.workers.id
+      }
+    }
+    freeform_tags = local.common_tags
+  }
+
+  node_shape = "VM.Standard.A1.Flex"
+  node_shape_config {
     ocpus         = 2
     memory_in_gbs = 12
   }
 
-  source_details {
-    source_type             = "image"
-    source_id               = data.oci_core_images.ol8_aarch64.images[0].id
+  node_source_details {
+    source_type             = "IMAGE"
+    image_id                = data.oci_core_images.ol8_aarch64.images[0].id
     boot_volume_size_in_gbs = 50
   }
 
-  create_vnic_details {
-    subnet_id        = oci_core_subnet.public.id
-    assign_public_ip = true
-    display_name     = "${local.app}-vnic-${count.index + 1}"
+  initial_node_labels {
+    key   = "role"
+    value = "worker"
   }
-
-  metadata = {
-    ssh_authorized_keys = tls_private_key.ssh.public_key_openssh
-    user_data           = base64encode(local.cloud_init)
-  }
+  freeform_tags = local.common_tags
 
   lifecycle {
-    prevent_destroy       = true
-    ignore_changes        = [source_details, metadata]
+    create_before_destroy = true
+    ignore_changes        = [node_source_details, kubernetes_version]
   }
-}
-
-# =============================================================================
-# Free Load Balancer — routes HTTP/8000 across both VMs
-# =============================================================================
-
-resource "oci_load_balancer_load_balancer" "sevaforge" {
-  compartment_id = var.compartment_id
-  display_name   = "${local.app}-lb"
-  shape          = "flexible"
-  subnet_ids     = [oci_core_subnet.public.id]
-  is_private     = false
-  freeform_tags  = local.common_tags
-
-  shape_details {
-    minimum_bandwidth_in_mbps = 10
-    maximum_bandwidth_in_mbps = 10
-  }
-
-  lifecycle { prevent_destroy = true }
-}
-
-resource "oci_load_balancer_backend_set" "sevaforge" {
-  name             = "sevaforge-backend"
-  load_balancer_id = oci_load_balancer_load_balancer.sevaforge.id
-  policy           = "ROUND_ROBIN"
-
-  health_checker {
-    protocol          = "HTTP"
-    port              = 8000
-    url_path          = "/health"
-    return_code       = 200
-    interval_ms       = 10000
-    timeout_in_millis = 3000
-    retries           = 3
-  }
-}
-
-resource "oci_load_balancer_backend" "sevaforge" {
-  count            = 2
-  load_balancer_id = oci_load_balancer_load_balancer.sevaforge.id
-  backendset_name  = oci_load_balancer_backend_set.sevaforge.name
-  ip_address       = oci_core_instance.sevaforge[count.index].private_ip
-  port             = 8000
-  backup           = false
-  drain            = false
-  offline          = false
-  weight           = 1
-}
-
-resource "oci_load_balancer_listener" "http" {
-  load_balancer_id         = oci_load_balancer_load_balancer.sevaforge.id
-  name                     = "http"
-  default_backend_set_name = oci_load_balancer_backend_set.sevaforge.name
-  port                     = 80
-  protocol                 = "HTTP"
 }
