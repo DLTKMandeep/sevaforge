@@ -192,16 +192,19 @@ resource "oci_containerengine_cluster" "sevaforge" {
 
 # =============================================================================
 # ARM Node Pool — spread across all ADs for capacity
+# Set enable_arm_pool = false when IAD is out of A1 capacity
 # =============================================================================
 
 resource "oci_containerengine_node_pool" "arm" {
+  count = var.enable_arm_pool ? 1 : 0
+
   cluster_id         = oci_containerengine_cluster.sevaforge.id
   compartment_id     = var.compartment_id
   name               = "${local.app}-arm-pool"
   kubernetes_version = var.kubernetes_version
 
   node_config_details {
-    size = 1
+    size = var.node_pool_size
 
     dynamic "placement_configs" {
       for_each = data.oci_identity_availability_domains.ads.availability_domains
@@ -215,13 +218,73 @@ resource "oci_containerengine_node_pool" "arm" {
 
   node_shape = "VM.Standard.A1.Flex"
   node_shape_config {
-    ocpus         = 2
-    memory_in_gbs = 12
+    ocpus         = var.node_ocpus
+    memory_in_gbs = var.node_memory_gbs
   }
 
   node_source_details {
     source_type             = "IMAGE"
     image_id                = data.oci_core_images.ol8_aarch64.images[0].id
+    boot_volume_size_in_gbs = 50
+  }
+
+  initial_node_labels {
+    key   = "role"
+    value = "worker"
+  }
+  freeform_tags = local.common_tags
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes        = [node_source_details, kubernetes_version]
+  }
+}
+
+# =============================================================================
+# AMD Fallback Node Pool — use when ARM capacity is exhausted
+# Set enable_amd_fallback = true to activate
+# =============================================================================
+
+data "oci_core_images" "ol8_x86" {
+  count                    = var.enable_amd_fallback ? 1 : 0
+  compartment_id           = var.compartment_id
+  operating_system         = "Oracle Linux"
+  operating_system_version = "8"
+  shape                    = "VM.Standard.E4.Flex"
+  sort_by                  = "TIMECREATED"
+  sort_order               = "DESC"
+}
+
+resource "oci_containerengine_node_pool" "amd_fallback" {
+  count = var.enable_amd_fallback ? 1 : 0
+
+  cluster_id         = oci_containerengine_cluster.sevaforge.id
+  compartment_id     = var.compartment_id
+  name               = "${local.app}-amd-fallback-pool"
+  kubernetes_version = var.kubernetes_version
+
+  node_config_details {
+    size = var.node_pool_size
+
+    dynamic "placement_configs" {
+      for_each = data.oci_identity_availability_domains.ads.availability_domains
+      content {
+        availability_domain = placement_configs.value.name
+        subnet_id           = oci_core_subnet.workers.id
+      }
+    }
+    freeform_tags = local.common_tags
+  }
+
+  node_shape = "VM.Standard.E4.Flex"
+  node_shape_config {
+    ocpus         = 1
+    memory_in_gbs = 8
+  }
+
+  node_source_details {
+    source_type             = "IMAGE"
+    image_id                = data.oci_core_images.ol8_x86[0].images[0].id
     boot_volume_size_in_gbs = 50
   }
 

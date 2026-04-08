@@ -12,6 +12,12 @@ on:
         default: plan
         type: choice
         options: [plan, apply, destroy]
+      node_pool:
+        description: "Node pool type (arm = A1.Flex free tier, amd = E4.Flex fallback)"
+        required: true
+        default: arm
+        type: choice
+        options: [arm, amd]
 
 env:
   TF_WORKING_DIR: forgeflow/infrastructure/oci
@@ -19,7 +25,7 @@ env:
 
 jobs:
   terraform:
-    name: Terraform ${{ github.event.inputs.action }}
+    name: Terraform ${{ github.event.inputs.action }} (${{ github.event.inputs.node_pool }})
     runs-on: ubuntu-latest
 
     steps:
@@ -29,8 +35,10 @@ jobs:
 
       - name: Confirm branch and directory
         run: |
-          echo "Branch → $(git branch --show-current)"
-          echo "Commit → $(git rev-parse --short HEAD)"
+          echo "Branch    → $(git branch --show-current)"
+          echo "Commit    → $(git rev-parse --short HEAD)"
+          echo "Action    → ${{ github.event.inputs.action }}"
+          echo "Node pool → ${{ github.event.inputs.node_pool }}"
           ls ${{ env.TF_WORKING_DIR }}/
 
       - name: Write OCI private key
@@ -80,15 +88,33 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
+      # Migrate state from non-indexed to indexed resource address
+      # (oci_containerengine_node_pool.arm → oci_containerengine_node_pool.arm[0])
+      - name: Migrate state for count-based node pools
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Check if old non-indexed resource exists in state
+          if terraform state list 2>/dev/null | grep -q '^oci_containerengine_node_pool\.arm$'; then
+            echo "Migrating ARM node pool state: arm → arm[0]"
+            terraform state mv \
+              'oci_containerengine_node_pool.arm' \
+              'oci_containerengine_node_pool.arm[0]' || true
+            echo "✅ State migration done"
+          else
+            echo "No migration needed — state is already indexed or empty"
+          fi
+
       - name: Terraform plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:           ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_tenancy_ocid:       ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:          ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:        ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:   /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:             ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_enable_arm_pool:    ${{ github.event.inputs.node_pool == 'arm' }}
+          TF_VAR_enable_amd_fallback: ${{ github.event.inputs.node_pool == 'amd' }}
         run: |
           terraform plan -out=tfplan -input=false
           terraform show -no-color tfplan
@@ -97,12 +123,14 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:           ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_tenancy_ocid:       ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:          ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:        ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:   /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:             ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_enable_arm_pool:    ${{ github.event.inputs.node_pool == 'arm' }}
+          TF_VAR_enable_amd_fallback: ${{ github.event.inputs.node_pool == 'amd' }}
         run: terraform apply -auto-approve -input=false tfplan
 
       - name: Save Terraform state
@@ -127,6 +155,7 @@ jobs:
           CLUSTER_ID=$(terraform output -raw cluster_id)
           gh secret set OKE_CLUSTER_ID --repo "${{ github.repository }}" --body "$CLUSTER_ID"
           echo "✅ Cluster ID: $CLUSTER_ID"
+          echo "Active pool: $(terraform output -raw active_node_pool)"
 
       - name: Generate and save kubeconfig
         if: github.event.inputs.action == 'apply'
@@ -150,12 +179,14 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          TF_VAR_tenancy_ocid:     ${{ secrets.OCI_TENANCY_OCID }}
-          TF_VAR_user_ocid:        ${{ secrets.OCI_USER_OCID }}
-          TF_VAR_fingerprint:      ${{ secrets.OCI_FINGERPRINT }}
-          TF_VAR_private_key_path: /home/runner/.oci/oci_api_key.pem
-          TF_VAR_region:           ${{ secrets.OCI_REGION }}
-          TF_VAR_compartment_id:   ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_tenancy_ocid:       ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_user_ocid:          ${{ secrets.OCI_USER_OCID }}
+          TF_VAR_fingerprint:        ${{ secrets.OCI_FINGERPRINT }}
+          TF_VAR_private_key_path:   /home/runner/.oci/oci_api_key.pem
+          TF_VAR_region:             ${{ secrets.OCI_REGION }}
+          TF_VAR_compartment_id:     ${{ secrets.OCI_TENANCY_OCID }}
+          TF_VAR_enable_arm_pool:    ${{ github.event.inputs.node_pool == 'arm' }}
+          TF_VAR_enable_amd_fallback: ${{ github.event.inputs.node_pool == 'amd' }}
         run: terraform destroy -auto-approve -input=false
 
       - name: Job summary
@@ -163,3 +194,4 @@ jobs:
         run: |
           echo "## Terraform ${{ github.event.inputs.action }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Branch: ${{ github.event.inputs.branch }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Node pool: ${{ github.event.inputs.node_pool }}" >> "$GITHUB_STEP_SUMMARY"
