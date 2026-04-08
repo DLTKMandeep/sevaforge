@@ -11,7 +11,10 @@ output "arm_node_pool_id" {
   value = var.enable_arm_pool ? oci_containerengine_node_pool.arm[0].id : null
 }
 output "amd_node_pool_id" {
-  value = var.enable_amd_fallback ? oci_containerengine_node_pool.amd_fallback[0].id : null
+  value = length(oci_containerengine_node_pool.amd_fallback) > 0 ? oci_containerengine_node_pool.amd_fallback[0].id : null
+}
+output "amd_image_id" {
+  value = local.amd_image_id
 }
 output "active_node_pool" {
   description = "Which node pool is currently active"

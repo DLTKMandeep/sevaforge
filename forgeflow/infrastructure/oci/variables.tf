@@ -45,7 +45,25 @@ variable "enable_arm_pool" {
 }
 
 variable "enable_amd_fallback" {
-  description = "Set to true to create an Intel VM.Standard3.Flex node pool as fallback when ARM is unavailable"
+  description = "Set to true to create an x86 node pool as fallback when ARM is unavailable"
   type        = bool
   default     = false
+}
+
+variable "amd_fallback_shape" {
+  description = "x86 flex shape for fallback pool. OKE needs at least 1 OCPU + 6 GB."
+  type        = string
+  default     = "VM.Standard.E4.Flex"
+}
+
+variable "amd_fallback_ocpus" {
+  description = "OCPUs for AMD fallback nodes"
+  type        = number
+  default     = 1
+}
+
+variable "amd_fallback_memory_gbs" {
+  description = "Memory in GB for AMD fallback nodes (min 6 for OKE)"
+  type        = number
+  default     = 8
 }

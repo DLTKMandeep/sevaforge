@@ -243,34 +243,39 @@ resource "oci_containerengine_node_pool" "arm" {
 # =============================================================================
 # AMD Fallback Node Pool — use when ARM capacity is exhausted
 # Set enable_amd_fallback = true to activate
+#
+# Uses OKE node pool option data source to find a guaranteed-compatible
+# x86_64 image for the chosen shape. This avoids the empty-image-list
+# problem that occurs when oci_core_images has no matches for a shape.
 # =============================================================================
 
-# Look up the OKE-recommended x86_64 image for the fallback shape
-# Uses oci_containerengine_node_pool_option to get OKE-compatible images
-data "oci_containerengine_node_pool_option" "amd_opts" {
+# Get OKE-compatible images + shapes from the cluster itself
+data "oci_containerengine_node_pool_option" "opts" {
   count               = var.enable_amd_fallback ? 1 : 0
   node_pool_option_id = oci_containerengine_cluster.sevaforge.id
   compartment_id      = var.compartment_id
 }
 
-# Query Oracle Linux 8 x86_64 images compatible with VM.Standard3.Flex
-data "oci_core_images" "ol8_x86" {
-  count                    = var.enable_amd_fallback ? 1 : 0
-  compartment_id           = var.compartment_id
-  operating_system         = "Oracle Linux"
-  operating_system_version = "8"
-  shape                    = "VM.Standard3.Flex"
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
-  filter {
-    name   = "display_name"
-    values = ["^(?!.*aarch64).*$"]
-    regex  = true
-  }
+# Pick the latest OKE Oracle-Linux-8 x86_64 image from the cluster sources
+# The node_pool_option returns all valid (shape, image) pairs that OKE supports.
+locals {
+  # Filter OKE source images: Oracle Linux 8, x86_64, for VM.Standard.E2.1.Micro
+  amd_sources = var.enable_amd_fallback ? [
+    for src in data.oci_containerengine_node_pool_option.opts[0].sources :
+    src if(
+      src.source_type == "IMAGE" &&
+      can(regex("Oracle-Linux-8", src.source_name)) &&
+      !can(regex("aarch64", src.source_name)) &&
+      !can(regex("GPU", src.source_name))
+    )
+  ] : []
+
+  # Use the first matching image (sources are sorted newest-first by OKE)
+  amd_image_id = length(local.amd_sources) > 0 ? local.amd_sources[0].image_id : ""
 }
 
 resource "oci_containerengine_node_pool" "amd_fallback" {
-  count = var.enable_amd_fallback ? 1 : 0
+  count = var.enable_amd_fallback && local.amd_image_id != "" ? 1 : 0
 
   cluster_id         = oci_containerengine_cluster.sevaforge.id
   compartment_id     = var.compartment_id
@@ -290,15 +295,18 @@ resource "oci_containerengine_node_pool" "amd_fallback" {
     freeform_tags = local.common_tags
   }
 
-  node_shape = "VM.Standard3.Flex"
+  # VM.Standard.E2.1.Micro is Always Free (1 OCPU, 1 GB) but too small for k8s.
+  # VM.Standard.E4.Flex is the cheapest flex AMD shape with enough headroom.
+  # We use whichever flex shape the user sets in var.amd_fallback_shape.
+  node_shape = var.amd_fallback_shape
   node_shape_config {
-    ocpus         = 1
-    memory_in_gbs = 8
+    ocpus         = var.amd_fallback_ocpus
+    memory_in_gbs = var.amd_fallback_memory_gbs
   }
 
   node_source_details {
     source_type             = "IMAGE"
-    image_id                = data.oci_core_images.ol8_x86[0].images[0].id
+    image_id                = local.amd_image_id
     boot_volume_size_in_gbs = 50
   }
 
