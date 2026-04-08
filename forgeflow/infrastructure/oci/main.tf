@@ -63,7 +63,6 @@ resource "oci_core_vcn" "sevaforge" {
   cidr_blocks    = [local.vcn_cidr]
   dns_label      = local.app
   freeform_tags  = local.common_tags
-  lifecycle { prevent_destroy = true }
 }
 
 resource "oci_core_internet_gateway" "igw" {
@@ -72,7 +71,7 @@ resource "oci_core_internet_gateway" "igw" {
   display_name   = "${local.app}-igw"
   enabled        = true
   freeform_tags  = local.common_tags
-  lifecycle { prevent_destroy = true }
+
 }
 
 resource "oci_core_route_table" "public" {
@@ -85,7 +84,7 @@ resource "oci_core_route_table" "public" {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
   }
-  lifecycle { prevent_destroy = true }
+
 }
 
 resource "oci_core_security_list" "public" {
@@ -134,7 +133,7 @@ resource "oci_core_security_list" "public" {
     protocol = "all"
     source   = local.vcn_cidr
   }
-  lifecycle { prevent_destroy = true }
+
 }
 
 resource "oci_core_subnet" "public" {
@@ -146,7 +145,7 @@ resource "oci_core_subnet" "public" {
   route_table_id    = oci_core_route_table.public.id
   security_list_ids = [oci_core_security_list.public.id]
   freeform_tags     = local.common_tags
-  lifecycle { prevent_destroy = true }
+
 }
 
 resource "oci_core_subnet" "workers" {
@@ -158,7 +157,7 @@ resource "oci_core_subnet" "workers" {
   route_table_id    = oci_core_route_table.public.id
   security_list_ids = [oci_core_security_list.public.id]
   freeform_tags     = local.common_tags
-  lifecycle { prevent_destroy = true }
+
 }
 
 # =============================================================================
@@ -185,8 +184,7 @@ resource "oci_containerengine_cluster" "sevaforge" {
   }
   freeform_tags = local.common_tags
   lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [kubernetes_version]
+    ignore_changes = [kubernetes_version]
   }
 }
 
