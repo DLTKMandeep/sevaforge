@@ -245,14 +245,28 @@ resource "oci_containerengine_node_pool" "arm" {
 # Set enable_amd_fallback = true to activate
 # =============================================================================
 
+# Look up the OKE-recommended x86_64 image for the fallback shape
+# Uses oci_containerengine_node_pool_option to get OKE-compatible images
+data "oci_containerengine_node_pool_option" "amd_opts" {
+  count               = var.enable_amd_fallback ? 1 : 0
+  node_pool_option_id = oci_containerengine_cluster.sevaforge.id
+  compartment_id      = var.compartment_id
+}
+
+# Query Oracle Linux 8 x86_64 images compatible with VM.Standard3.Flex
 data "oci_core_images" "ol8_x86" {
   count                    = var.enable_amd_fallback ? 1 : 0
   compartment_id           = var.compartment_id
   operating_system         = "Oracle Linux"
   operating_system_version = "8"
-  shape                    = "VM.Standard.E4.Flex"
+  shape                    = "VM.Standard3.Flex"
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
+  filter {
+    name   = "display_name"
+    values = ["^(?!.*aarch64).*$"]
+    regex  = true
+  }
 }
 
 resource "oci_containerengine_node_pool" "amd_fallback" {
@@ -276,7 +290,7 @@ resource "oci_containerengine_node_pool" "amd_fallback" {
     freeform_tags = local.common_tags
   }
 
-  node_shape = "VM.Standard.E4.Flex"
+  node_shape = "VM.Standard3.Flex"
   node_shape_config {
     ocpus         = 1
     memory_in_gbs = 8

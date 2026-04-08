@@ -45,7 +45,7 @@ variable "enable_arm_pool" {
 }
 
 variable "enable_amd_fallback" {
-  description = "Set to true to create an AMD E4.Flex node pool as fallback when ARM is unavailable"
+  description = "Set to true to create an Intel VM.Standard3.Flex node pool as fallback when ARM is unavailable"
   type        = bool
   default     = false
 }
