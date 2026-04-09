@@ -1,0 +1,98 @@
+name: GKE Full Teardown
+
+on:
+  schedule:
+    # July 8, 2026 at 6 AM UTC (2 AM EDT) — destroy everything before charges kick in
+    - cron: '0 6 8 7 *'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DESTROY to confirm full teardown'
+        required: true
+        type: string
+
+env:
+  GKE_CLUSTER: sevaforge-cluster
+  GKE_REGION: ${{ secrets.GCP_REGION }}
+  GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    # For manual runs, require explicit confirmation
+    if: >
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'DESTROY')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: gui-polish
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Restore Terraform state
+        working-directory: forgeflow/infrastructure/gcp
+        run: |
+          if [ -n "${{ secrets.TF_STATE_GCP }}" ]; then
+            printf '%s' "${{ secrets.TF_STATE_GCP }}" | base64 -d > terraform.tfstate
+            echo "State restored"
+          else
+            echo "No state found — nothing to destroy"
+            exit 0
+          fi
+
+      - name: Terraform Init
+        working-directory: forgeflow/infrastructure/gcp
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: forgeflow/infrastructure/gcp
+        run: |
+          echo "========================================="
+          echo "  FULL TEARDOWN — July 8 cost cutoff"
+          echo "  $(TZ='America/New_York' date)"
+          echo "========================================="
+          terraform destroy -auto-approve \
+            -var="project_id=${{ env.GCP_PROJECT }}" \
+            -var="region=${{ env.GKE_REGION }}"
+
+      - name: Disable scheduler workflow
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          # Disable the nightly scheduler since there's nothing to schedule anymore
+          gh workflow disable gke-scheduler.yml --repo ${{ github.repository }} || true
+          echo "Scheduler workflow disabled"
+
+      - name: Clean up state secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh secret delete TF_STATE_GCP --repo ${{ github.repository }} || true
+          gh secret delete KUBE_CONFIG --repo ${{ github.repository }} || true
+          echo "State secrets cleaned up"
+
+      - name: Summary
+        run: |
+          echo "## Teardown Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All GCP resources destroyed. Free tier budget protected." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- GKE cluster: **destroyed**" >> $GITHUB_STEP_SUMMARY
+          echo "- VPC/subnets: **destroyed**" >> $GITHUB_STEP_SUMMARY
+          echo "- Scheduler workflow: **disabled**" >> $GITHUB_STEP_SUMMARY
+          echo "- State secrets: **cleaned up**" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,138 @@
+name: GKE Cost Scheduler
+
+on:
+  schedule:
+    # Shutdown at 12:00 AM EST/EDT (4 AM UTC during EDT, 5 AM UTC during EST)
+    # Using 4 AM UTC to cover EDT (Apr-Nov)
+    - cron: '0 4 * * *'
+    # Startup at 10:00 AM EST/EDT (2 PM UTC during EDT)
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - shutdown
+          - startup
+
+env:
+  GKE_CLUSTER: sevaforge-cluster
+  GKE_REGION: ${{ secrets.GCP_REGION }}
+  GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  determine-action:
+    runs-on: ubuntu-latest
+    outputs:
+      action: ${{ steps.set-action.outputs.action }}
+    steps:
+      - name: Determine action from schedule or input
+        id: set-action
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "action=${{ inputs.action }}" >> "$GITHUB_OUTPUT"
+          else
+            # 4 AM UTC = 12 AM EDT → shutdown
+            # 14 UTC = 10 AM EDT → startup
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -lt 10 ]; then
+              echo "action=shutdown" >> "$GITHUB_OUTPUT"
+            else
+              echo "action=startup" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+  shutdown:
+    needs: determine-action
+    if: needs.determine-action.outputs.action == 'shutdown'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --region ${{ env.GKE_REGION }} \
+            --project ${{ env.GCP_PROJECT }}
+
+      - name: Scale all deployments to 0
+        run: |
+          echo "=== Scaling down all deployments at $(TZ='America/New_York' date) ==="
+          NAMESPACES=$(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}')
+          for NS in $NAMESPACES; do
+            # Skip system namespaces
+            if [[ "$NS" == kube-* ]] || [[ "$NS" == gke-* ]] || [[ "$NS" == "gmp-system" ]]; then
+              continue
+            fi
+            DEPLOYMENTS=$(kubectl get deployments -n "$NS" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+            for DEP in $DEPLOYMENTS; do
+              REPLICAS=$(kubectl get deployment "$DEP" -n "$NS" -o jsonpath='{.spec.replicas}')
+              # Save current replica count as annotation before scaling down
+              kubectl annotate deployment "$DEP" -n "$NS" \
+                sevaforge.io/pre-shutdown-replicas="$REPLICAS" --overwrite
+              kubectl scale deployment "$DEP" -n "$NS" --replicas=0
+              echo "  Scaled $NS/$DEP from $REPLICAS to 0"
+            done
+          done
+          echo "=== Shutdown complete ==="
+
+  startup:
+    needs: determine-action
+    if: needs.determine-action.outputs.action == 'startup'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --region ${{ env.GKE_REGION }} \
+            --project ${{ env.GCP_PROJECT }}
+
+      - name: Restore all deployments
+        run: |
+          echo "=== Restoring deployments at $(TZ='America/New_York' date) ==="
+          NAMESPACES=$(kubectl get namespaces -o jsonpath='{.items[*].metadata.name}')
+          for NS in $NAMESPACES; do
+            if [[ "$NS" == kube-* ]] || [[ "$NS" == gke-* ]] || [[ "$NS" == "gmp-system" ]]; then
+              continue
+            fi
+            DEPLOYMENTS=$(kubectl get deployments -n "$NS" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+            for DEP in $DEPLOYMENTS; do
+              # Restore from annotation, default to 1 if not set
+              REPLICAS=$(kubectl get deployment "$DEP" -n "$NS" \
+                -o jsonpath='{.metadata.annotations.sevaforge\.io/pre-shutdown-replicas}' 2>/dev/null || echo "1")
+              if [ -z "$REPLICAS" ] || [ "$REPLICAS" = "0" ]; then
+                REPLICAS=1
+              fi
+              kubectl scale deployment "$DEP" -n "$NS" --replicas="$REPLICAS"
+              echo "  Scaled $NS/$DEP back to $REPLICAS"
+            done
+          done
+          echo "=== Startup complete ==="
