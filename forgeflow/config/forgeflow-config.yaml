@@ -39,11 +39,15 @@ pipeline:
     - test
     - scan
   
+  # Post-bridge stages (run after code is pushed to GitHub)
+  post_bridge:
+    - readiness  # Deploy strategy analysis, secrets generation, CI/CD workflows
+
   # Post-merge stages (optional, run after bridge/merge)
   post_merge:
     - deploy
     - monitor
-  
+
   # Stages that require manual approval
   approval_gates:
     - bridge  # Always require approval before pushing to GitHub
@@ -123,6 +127,11 @@ local:
       type: local
       command: "python3"
       args: ["mcp_servers/e2e_mcp/server.py"]
+
+    readiness-mcp-server:
+      type: local
+      command: "python3"
+      args: ["mcp_servers/readiness_mcp/server.py"]
 
 # HYBRID mode configuration
 # Mix of local MCPs and public/remote MCPs

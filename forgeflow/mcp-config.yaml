@@ -135,6 +135,14 @@ servers:
     agent: "CodeReviewAgent"
     type: local
 
+  # Deploy Readiness Agent -> readiness-mcp-server
+  readiness-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/readiness_mcp/server.py"]
+    capabilities: ["readiness", "secrets", "deploy_strategy", "ci_gen", "cd_gen", "validation"]
+    agent: "DeployReadinessAgent"
+    type: local
+
   # Bridge Agent -> github-mcp-server
   github-mcp-server:
     command: "python3"
@@ -161,6 +169,7 @@ command_mapping:
   monitor: "observability-mcp-server"
   docs: "diagram-generator-mcp-server"
   review: "git-mcp-server"
+  readiness: "readiness-mcp-server"
   bridge: "github-mcp-server"
   # status and doctor are standalone - no MCP server needed
 
@@ -187,6 +196,8 @@ pipelines:
       - test
       - scan
     approval_gate: bridge
+    post_bridge:
+      - readiness    # Deploy strategy, secrets, CI/CD workflow generation
     post_merge:
       - deploy
       - monitor
