@@ -36,8 +36,11 @@ jobs:
       - name: Write OCI private key
         run: |
           mkdir -p ~/.oci
-          printf '%s' "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+          printf '%s' "${{ secrets.OCI_PRIVATE_KEY }}" | base64 -d > ~/.oci/oci_api_key.pem
           chmod 600 ~/.oci/oci_api_key.pem
+          # Sanity check
+          head -1 ~/.oci/oci_api_key.pem
+          openssl rsa -in ~/.oci/oci_api_key.pem -check -noout
 
       - name: Configure OCI CLI
         run: |
