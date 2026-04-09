@@ -1,10 +1,11 @@
 # =============================================================================
-# Terraform State — stored as GitHub Secret TF_STATE_GCP (base64-encoded)
-#
-# Same approach as OCI: the workflow saves/restores terraform.tfstate
-# via gh secret before/after every run. No GCS bucket needed.
+# Terraform State — stored in GCS bucket
+# The workflow creates the bucket if it doesn't exist before terraform init
 # =============================================================================
 
 terraform {
-  backend "local" {}
+  backend "gcs" {
+    bucket = "sevaforge-tfstate"
+    prefix = "gcp"
+  }
 }

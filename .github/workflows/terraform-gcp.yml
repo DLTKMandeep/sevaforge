@@ -15,6 +15,7 @@ on:
 
 env:
   TF_WORKING_DIR: forgeflow/infrastructure/gcp
+  STATE_BUCKET: sevaforge-tfstate
 
 jobs:
   terraform:
@@ -47,21 +48,21 @@ jobs:
           gcloud projects describe ${{ secrets.GCP_PROJECT_ID }} --format="value(projectId)"
 
       - name: Enable required GCP APIs
-        if: github.event.inputs.action == 'apply'
         run: |
           gcloud services enable container.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
           gcloud services enable compute.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
+          gcloud services enable storage.googleapis.com --project=${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Restore Terraform state
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_STATE: ${{ secrets.TF_STATE_GCP }}
+      - name: Create state bucket if needed
         run: |
-          if [ -n "${TF_STATE}" ]; then
-            printf '%s' "${TF_STATE}" | base64 -d > terraform.tfstate
-            echo "✅ State restored ($(wc -c < terraform.tfstate) bytes)"
+          if ! gcloud storage buckets describe gs://${{ env.STATE_BUCKET }} --project=${{ secrets.GCP_PROJECT_ID }} &>/dev/null; then
+            gcloud storage buckets create gs://${{ env.STATE_BUCKET }} \
+              --project=${{ secrets.GCP_PROJECT_ID }} \
+              --location=${{ secrets.GCP_REGION }} \
+              --uniform-bucket-level-access
+            echo "✅ Created state bucket gs://${{ env.STATE_BUCKET }}"
           else
-            echo "No previous state — fresh run"
+            echo "✅ State bucket already exists"
           fi
 
       - name: Set up Terraform
@@ -91,19 +92,6 @@ jobs:
           TF_VAR_region: ${{ secrets.GCP_REGION }}
         run: terraform apply -auto-approve -input=false tfplan
 
-      - name: Save Terraform state
-        if: always() && (github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy')
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          STATE_FILE="terraform.tfstate"
-          [ ! -f "$STATE_FILE" ] && STATE_FILE="errored.tfstate"
-          if [ -f "$STATE_FILE" ]; then
-            gh secret set TF_STATE_GCP --repo "${{ github.repository }}" --body "$(base64 -w0 $STATE_FILE)"
-            echo "✅ State saved ($(wc -c < $STATE_FILE) bytes)"
-          fi
-
       - name: Save cluster outputs + kubeconfig
         if: github.event.inputs.action == 'apply'
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -116,7 +104,6 @@ jobs:
 
           echo "✅ Cluster: $CLUSTER_NAME in $REGION"
 
-          # Generate kubeconfig
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
             --region "$REGION" \
             --project "$PROJECT"

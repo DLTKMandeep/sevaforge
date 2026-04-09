@@ -44,17 +44,6 @@ jobs:
         with:
           terraform_version: "1.6.0"
 
-      - name: Restore Terraform state
-        working-directory: forgeflow/infrastructure/gcp
-        run: |
-          if [ -n "${{ secrets.TF_STATE_GCP }}" ]; then
-            printf '%s' "${{ secrets.TF_STATE_GCP }}" | base64 -d > terraform.tfstate
-            echo "State restored"
-          else
-            echo "No state found — nothing to destroy"
-            exit 0
-          fi
-
       - name: Terraform Init
         working-directory: forgeflow/infrastructure/gcp
         run: terraform init
@@ -78,13 +67,13 @@ jobs:
           gh workflow disable gke-scheduler.yml --repo ${{ github.repository }} || true
           echo "Scheduler workflow disabled"
 
-      - name: Clean up state secret
+      - name: Clean up secrets and state bucket
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          gh secret delete TF_STATE_GCP --repo ${{ github.repository }} || true
           gh secret delete KUBE_CONFIG --repo ${{ github.repository }} || true
-          echo "State secrets cleaned up"
+          gcloud storage rm -r gs://sevaforge-tfstate --project=${{ env.GCP_PROJECT }} || true
+          echo "Secrets and state bucket cleaned up"
 
       - name: Summary
         run: |
