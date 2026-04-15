@@ -1,0 +1,77 @@
+# =============================================================================
+# Deployment Intent Schema (v1)
+# =============================================================================
+# This is the canonical schema for .sevaforge/deployment-intent.yaml.
+# DeployIntentAgent produces a document matching this shape; persona agents
+# consume it. Every field is either "captured" (asked in the interview) or
+# "derived" (computed from code analysis).
+# =============================================================================
+
+version: 1
+
+app:
+  name: string                  # derived from repo name or package.json/pyproject
+  language: string              # derived: python|node|go|java|ruby|other
+  port: integer                 # derived from code, defaulted to 8080
+  healthcheck_path: string      # captured, default "/health"
+
+cloud:
+  provider: string              # captured: gcp|aws|azure|oci
+  project_id: string            # captured: GCP project / AWS account / etc.
+  region: string                # captured
+
+compute:
+  model: string                 # captured: kubernetes|vm|serverless
+  flavour: string               # captured: gke-autopilot|eks|aks|oke|ec2|gce|cloud-run|lambda
+  replicas: integer             # captured, default 2
+  autoscale:
+    enabled: boolean
+    min: integer
+    max: integer
+
+environments:                   # captured: list of envs to provision
+  - name: string                # e.g. dev, staging, prod
+    auto_promote: boolean       # whether CD auto-deploys to this env
+
+secrets:                        # captured + derived
+  - name: string                # e.g. DATABASE_URL
+    description: string         # how the user obtains it
+    source: string              # github-actions|vault|cloud-kms|manual
+    required_by: [string]       # which personas need it (app, infra, etc.)
+
+observability:
+  stack: string                 # captured: prometheus-grafana|datadog|cloud-native|minimal
+  metrics: boolean              # captured, default true
+  logs: boolean                 # captured, default true
+  traces: boolean               # captured, default false
+  slo:
+    availability_target: number # e.g. 99.5
+    latency_p99_ms: integer     # e.g. 500
+
+security:
+  network_policies: boolean     # captured, default true for k8s
+  image_scanning: boolean       # captured, default true
+  iam_least_privilege: boolean  # captured, default true
+  sbom: boolean                 # captured, default false for hobby
+
+cost_controls:
+  budget_usd_monthly: number    # captured, default 0 (no budget)
+  auto_shutdown:
+    enabled: boolean            # captured, default false
+    schedule_down: string       # cron, e.g. "0 4 * * *"  (12 AM EDT)
+    schedule_up: string         # cron, e.g. "0 14 * * *" (10 AM EDT)
+  teardown_date: string         # captured, ISO date like 2026-07-08
+
+ci_cd:
+  platform: string              # captured: github-actions|gitlab-ci|circleci
+  use_argocd: boolean           # captured, default false
+  require_approval_for: [string] # list of envs needing manual approval, e.g. ["prod"]
+
+# =============================================================================
+# Metadata — set by the agent, not the user
+# =============================================================================
+_meta:
+  created_at: string            # ISO timestamp
+  created_by: string            # "deploy-intent-agent"
+  last_validated: string        # ISO timestamp from DeployValidatorAgent
+  intent_hash: string           # sha256 of captured fields for cache invalidation

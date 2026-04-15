@@ -39,9 +39,14 @@ pipeline:
     - test
     - scan
   
-  # Post-bridge stages (run after code is pushed to GitHub)
-  post_bridge:
-    - readiness  # Deploy strategy analysis, secrets generation, CI/CD workflows
+  # Pre-push deploy stages (v2.2 — run BEFORE bridge, cached per-repo)
+  pre_push:
+    - deploy-intent    # Interactive interview; cached in .sevaforge/deployment-intent.yaml
+    - deploy-design    # Fan out to 7 persona agents in parallel
+    - deploy-validate  # Cross-check artefacts; blocks push on failure
+
+  # Post-bridge stages (legacy — superseded by pre_push, kept for back-compat)
+  post_bridge: []
 
   # Post-merge stages (optional, run after bridge/merge)
   post_merge:
@@ -127,11 +132,6 @@ local:
       type: local
       command: "python3"
       args: ["mcp_servers/e2e_mcp/server.py"]
-
-    readiness-mcp-server:
-      type: local
-      command: "python3"
-      args: ["mcp_servers/readiness_mcp/server.py"]
 
 # HYBRID mode configuration
 # Mix of local MCPs and public/remote MCPs

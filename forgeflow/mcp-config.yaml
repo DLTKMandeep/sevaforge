@@ -135,12 +135,28 @@ servers:
     agent: "CodeReviewAgent"
     type: local
 
-  # Deploy Readiness Agent -> readiness-mcp-server
-  readiness-mcp-server:
+  # Deploy Intent Agent -> intent-mcp-server (pre-push interview)
+  intent-mcp-server:
     command: "python3"
-    args: ["mcp_servers/readiness_mcp/server.py"]
-    capabilities: ["readiness", "secrets", "deploy_strategy", "ci_gen", "cd_gen", "validation"]
-    agent: "DeployReadinessAgent"
+    args: ["mcp_servers/intent_mcp/server.py"]
+    capabilities: ["deploy_intent", "interview", "intent_cache"]
+    agent: "DeployIntentAgent"
+    type: local
+
+  # Deploy Orchestrator Agent -> design-mcp-server (fans out to personas)
+  design-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/design_mcp/server.py"]
+    capabilities: ["deploy_design", "persona_fanout", "parallel_execution"]
+    agent: "DeployOrchestratorAgent"
+    type: local
+
+  # Deploy Validator Agent -> validate-mcp-server (push gate)
+  validate-mcp-server:
+    command: "python3"
+    args: ["mcp_servers/validate_mcp/server.py"]
+    capabilities: ["deploy_validate", "cross_check", "push_gate"]
+    agent: "DeployValidatorAgent"
     type: local
 
   # Bridge Agent -> github-mcp-server
@@ -169,7 +185,9 @@ command_mapping:
   monitor: "observability-mcp-server"
   docs: "diagram-generator-mcp-server"
   review: "git-mcp-server"
-  readiness: "readiness-mcp-server"
+  deploy-intent: "intent-mcp-server"
+  deploy-design: "design-mcp-server"
+  deploy-validate: "validate-mcp-server"
   bridge: "github-mcp-server"
   # status and doctor are standalone - no MCP server needed
 
@@ -182,7 +200,7 @@ pipelines:
     - scan
     - generate
   
-  # Full run-all pipeline (v2.1 with specialized agents)
+  # Full run-all pipeline (v2.2 — deploy interview + personas run BEFORE bridge)
   run_all:
     pre_approval:
       - discover
@@ -195,9 +213,11 @@ pipelines:
       - review
       - test
       - scan
+    pre_push:
+      - deploy-intent     # Interactive interview, cached in .sevaforge/deployment-intent.yaml
+      - deploy-design     # Fan out to 7 persona agents in parallel
+      - deploy-validate   # Cross-check persona outputs — BLOCKS push on failure
     approval_gate: bridge
-    post_bridge:
-      - readiness    # Deploy strategy, secrets, CI/CD workflow generation
     post_merge:
       - deploy
       - monitor
