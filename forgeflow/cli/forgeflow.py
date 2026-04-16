@@ -952,7 +952,7 @@ def main():
             result = mc.deploy(path, args.target)
 
         elif args.command == "deploy-intent":
-            from ..agents.deploy_intent_agent import DeployIntentAgent
+            from agents.deploy_intent_agent import DeployIntentAgent
             result = DeployIntentAgent().execute({
                 "path": path,
                 "interactive": not args.non_interactive,
@@ -960,7 +960,7 @@ def main():
             })
 
         elif args.command == "deploy-design":
-            from ..agents.deploy_orchestrator_agent import DeployOrchestratorAgent
+            from agents.deploy_orchestrator_agent import DeployOrchestratorAgent
             result = DeployOrchestratorAgent().execute({
                 "path": path,
                 "overwrite": not args.no_overwrite,
@@ -969,7 +969,7 @@ def main():
             })
 
         elif args.command == "deploy-validate":
-            from ..agents.deploy_validator_agent import DeployValidatorAgent
+            from agents.deploy_validator_agent import DeployValidatorAgent
             result = DeployValidatorAgent().execute({"path": path})
 
         elif args.command == "monitor":
