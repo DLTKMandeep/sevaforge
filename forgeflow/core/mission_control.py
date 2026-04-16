@@ -155,20 +155,23 @@ except ImportError:
             return None
 
 
-# New pipeline sequence (v2.1 with specialized generation agents)
+# New pipeline sequence (v2.2 — pre-push deployment pipeline inserted before secrets/lifecycle)
 PIPELINE_STAGES = [
     "discover",
     "normalize",
     "docs",
-    "iac",       # Infrastructure as Code (Terraform, Docker)
-    "cd",        # Continuous Deployment (ArgoCD, Kustomize)
-    "ci",        # Continuous Integration (GitHub Actions, GitLab CI)
-    "e2e",       # E2E Testing (Playwright, Cypress)
+    "iac",            # Infrastructure as Code (Terraform, Docker)
+    "cd",             # Continuous Deployment (ArgoCD, Kustomize)
+    "ci",             # Continuous Integration (GitHub Actions, GitLab CI)
+    "e2e",            # E2E Testing (Playwright, Cypress)
     "review",
     "test",
     "scan",
-    "secrets",   # Secrets bootstrap guide + script (before bridge so it gets committed)
-    "lifecycle", # CI/CD lifecycle workflows: ci.yml → test.yml → cd.yml
+    "deploy-intent",  # Pre-push interactive deployment interview → .sevaforge/deployment-intent.yaml
+    "deploy-design",  # Fan out to 7 persona agents (infra, cluster, app, secrets, observability, security, cost)
+    "deploy-validate",# Cross-check persona outputs; BLOCKS push if any artefact is inconsistent
+    "secrets",        # Secrets bootstrap guide + script (before bridge so it gets committed)
+    "lifecycle",      # CI/CD lifecycle workflows: ci.yml → test.yml → cd.yml
 ]
 
 # Post-merge stages (optional)
@@ -559,6 +562,9 @@ class MissionControl:
             ("review",    lambda: self._execute_stage("review",    path, greenfield)),
             ("test",      lambda: self._execute_stage("test",      path, greenfield)),
             ("scan",      lambda: self._execute_stage("scan",      path, greenfield)),
+            ("deploy-intent",   lambda: self._execute_deploy_intent(path)),    # Pre-push deploy interview (cached in .sevaforge/)
+            ("deploy-design",   lambda: self._execute_deploy_design(path)),    # Fan out to 7 persona agents in parallel
+            ("deploy-validate", lambda: self._execute_deploy_validate(path)),  # Cross-check artefacts; blocks push on failure
             ("secrets",   lambda: self._execute_secrets(path)),      # Guide + IAM policies + bootstrap script
             ("lifecycle", lambda: self._execute_lifecycle(path)),    # ci.yml → test.yml → cd.yml
             ("bridge",    lambda: self._execute_bridge(path, private=private)),       # Push to GitHub
@@ -567,7 +573,7 @@ class MissionControl:
         total = len(stages)
         mode_label = "DRY RUN PIPELINE" if dry_run else "RUN-ALL PIPELINE"
         print_pipeline_header(mode_label, self.mode)
-        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → SECRETS → LIFECYCLE → BRIDGE[/]")
+        console.print(f"  [dim]Pipeline: DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → DEPLOY-INTENT → DEPLOY-DESIGN → DEPLOY-VALIDATE → SECRETS → LIFECYCLE → BRIDGE[/]")
         if dry_run:
             console.print("  [bold yellow]⚠  DRY RUN MODE — no files will be written[/]")
         console.print()
@@ -941,6 +947,65 @@ class MissionControl:
                 "status": "warning",
                 "mission": "lifecycle",
                 "summary": f"Lifecycle stage skipped — {e}. Workflows not generated.",
+                "findings": [str(e)],
+            }
+
+    # ---------------------------------------------------------------- v2.2 pre-push
+
+    def _execute_deploy_intent(self, path: str) -> Dict[str, Any]:
+        """
+        Run the interactive deployment interview (non-interactive inside run-all —
+        reuses cached `.sevaforge/deployment-intent.yaml` if it exists, otherwise
+        produces one with sensible defaults so the pipeline doesn't hang).
+        """
+        try:
+            from ..agents.deploy_intent_agent import DeployIntentAgent
+            agent = DeployIntentAgent()
+            # In run-all context, never block on stdin — reuse cache or take defaults.
+            return agent.execute({
+                "path": path,
+                "interactive": False,
+                "force": False,
+            })
+        except Exception as e:
+            return {
+                "status": "warning",
+                "mission": "deploy-intent",
+                "summary": f"Deploy-intent skipped — {e}. Run 'forgeflow deploy-intent <path>' interactively.",
+                "findings": [str(e)],
+            }
+
+    def _execute_deploy_design(self, path: str) -> Dict[str, Any]:
+        """
+        Fan out to the 7 persona agents (infra, cluster, app, secrets,
+        observability, security, cost). Runs in 3 parallel layers.
+        """
+        try:
+            from ..agents.deploy_orchestrator_agent import DeployOrchestratorAgent
+            agent = DeployOrchestratorAgent()
+            return agent.execute({"path": path, "overwrite": True})
+        except Exception as e:
+            return {
+                "status": "error",
+                "mission": "deploy-design",
+                "summary": f"Deploy-design failed — {e}",
+                "findings": [str(e)],
+            }
+
+    def _execute_deploy_validate(self, path: str) -> Dict[str, Any]:
+        """
+        Cross-check the persona artefacts for consistency before the push gate.
+        Any failure blocks the bridge stage.
+        """
+        try:
+            from ..agents.deploy_validator_agent import DeployValidatorAgent
+            agent = DeployValidatorAgent()
+            return agent.execute({"path": path})
+        except Exception as e:
+            return {
+                "status": "error",
+                "mission": "deploy-validate",
+                "summary": f"Deploy-validate crashed — {e}",
                 "findings": [str(e)],
             }
 

@@ -42,6 +42,9 @@ STAGE_COLORS = {
     "deploy": "purple",         # Deployment
     "monitor": "bright_cyan",   # Monitoring
     "bridge": "magenta",
+    "deploy-intent":   "bright_yellow",
+    "deploy-design":   "bright_magenta",
+    "deploy-validate": "bright_red",
     "status": "white",
     "doctor": "bright_cyan",
 }
@@ -120,6 +123,24 @@ STAGE_MAPPING = {
         "agent":      "MonitoringAgent",
         "purpose":    "Wire up Prometheus metrics, Grafana dashboards, and alerting rules",
         "outputs":    "Prometheus config · Grafana dashboards · Alert rules · staging/monitor_report.md",
+    },
+    "deploy-intent": {
+        "mcp_server": "intent-mcp-server",
+        "agent":      "DeployIntentAgent",
+        "purpose":    "Interactive deployment interview — capture cloud, compute model, SLOs, cost controls",
+        "outputs":    ".sevaforge/deployment-intent.yaml (cached, survives re-runs)",
+    },
+    "deploy-design": {
+        "mcp_server": "design-mcp-server",
+        "agent":      "DeployOrchestratorAgent",
+        "purpose":    "Fan out to 7 personas in parallel: infra, cluster, app, secrets, observability, security, cost",
+        "outputs":    "forgeflow/infrastructure/ · deploy/helm/ · deploy/secrets/ · deploy/observability/ · deploy/security/ · deploy/cost/ · .github/workflows/cost-*.yml",
+    },
+    "deploy-validate": {
+        "mcp_server": "validate-mcp-server",
+        "agent":      "DeployValidatorAgent",
+        "purpose":    "Cross-check persona artefacts (secrets inventory, crons, SLOs, TF vars, image repo) — blocks push on failure",
+        "outputs":    "Validation report · updates _meta.last_validated in deployment-intent.yaml",
     },
     "bridge": {
         "mcp_server": "github-mcp-server",

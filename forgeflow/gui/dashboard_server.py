@@ -133,6 +133,11 @@ class _SSELogHandler(logging.Handler):
         'forgeflow', 'discovery', 'normalize', 'iac', 'ci', 'cd', 'e2e',
         'review', 'test', 'scan', 'bridge', 'mission', 'agent', 'mcp',
         'documentation', 'security', 'generation', 'scaffolding',
+        # v2.2 pre-push deployment pipeline
+        'deploy_intent', 'deploy_orchestrator', 'deploy_validator',
+        'persona', 'infra_architect', 'cluster_builder', 'app_deployer',
+        'secrets_manager', 'observability_engineer', 'security_auditor',
+        'cost_guardian',
     )
     # Noisy internal libraries to skip
     _EXCLUDE = ('werkzeug', 'urllib3', 'httpx', 'asyncio', 'charset', 'filelock')

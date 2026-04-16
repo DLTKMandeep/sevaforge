@@ -232,6 +232,31 @@ Examples:
     deploy_parser.add_argument("--target", "-t", default="staging",
                                choices=["staging", "production", "dev"],
                                help="Deployment target (default: staging)")
+
+    # === deploy-intent === (DeployIntentAgent → intent-mcp-server)
+    intent_parser = subparsers.add_parser("deploy-intent",
+        help="Pre-push interactive interview → .sevaforge/deployment-intent.yaml")
+    intent_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    intent_parser.add_argument("--force", action="store_true",
+        help="Regenerate intent even if cached copy exists")
+    intent_parser.add_argument("--non-interactive", action="store_true",
+        help="Use defaults for every answer (for CI)")
+
+    # === deploy-design === (DeployOrchestratorAgent → design-mcp-server)
+    design_parser = subparsers.add_parser("deploy-design",
+        help="Fan out to 7 persona agents (infra, cluster, app, secrets, observability, security, cost)")
+    design_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
+    design_parser.add_argument("--only", nargs="+",
+        help="Only run these personas (space-separated)")
+    design_parser.add_argument("--skip", nargs="+",
+        help="Skip these personas (space-separated)")
+    design_parser.add_argument("--no-overwrite", action="store_true",
+        help="Brownfield mode — skip files that already exist")
+
+    # === deploy-validate === (DeployValidatorAgent → validate-mcp-server)
+    validate_parser = subparsers.add_parser("deploy-validate",
+        help="Cross-check persona artefacts; BLOCKS push on failure")
+    validate_parser.add_argument("--path", "-p", default=".", help="Path to repository (default: .)")
     
     # === monitor === (MonitoringAgent → observability-mcp-server)
     monitor_parser = subparsers.add_parser("monitor", help="Set up monitoring and observability")
@@ -925,7 +950,28 @@ def main():
             
         elif args.command == "deploy":
             result = mc.deploy(path, args.target)
-            
+
+        elif args.command == "deploy-intent":
+            from ..agents.deploy_intent_agent import DeployIntentAgent
+            result = DeployIntentAgent().execute({
+                "path": path,
+                "interactive": not args.non_interactive,
+                "force": args.force,
+            })
+
+        elif args.command == "deploy-design":
+            from ..agents.deploy_orchestrator_agent import DeployOrchestratorAgent
+            result = DeployOrchestratorAgent().execute({
+                "path": path,
+                "overwrite": not args.no_overwrite,
+                "only": args.only or [],
+                "skip": args.skip or [],
+            })
+
+        elif args.command == "deploy-validate":
+            from ..agents.deploy_validator_agent import DeployValidatorAgent
+            result = DeployValidatorAgent().execute({"path": path})
+
         elif args.command == "monitor":
             result = mc.monitor(path)
             

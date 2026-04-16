@@ -479,6 +479,18 @@ const STAGE_INFO_FULL = [
     consumer:'Sevaforge checks your project for security holes before hackers find them — scanning code, checking dependencies for CVEs, and hunting for leaked secrets.',
     outputs:'SARIF report · CVE list · Severity-classified findings',
     steps:['Running SAST pass on source code…','Scanning dependency tree for known CVEs…','Detecting hardcoded secrets and tokens…','Checking container base image for vulns…','Classifying findings by severity…','Generating SARIF report…','Listing actionable remediation steps…'] },
+  { id:'deploy-intent', emoji:'🗣️', label:'Deploy Intent',
+    consumer:'Sevaforge asks you a few pointed questions — which cloud, Kubernetes or serverless, what SLOs, cost limits, nightly shutdown — then caches your answers so it never asks again.',
+    outputs:'.sevaforge/deployment-intent.yaml — cached canonical deployment spec',
+    steps:['Checking for cached .sevaforge/deployment-intent.yaml…','Deriving app facts (name, language, port) from source…','Prompting for target cloud and region…','Prompting for compute model (Kubernetes / VM / serverless)…','Capturing SLO targets and observability stack choice…','Capturing cost controls (budget, nightly shutdown, teardown date)…','Hashing the intent so later stages detect tampering…','Writing .sevaforge/deployment-intent.yaml…'] },
+  { id:'deploy-design', emoji:'🎭', label:'Deploy Design',
+    consumer:'Seven specialist AI agents work in parallel — building infrastructure code, cluster definitions, app rollout manifests, secrets inventory, observability wiring, network policies, and cost guardrails — all in one pass.',
+    outputs:'forgeflow/infrastructure/ · deploy/helm/ · deploy/secrets/ · deploy/observability/ · deploy/security/ · deploy/cost/ · .github/workflows/cost-*.yml',
+    steps:['Loading cached deployment intent…','Layer 1: running InfraArchitect + SecretsManager in parallel…','Writing VPC/subnets/firewall Terraform (InfraArchitect)…','Scanning app code for secrets and building inventory (SecretsManager)…','Layer 2: running ClusterBuilder + AppDeployer in parallel…','Writing GKE/EKS/Cloud Run cluster spec (ClusterBuilder)…','Writing Dockerfile + Helm chart + HPA (AppDeployer)…','Layer 3: Observability + Security + Cost in parallel…','Writing Prometheus rules + Grafana dashboards + SLOs…','Writing NetworkPolicy + Pod Security + IAM minimization…','Writing billing budget + nightly shutdown + auto-teardown workflows…'] },
+  { id:'deploy-validate', emoji:'🛂', label:'Deploy Validate',
+    consumer:'Before any code pushes to GitHub, Sevaforge cross-checks every generated artefact — making sure secrets are inventoried, crons are valid, teardown dates are in the future, Terraform variables are declared, and the container image repo matches your cloud.',
+    outputs:'Validation report · updates _meta.last_validated in deployment-intent.yaml · BLOCKS push on failure',
+    steps:['Loading deployment intent and artefacts…','Checking every referenced secret is inventoried…','Validating cron expressions for shutdown + teardown…','Verifying teardown date is in the future…','Checking SLO targets are realistic…','Verifying intent hash matches (no tampering after design)…','Checking Terraform var references are declared…','Verifying image.repository matches the target cloud registry…','Recording last_validated timestamp if all checks pass…'] },
   { id:'bridge',    emoji:'🌉', label:'Push to GitHub',
     consumer:'All generated files — infrastructure, pipelines, tests, docs, security configs — are committed and pushed to your GitHub repo so your team can immediately review and merge.',
     outputs:'GitHub repo · All generated files committed · PR link',
@@ -1017,7 +1029,7 @@ function IdleScreen({ connected, onLaunch }) {
   const [showParentPicker, setShowParentPicker] = useState(false);
   const [privateRepo,    setPrivateRepo]    = useState(true);
   const [dryRun,         setDryRun]         = useState(false);
-  // selectedStages: which of the 13 stages to include in dry run (all by default)
+  // selectedStages: which of the 16 stages to include in dry run (all by default)
   const [selectedStages, setSelectedStages] = useState(PIPELINE_STAGE_IDS.slice());
   const [launching,      setLaunching]      = useState(false);
   const [launchErr,      setLaunchErr]      = useState('');
@@ -2035,7 +2047,7 @@ function RunningView({ liveState, logs, onReset }) {
             {label:'Analyse',  icon:'🔍', stageIds:['discover','normalize','docs'],              color:'#6366f1'},
             {label:'Build',    icon:'🏗️', stageIds:['iac','cd','ci'],                            color:'#2563eb'},
             {label:'Quality',  icon:'🧪', stageIds:['e2e','review','test'],                      color:'#059669'},
-            {label:'Ship',     icon:'🚀', stageIds:['scan','secrets','lifecycle','bridge'],       color:'#0ea5e9'},
+            {label:'Ship',     icon:'🚀', stageIds:['scan','deploy-intent','deploy-design','deploy-validate','secrets','lifecycle','bridge'], color:'#0ea5e9'},
           ].map(({label,icon,stageIds,color},gi)=>{
             const ph  = stageIds.filter(id=>stages.includes(id));
             const dn  = ph.filter(id=>stageState[id]==='success'||stageState[id]==='preview').length;
@@ -2549,7 +2561,7 @@ function DashboardView({ history, connected, onNavigate }) {
     {label:'Analyse', stages:['discover','normalize','docs'],  color:'#6366f1', icon:'🔍', desc:'Code understanding, normalization, docs'},
     {label:'Build',   stages:['iac','cd','ci'],                color:'#2563eb', icon:'🏗️', desc:'Terraform, ArgoCD, GitHub Actions'},
     {label:'Quality', stages:['e2e','review','test'],          color:'#059669', icon:'🧪', desc:'Playwright E2E, code review, unit tests'},
-    {label:'Ship',    stages:['scan','secrets','lifecycle','bridge'], color:'#0ea5e9', icon:'🚀', desc:'Security scan, GitHub push, secrets bootstrap, CI/CD lifecycle'},
+    {label:'Ship',    stages:['scan','deploy-intent','deploy-design','deploy-validate','secrets','lifecycle','bridge'], color:'#0ea5e9', icon:'🚀', desc:'Security scan, deploy interview, persona fan-out, validator, push'},
   ];
 
   return (
@@ -2677,12 +2689,12 @@ function StagesView() {
     {label:'Analyse',  color:'#6366f1', icon:'🔍', ids:['discover','normalize','docs']},
     {label:'Build',    color:'#2563eb', icon:'🏗️', ids:['iac','cd','ci']},
     {label:'Quality',  color:'#059669', icon:'🧪', ids:['e2e','review','test']},
-    {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','secrets','lifecycle','bridge']},
+    {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','deploy-intent','deploy-design','deploy-validate','secrets','lifecycle','bridge']},
   ];
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
       <PageHeader title="Pipeline Stages"
-        sub="13 stages · 4 phases · runs end-to-end on every pipeline launch" />
+        sub="16 stages · 4 phases · runs end-to-end on every pipeline launch" />
 
       {/* Execution order flow strip */}
       <div style={{
