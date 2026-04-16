@@ -146,7 +146,7 @@ from .display import (
     STAGE_MAPPING,
 )
 try:
-    from ..gui.dashboard_server import get_dashboard
+    from gui.dashboard_server import get_dashboard
 except ImportError:
     try:
         from gui.dashboard_server import get_dashboard  # flat CLI import path
@@ -914,7 +914,7 @@ class MissionControl:
           infrastructure/iam/           — policy JSON/Terraform/ARM files per cloud
         """
         try:
-            from ..agents.secrets_agent import SecretsAgent
+            from agents.secrets_agent import SecretsAgent
             agent = SecretsAgent()
             return agent.execute({"path": path})
         except Exception as e:
@@ -939,7 +939,7 @@ class MissionControl:
           - Auto-detects and sets GitHub secrets from ~/.aws, ~/.docker, gcloud config
         """
         try:
-            from ..agents.lifecycle_agent import LifecycleAgent
+            from agents.lifecycle_agent import LifecycleAgent
             agent = LifecycleAgent()
             return agent.execute({"repo_path": path})
         except Exception as e:
@@ -959,7 +959,7 @@ class MissionControl:
         produces one with sensible defaults so the pipeline doesn't hang).
         """
         try:
-            from ..agents.deploy_intent_agent import DeployIntentAgent
+            from agents.deploy_intent_agent import DeployIntentAgent
             agent = DeployIntentAgent()
             # In run-all context, never block on stdin — reuse cache or take defaults.
             return agent.execute({
@@ -981,7 +981,7 @@ class MissionControl:
         observability, security, cost). Runs in 3 parallel layers.
         """
         try:
-            from ..agents.deploy_orchestrator_agent import DeployOrchestratorAgent
+            from agents.deploy_orchestrator_agent import DeployOrchestratorAgent
             agent = DeployOrchestratorAgent()
             return agent.execute({"path": path, "overwrite": True})
         except Exception as e:
@@ -998,7 +998,7 @@ class MissionControl:
         Any failure blocks the bridge stage.
         """
         try:
-            from ..agents.deploy_validator_agent import DeployValidatorAgent
+            from agents.deploy_validator_agent import DeployValidatorAgent
             agent = DeployValidatorAgent()
             return agent.execute({"path": path})
         except Exception as e:
