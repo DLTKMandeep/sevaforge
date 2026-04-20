@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sevaforge-unified
+description: Helm chart for sevaforge-unified
+type: application
+version: 0.1.0
+appVersion: 1.0.0

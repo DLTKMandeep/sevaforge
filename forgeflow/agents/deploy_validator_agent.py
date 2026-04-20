@@ -87,6 +87,23 @@ class DeployValidatorAgent(BaseAgent):
     # ================================================================ checks
 
     def _check_secrets_consistency(self, intent: Dict) -> tuple:
+        """
+        Inventory-anchored approach — works on any repo without blocklists.
+
+        Instead of scanning workflows/manifests for secret references and
+        guessing which ones are "real," we trust the SecretsManager persona's
+        inventory as the source of truth for what the *app* needs at runtime.
+
+        Checks:
+          1. The inventory file must exist (persona ran successfully).
+          2. Every inventoried secret must appear *somewhere* in the project
+             source or generated deployment files — if it doesn't, it's stale
+             and the inventory needs updating.
+
+        This avoids the impossible task of distinguishing CI plumbing secrets
+        (KUBE_CONFIG, CODECOV_TOKEN, etc.) from app secrets in arbitrary
+        repos.
+        """
         inventory_file = self.project_path / "deploy/secrets/inventory.yaml"
         if not inventory_file.exists():
             return (False, "deploy/secrets/inventory.yaml is missing")
@@ -94,28 +111,38 @@ class DeployValidatorAgent(BaseAgent):
         inventory = yaml.safe_load(inventory_file.read_text()) or {}
         inventoried: Set[str] = {s["name"] for s in (inventory.get("secrets") or [])}
 
-        referenced: Set[str] = set()
-        for pattern_file in list(self.project_path.rglob("deploy/helm/**/*.yaml")) + \
-                            list(self.project_path.rglob("deploy/k8s/**/*.yaml")) + \
-                            list(self.project_path.rglob(".github/workflows/*.yml")):
-            try:
-                content = pattern_file.read_text(errors="ignore")
-            except Exception:
-                continue
-            # Capture secrets.FOO and ${FOO}
-            for m in re.finditer(r"secrets\.([A-Z][A-Z0-9_]+)", content):
-                referenced.add(m.group(1))
-            for m in re.finditer(r"\$\{([A-Z][A-Z0-9_]+)\}", content):
-                name = m.group(1)
-                if name.isupper() and "_" in name:
-                    referenced.add(name)
+        if not inventoried:
+            # Empty inventory is fine — some apps have no secrets
+            return (True, "")
 
-        # GitHub provides GITHUB_* automatically; don't require inventorying
-        referenced = {r for r in referenced if not r.startswith("GITHUB_")}
+        # Build a searchable corpus: source code + deploy artifacts + workflows
+        _scan_globs = [
+            "src/**/*", "app/**/*", "lib/**/*", "*.py", "*.js", "*.ts",
+            "deploy/**/*.yaml", "deploy/**/*.yml",
+            ".github/workflows/*.yml",
+            "docker-compose*.yml", "Dockerfile*",
+            ".env.example", ".env.sample",
+        ]
+        # Exclude the inventory file itself — otherwise every secret name
+        # appears trivially in the corpus and nothing is ever flagged stale.
+        _exclude = {inventory_file.resolve()}
+        corpus = ""
+        for glob in _scan_globs:
+            for f in self.project_path.rglob(glob):
+                if f.is_file() and f.stat().st_size < 512_000 \
+                        and f.resolve() not in _exclude:
+                    try:
+                        corpus += f.read_text(errors="ignore") + "\n"
+                    except Exception:
+                        continue
 
-        missing = referenced - inventoried
-        if missing:
-            return (False, f"Referenced but not inventoried: {sorted(missing)}")
+        # Check each inventoried secret is actually referenced somewhere
+        stale = {name for name in inventoried if name not in corpus}
+
+        if stale:
+            return (False,
+                    f"Inventoried but never referenced in code: {sorted(stale)} "
+                    f"— remove from deploy/secrets/inventory.yaml or verify usage")
         return (True, "")
 
     def _check_cron_schedules(self, intent: Dict) -> tuple:

@@ -1,0 +1,11 @@
+slos:
+- name: sevaforge-unified-availability
+  objective: 99.5
+  window: 30d
+  sli:
+    good: sum(rate(http_requests_total{app="sevaforge-unified",code!~"5.."}[5m]))
+    total: sum(rate(http_requests_total{app="sevaforge-unified"}[5m]))
+- name: sevaforge-unified-latency
+  objective: 95.0
+  window: 30d
+  threshold_ms: 500

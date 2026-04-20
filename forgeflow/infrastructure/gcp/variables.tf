@@ -1,10 +1,10 @@
 variable "project_id" {
-  description = "GCP project ID"
+  description = "GCP project id"
   type        = string
 }
 
 variable "region" {
-  description = "GCP region (e.g. us-central1)"
+  description = "GCP region"
   type        = string
   default     = "us-central1"
 }

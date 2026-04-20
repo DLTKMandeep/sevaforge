@@ -1,0 +1,238 @@
+---
+title: "ForgeFlow Deployment Architecture — Physical Layout"
+---
+graph TB
+  %% ============================================================
+  %% STYLES
+  %% ============================================================
+  classDef pipeline fill:#1e1b4b,stroke:#818cf8,color:#e0e7ff,stroke-width:2px
+  classDef pipelineActive fill:#312e81,stroke:#a5b4fc,color:#e0e7ff,stroke-width:2px
+  classDef persona fill:#064e3b,stroke:#6ee7b7,color:#d1fae5,stroke-width:2px
+  classDef gcp fill:#1a237e,stroke:#42a5f5,color:#e3f2fd,stroke-width:2px
+  classDef network fill:#0d47a1,stroke:#64b5f6,color:#e3f2fd,stroke-width:2px
+  classDef k8s fill:#1b5e20,stroke:#66bb6a,color:#e8f5e9,stroke-width:2px
+  classDef pod fill:#2e7d32,stroke:#81c784,color:#e8f5e9,stroke-width:2px
+  classDef observe fill:#e65100,stroke:#ffb74d,color:#fff3e0,stroke-width:2px
+  classDef security fill:#b71c1c,stroke:#ef5350,color:#ffebee,stroke-width:2px
+  classDef cost fill:#4a148c,stroke:#ce93d8,color:#f3e5f5,stroke-width:2px
+  classDef secret fill:#f57f17,stroke:#ffd54f,color:#fffde7,stroke-width:2px
+  classDef cicd fill:#006064,stroke:#4dd0e1,color:#e0f7fa,stroke-width:2px
+  classDef user fill:#37474f,stroke:#90a4ae,color:#eceff1,stroke-width:2px
+  classDef intent fill:#880e4f,stroke:#f48fb1,color:#fce4ec,stroke-width:2px
+
+  %% ============================================================
+  %% LAYER 0 — USER & FORGEFLOW CLI
+  %% ============================================================
+  subgraph L0["👤 Developer Workstation"]
+    direction LR
+    DEV["Developer<br/>forgeflow run-all PATH"]:::user
+    CLI["ForgeFlow CLI<br/>forgeflow.py"]:::user
+    INTENT_FILE[".sevaforge/<br/>deployment-intent.yaml<br/>━━━━━━━━━━━━━━━━━━━<br/>cloud: GCP<br/>region: us-central1<br/>compute: gke-autopilot<br/>app_port: 9001<br/>replicas: 2–6<br/>SLO: 99.5% / 500ms p99<br/>shutdown: 4AM–2PM UTC"]:::intent
+    DEV --> CLI
+    CLI --> INTENT_FILE
+  end
+
+  %% ============================================================
+  %% LAYER 1 — 16-STAGE PIPELINE
+  %% ============================================================
+  subgraph L1["⚡ ForgeFlow Pipeline — 16 Stages · 4 Phases"]
+    direction LR
+
+    subgraph ANALYSE["📊 Analyse"]
+      direction TB
+      S1["discover"]:::pipeline
+      S2["normalize"]:::pipeline
+      S3["docs"]:::pipeline
+      S1 --> S2 --> S3
+    end
+
+    subgraph BUILD["🔨 Build"]
+      direction TB
+      S4["iac"]:::pipeline
+      S5["cd"]:::pipeline
+      S6["ci"]:::pipeline
+      S7["e2e"]:::pipeline
+      S4 --> S5 --> S6 --> S7
+    end
+
+    subgraph QUALITY["✅ Quality"]
+      direction TB
+      S8["review"]:::pipeline
+      S9["test"]:::pipeline
+      S10["scan"]:::pipeline
+      S8 --> S9 --> S10
+    end
+
+    subgraph SHIP["🚀 Ship"]
+      direction TB
+      S11["🗣️ deploy-intent"]:::pipelineActive
+      S12["🎭 deploy-design"]:::pipelineActive
+      S13["🛂 deploy-validate"]:::pipelineActive
+      S14["🔑 secrets"]:::pipeline
+      S15["♻️ lifecycle"]:::pipeline
+      S16["🌉 bridge"]:::pipeline
+      S11 --> S12 --> S13 --> S14 --> S15 --> S16
+    end
+
+    ANALYSE --> BUILD --> QUALITY --> SHIP
+  end
+
+  %% ============================================================
+  %% LAYER 2 — 7 PERSONA AGENTS (deploy-design fan-out)
+  %% ============================================================
+  subgraph L2["🎭 Deploy-Design — 7 Persona Agents (3 Parallel Layers)"]
+    direction TB
+
+    subgraph LAYER1_P["Layer 1 — Foundation"]
+      direction LR
+      P1["🏗️ InfraArchitect<br/>━━━━━━━━━━━━━<br/>VPC · Subnets · Firewall<br/>network.tf · providers.tf<br/>backend.tf · variables.tf"]:::persona
+      P4["🔐 SecretsManager<br/>━━━━━━━━━━━━━<br/>Code scan → inventory.yaml<br/>bootstrap.sh<br/>DEPLOYMENT_SECRETS_GUIDE.md"]:::persona
+    end
+
+    subgraph LAYER2_P["Layer 2 — Platform"]
+      direction LR
+      P2["☸️ ClusterBuilder<br/>━━━━━━━━━━━━━<br/>GKE Autopilot cluster.tf<br/>us-central1 · REGULAR channel<br/>Pod/Service CIDRs"]:::persona
+      P3["📦 AppDeployer<br/>━━━━━━━━━━━━━<br/>Dockerfile · Helm chart<br/>values.yaml · HPA<br/>gcr.io image · port 9001"]:::persona
+    end
+
+    subgraph LAYER3_P["Layer 3 — Operations"]
+      direction LR
+      P5["📈 Observability<br/>━━━━━━━━━━━━━<br/>Prometheus + Grafana<br/>ServiceMonitor · SLOs<br/>Alert rules · Dashboard"]:::persona
+      P6["🛡️ Security<br/>━━━━━━━━━━━━━<br/>NetworkPolicy<br/>Pod Security (restricted)<br/>IAM minimization"]:::persona
+      P7["💰 CostGuardian<br/>━━━━━━━━━━━━━<br/>Budget alerts<br/>Nightly shutdown 4AM–2PM<br/>Auto-teardown workflow"]:::persona
+    end
+
+    LAYER1_P --> LAYER2_P --> LAYER3_P
+  end
+
+  %% ============================================================
+  %% LAYER 3 — CI/CD (GitHub Actions)
+  %% ============================================================
+  subgraph L3["🔄 GitHub Actions CI/CD"]
+    direction LR
+
+    subgraph CI_JOBS["CI Pipeline"]
+      direction TB
+      LINT["Lint<br/>flake8 · black · isort"]:::cicd
+      TEST_CI["Test<br/>pytest · Python 3.10–3.12<br/>Codecov coverage"]:::cicd
+      SEC_CI["Security Scan<br/>bandit · safety"]:::cicd
+      BUILD_CI["Build & Push<br/>Docker multi-arch<br/>amd64 + arm64<br/>→ gcr.io"]:::cicd
+      LINT --> BUILD_CI
+      TEST_CI --> BUILD_CI
+      SEC_CI --> BUILD_CI
+    end
+
+    subgraph CD_JOBS["CD Pipeline"]
+      direction TB
+      APPROVAL["Manual Approval<br/>(prod only)"]:::cicd
+      DEPLOY_CD["Deploy to GKE<br/>kubectl apply<br/>Kustomize overlay"]:::cicd
+      APPROVAL --> DEPLOY_CD
+    end
+
+    subgraph COST_JOBS["Cost Workflows"]
+      direction TB
+      SHUTDOWN["cost-shutdown.yml<br/>━━━━━━━━━━━━━<br/>⬇ 4AM: scale → 0<br/>⬆ 2PM: restore replicas"]:::cost
+      TEARDOWN["cost-teardown.yml<br/>━━━━━━━━━━━━━<br/>One-shot destroy<br/>terraform destroy"]:::cost
+    end
+
+    CI_JOBS --> CD_JOBS
+  end
+
+  %% ============================================================
+  %% LAYER 4 — GCP PHYSICAL INFRASTRUCTURE
+  %% ============================================================
+  subgraph L4["☁️ Google Cloud Platform — Project: divine-data-469116-b2"]
+    direction TB
+
+    subgraph VPC["🌐 VPC: sevaforge-unified-vpc"]
+      direction TB
+
+      subgraph SUBNET["Subnet: sevaforge-unified-subnet<br/>Primary: 10.10.0.0/20 · Pods: 10.20.0.0/14 · Services: 10.24.0.0/20"]
+        direction TB
+
+        subgraph GKE["☸️ GKE Autopilot: sevaforge-unified-cluster<br/>Region: us-central1 · Channel: REGULAR · Auto-scaling nodes"]
+          direction TB
+
+          subgraph NS_APP["Namespace: sevaforge-unified<br/>Pod Security: restricted (enforce)"]
+            direction LR
+
+            subgraph DEPLOY_APP["Deployment: sevaforge-unified<br/>Replicas: 2–6 (HPA)"]
+              direction TB
+              POD1["Pod 1<br/>━━━━━━<br/>gcr.io/.../sevaforge-unified:latest<br/>Port 9001 · runAsNonRoot<br/>CPU: 100m–500m<br/>Mem: 128Mi–512Mi<br/>━━━━━━<br/>Liveness: /health<br/>Readiness: /health"]:::pod
+              POD2["Pod 2<br/>(identical)"]:::pod
+              PODN["Pod N<br/>(auto-scaled)"]:::pod
+            end
+
+            SVC_APP["Service: sevaforge-unified<br/>ClusterIP · 80 → 9001"]:::k8s
+            HPA_APP["HPA<br/>CPU: 70% · Mem: 80%<br/>Min: 2 · Max: 6<br/>Scale-up: +100%/15s<br/>Scale-down: -10%/60s"]:::k8s
+            CM_APP["ConfigMap<br/>ENVIRONMENT · LOG_LEVEL<br/>APP_NAME"]:::k8s
+
+            SVC_APP --> DEPLOY_APP
+            HPA_APP -.-> DEPLOY_APP
+            CM_APP -.-> DEPLOY_APP
+          end
+
+          subgraph NS_OBS["Namespace: observability"]
+            direction LR
+            PROM["Prometheus<br/>:9090<br/>Retention: 15d<br/>━━━━━━<br/>ServiceMonitor<br/>/metrics @ 30s"]:::observe
+            GRAFANA["Grafana<br/>:3000<br/>PVC: 5Gi<br/>━━━━━━<br/>SLO Dashboard"]:::observe
+            ALERTMGR["AlertManager<br/>:9093<br/>━━━━━━<br/>Error rate > 5%: page<br/>P99 > 500ms: warn<br/>CrashLoop: page"]:::observe
+            PROM --> GRAFANA
+            PROM --> ALERTMGR
+          end
+
+          subgraph NS_SEC["Network Policies"]
+            direction TB
+            DENY["Default Deny<br/>All Ingress"]:::security
+            ALLOW["Allow Ingress<br/>from: ingress-nginx,<br/>observability<br/>port: http"]:::security
+          end
+
+          PROM -.->|scrape /metrics| SVC_APP
+        end
+      end
+
+      FW_INTERNAL["Firewall: allow-internal<br/>TCP/UDP/ICMP<br/>10.10.0.0/20 · 10.20.0.0/14 · 10.24.0.0/20"]:::network
+      FW_HEALTH["Firewall: allow-health-checks<br/>TCP 80,443,8000,6443<br/>from 35.191.0.0/16 · 130.211.0.0/22"]:::network
+    end
+
+    GCS["Cloud Storage<br/>Terraform State<br/>(remote backend)"]:::gcp
+    GCR["Container Registry<br/>gcr.io/divine-data-469116-b2/<br/>sevaforge-unified"]:::gcp
+    IAM["IAM Service Accounts<br/>━━━━━━━━━━━━━<br/>terraform-deployer<br/>cicd-image-pusher<br/>node-role<br/>eso-sa<br/>app-workload"]:::gcp
+  end
+
+  %% ============================================================
+  %% LAYER 5 — SECRETS
+  %% ============================================================
+  subgraph L5["🔑 Secrets Inventory (GitHub Actions Secrets)"]
+    direction LR
+    SEC_CLOUD["Cloud<br/>━━━━━━<br/>GH_TOKEN<br/>GCP_SA_KEY<br/>GCP_PROJECT_ID<br/>GCP_REGION"]:::secret
+    SEC_APP["Application<br/>━━━━━━<br/>DATABASE_URL<br/>JWT_SECRET<br/>REDIS_URL<br/>SESSION_SECRET"]:::secret
+    SEC_3P["Third-Party<br/>━━━━━━<br/>STRIPE_API_KEY<br/>OPENAI_API_KEY<br/>ANTHROPIC_API_KEY<br/>SENDGRID_API_KEY<br/>SMTP_PASSWORD"]:::secret
+  end
+
+  %% ============================================================
+  %% LAYER 6 — KUSTOMIZE OVERLAYS
+  %% ============================================================
+  subgraph L6["📁 Kustomize Environment Overlays"]
+    direction LR
+    OV_DEV["dev<br/>ns: forgeflow-dev<br/>replicas: 2<br/>LOG_LEVEL: debug"]:::k8s
+    OV_STG["staging<br/>ns: forgeflow-staging<br/>replicas: 2<br/>LOG_LEVEL: info"]:::k8s
+    OV_PROD["prod<br/>ns: forgeflow-prod<br/>replicas: 3<br/>LOG_LEVEL: warn"]:::k8s
+  end
+
+  %% ============================================================
+  %% CONNECTIONS
+  %% ============================================================
+  CLI --> L1
+  INTENT_FILE -->|"feeds all<br/>7 personas"| L2
+  S12 -->|"fan-out"| L2
+  L2 -->|"26 artifacts"| S13
+  S16 -->|"git push"| L3
+  BUILD_CI -->|"docker push"| GCR
+  DEPLOY_CD -->|"kubectl apply"| GKE
+  L5 -.->|"injected at deploy"| DEPLOY_APP
+  L5 -.->|"used by CI"| CI_JOBS
+  L6 -->|"applied per env"| GKE
+  COST_JOBS -.->|"scale 0 / restore"| GKE
+  IAM -.->|"least privilege"| GKE
+  GCS -.->|"tfstate"| VPC

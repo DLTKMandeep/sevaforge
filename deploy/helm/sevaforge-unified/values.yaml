@@ -1,0 +1,23 @@
+image:
+  repository: gcr.io//sevaforge-unified
+  tag: latest
+  pullPolicy: IfNotPresent
+replicaCount: 2
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9001
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+healthcheck:
+  path: /health
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

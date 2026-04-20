@@ -1,0 +1,42 @@
+{
+  "title": "sevaforge-unified \u2014 Service Overview",
+  "panels": [
+    {
+      "title": "Request rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{app=\"sevaforge-unified\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "Error rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{app=\"sevaforge-unified\",code=~\"5..\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "p99 latency",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app=\"sevaforge-unified\"}[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "title": "Running pods",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "count(kube_pod_info{pod=~\"sevaforge-unified-.*\"})"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 16
+}

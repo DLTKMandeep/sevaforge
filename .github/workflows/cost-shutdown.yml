@@ -1,0 +1,64 @@
+name: Cost — Nightly Shutdown/Startup
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # shutdown
+    - cron: '0 14 * * *'    # startup
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        type: choice
+        options: [shutdown, startup]
+
+env:
+  CLUSTER: sevaforge-unified-cluster
+  REGION: ${{ secrets.GCP_REGION }}
+  PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  determine:
+    runs-on: ubuntu-latest
+    outputs:
+      action: ${{ steps.set.outputs.action }}
+    steps:
+      - id: set
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "action=${{ inputs.action }}" >> $GITHUB_OUTPUT
+          else
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -lt 10 ]; then
+              echo "action=shutdown" >> $GITHUB_OUTPUT
+            else
+              echo "action=startup" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  run:
+    needs: determine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud components install gke-gcloud-auth-plugin --quiet
+      - run: gcloud container clusters get-credentials $CLUSTER --region $REGION --project $PROJECT
+      - name: Execute
+        run: |
+          ACTION=${{ needs.determine.outputs.action }}
+          for NS in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+            case "$NS" in kube-*|gke-*|gmp-system) continue ;; esac
+            for DEP in $(kubectl get deploy -n $NS -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              if [ "$ACTION" = "shutdown" ]; then
+                REPLICAS=$(kubectl get deploy $DEP -n $NS -o jsonpath='{.spec.replicas}')
+                kubectl annotate deploy $DEP -n $NS sevaforge.io/pre-shutdown-replicas=$REPLICAS --overwrite
+                kubectl scale deploy $DEP -n $NS --replicas=0
+              else
+                REPLICAS=$(kubectl get deploy $DEP -n $NS -o jsonpath='{.metadata.annotations.sevaforge\.io/pre-shutdown-replicas}' 2>/dev/null || echo 1)
+                [ -z "$REPLICAS" ] && REPLICAS=1
+                kubectl scale deploy $DEP -n $NS --replicas=$REPLICAS
+              fi
+            done
+          done

@@ -509,9 +509,9 @@ class MissionControl:
                private: bool = False, dry_run: bool = False,
                selected_stages: Optional[List[str]] = None) -> Dict[str, Any]:
         """
-        Run full 13-stage pipeline:
+        Run full 16-stage pipeline:
         DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN
-        → SECRETS → LIFECYCLE → BRIDGE
+        → DEPLOY-INTENT → DEPLOY-DESIGN → DEPLOY-VALIDATE → SECRETS → LIFECYCLE → BRIDGE
 
         Secrets generates the deployment guide, IAM policies, and bootstrap scripts.
         Lifecycle wires up the three GitHub Actions workflows (ci → test → cd).
@@ -774,7 +774,7 @@ class MissionControl:
             _log("    No files were written. Run without Dry Run to apply changes.", "bridge")
         else:
             print_success_banner("RUN-ALL COMPLETE: All stages passed + pushed to GitHub!")
-            _log("🎉  All 13 stages complete — pipeline finished successfully!", "bridge")
+            _log("🎉  All 16 stages complete — pipeline finished successfully!", "bridge")
             _log("    Infrastructure, CI/CD, docs, tests, and security scan generated.", "bridge")
             _log("    Code pushed to GitHub — check your PR.", "bridge")
 

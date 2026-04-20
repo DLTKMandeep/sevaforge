@@ -1,257 +1,106 @@
 # ForgeFlow Release Notes
 
-## Release v1.0.0
+## Release v2.2.0
 
-**Release Date:** February 8, 2026
+**Release Date:** April 20, 2026
 
 ---
 
 ## Overview
 
-ForgeFlow v1.0.0 is the first stable release of the AI-Powered Platform Engineering CLI. This release includes three deployment modes to suit different use cases.
+ForgeFlow v2.2 introduces the **pre-push deployment pipeline** — a 3-stage system (deploy-intent, deploy-design, deploy-validate) that replaces the deprecated post-push DeployReadinessAgent. Seven specialized persona agents now generate all deployment artifacts in parallel before any code is pushed to GitHub.
 
 ---
 
-## Release Files
+## What's New in v2.2
 
-| File | Mode | Description |
-|------|------|-------------|
-| `forgeflow_release.zip` | Local | Full offline capability, all MCPs run locally |
-| `forgeflow_hybrid_release.zip` | Hybrid | Mix of local and cloud integrations |
-| `forgeflow_cloud_release.zip` | Cloud | Thin client, all processing in cloud |
+### Pre-Push Deployment Pipeline (3 New Stages)
 
----
+The pipeline grows from 13 to **16 stages** with three new stages inserted between `scan` and `secrets` in the Ship phase:
 
-## GitHub Branch Strategy
+- **deploy-intent** (Stage 11) — Interactive interview that captures cloud provider, region, compute model, SLOs, and cost controls. Answers are cached in `.sevaforge/deployment-intent.yaml` with a SHA256 integrity hash.
+- **deploy-design** (Stage 12) — Fans out to 7 persona agents running in 3 parallel layers via ThreadPoolExecutor, producing 26+ deployment artifacts.
+- **deploy-validate** (Stage 13) — Cross-checks all persona outputs with 7 validation checks. Blocks the push if any check fails.
 
-This project uses three branches to manage different deployment modes:
+### 7 Persona Agents
 
-| Branch | Mode | Config Setting |
-|--------|------|----------------|
-| `main` | Local (default) | `mode: local` |
-| `hybrid` | Hybrid | `mode: hybrid` |
-| `cloud` | Cloud | `mode: cloud` |
+| Layer | Persona | Artifacts |
+|-------|---------|-----------|
+| 1 | InfraArchitect | VPC, subnets, firewall (Terraform) |
+| 1 | SecretsManager | Secrets inventory, bootstrap script |
+| 2 | ClusterBuilder | GKE/EKS cluster spec (Terraform) |
+| 2 | AppDeployer | Dockerfile, Helm chart, HPA |
+| 3 | ObservabilityEngineer | Prometheus, Grafana, SLOs, alerts |
+| 3 | SecurityAuditor | NetworkPolicy, Pod Security, IAM |
+| 3 | CostGuardian | Budget alerts, shutdown/teardown workflows |
 
----
+### Inventory-Anchored Secret Validation
 
-## How to Set Up GitHub Repository with Three Branches
+The validator no longer scans for `${VAR}` patterns heuristically. Instead it trusts the SecretsManager persona's inventory and verifies that every inventoried secret is actually referenced in the project source. This eliminates false positives across any repo.
 
-### Step 1: Create GitHub Repository
+### Dashboard Integration
 
-```bash
-# Create a new repository on GitHub (via web UI or gh CLI)
-gh repo create forgeflow/forgeflow --public --description "AI-Powered Platform Engineering CLI"
-```
+The React dashboard and SSE log streaming now support all 16 stages including the 3 new deploy stages and all 7 persona loggers. The Ship phase card shows deploy-intent, deploy-design, and deploy-validate with animated step tickers.
 
-### Step 2: Initialize and Push Main Branch (Local Mode)
+### CLI Subcommands
 
-```bash
-# Extract the local release
-unzip forgeflow_release.zip
-cd forgeflow
-
-# Initialize git
-git init
-git add .
-git commit -m "Initial release v1.0.0 - Local mode"
-
-# Add remote and push to main
-git remote add origin https://github.com/YOUR_ORG/forgeflow.git
-git branch -M main
-git push -u origin main
-```
-
-### Step 3: Create and Push Hybrid Branch
+Three new CLI subcommands for running deploy stages individually:
 
 ```bash
-# Go back to releases directory
-cd ..
-
-# Extract hybrid release to a temp location
-unzip forgeflow_hybrid_release.zip -d temp_hybrid
-cd forgeflow
-
-# Create hybrid branch
-git checkout -b hybrid
-
-# Copy hybrid config
-cp ../temp_hybrid/forgeflow_hybrid/config/forgeflow-config.yaml config/
-cp ../temp_hybrid/forgeflow_hybrid/mcp-config.yaml .
-
-# Commit and push
-git add .
-git commit -m "Configure hybrid deployment mode"
-git push -u origin hybrid
-
-# Clean up
-cd ..
-rm -rf temp_hybrid
-```
-
-### Step 4: Create and Push Cloud Branch
-
-```bash
-# Extract cloud release to a temp location
-unzip forgeflow_cloud_release.zip -d temp_cloud
-cd forgeflow
-
-# Create cloud branch from main
-git checkout main
-git checkout -b cloud
-
-# Copy cloud config
-cp ../temp_cloud/forgeflow_cloud/config/forgeflow-config.yaml config/
-cp ../temp_cloud/forgeflow_cloud/mcp-config.yaml .
-
-# Commit and push
-git add .
-git commit -m "Configure cloud deployment mode"
-git push -u origin cloud
-
-# Clean up
-cd ..
-rm -rf temp_cloud
-```
-
-### Step 5: Set Up Branch Protection (Optional)
-
-Via GitHub UI or CLI:
-
-```bash
-# Protect main branch
-gh api repos/YOUR_ORG/forgeflow/branches/main/protection -X PUT \
-  -f required_status_checks='{"strict":true,"contexts":["test"]}' \
-  -f enforce_admins=false \
-  -f required_pull_request_reviews='{"required_approving_review_count":1}'
+forgeflow deploy-intent --path ./my-repo [--force] [--non-interactive]
+forgeflow deploy-design --path ./my-repo [--only persona1,persona2] [--skip persona3]
+forgeflow deploy-validate --path ./my-repo
 ```
 
 ---
 
-## Alternative: Quick Setup Script
+## Breaking Changes
 
-Save this as `setup_github.sh` and run it:
-
-```bash
-#!/bin/bash
-# ForgeFlow GitHub Setup Script
-
-REPO_NAME="forgeflow"
-ORG_NAME="YOUR_ORG"  # Change this
-
-# Unzip all releases
-unzip -q forgeflow_release.zip
-unzip -q forgeflow_hybrid_release.zip
-unzip -q forgeflow_cloud_release.zip
-
-# Setup main branch (local mode)
-cd forgeflow
-git init
-git add .
-git commit -m "Initial release v1.0.0 - Local mode"
-git remote add origin "https://github.com/${ORG_NAME}/${REPO_NAME}.git"
-git branch -M main
-git push -u origin main
-
-# Create hybrid branch
-git checkout -b hybrid
-cp ../forgeflow_hybrid/config/forgeflow-config.yaml config/
-cp ../forgeflow_hybrid/mcp-config.yaml .
-git add .
-git commit -m "Configure hybrid deployment mode"
-git push -u origin hybrid
-
-# Create cloud branch
-git checkout main
-git checkout -b cloud
-cp ../forgeflow_cloud/config/forgeflow-config.yaml config/
-cp ../forgeflow_cloud/mcp-config.yaml .
-git add .
-git commit -m "Configure cloud deployment mode"
-git push -u origin cloud
-
-# Return to main
-git checkout main
-
-echo "✅ Setup complete! Repository has three branches:"
-echo "   - main (local mode)"
-echo "   - hybrid (hybrid mode)"
-echo "   - cloud (cloud mode)"
-```
+- **DeployReadinessAgent removed** — replaced by the deploy-intent/deploy-design/deploy-validate pipeline. The `readiness-mcp-server` config entry has been removed from `mcp-config.yaml` and `forgeflow-config.yaml`.
+- **Pipeline stage count** — changed from 13 to 16. Any tooling that hardcodes stage counts will need updating.
 
 ---
 
-## Using the Branches
+## Previous Releases
 
-### For Users
+### v2.1.0 (March 2026)
+- Added `iac`, `cd`, `ci`, `e2e` stages (pipeline grew from 10 to 13 stages)
+- Full GitOps delivery system generation (ArgoCD, Kustomize, External Secrets)
+- GCP and OCI cloud provider support alongside AWS
 
-```bash
-# Clone specific branch for your deployment mode
-git clone -b main https://github.com/YOUR_ORG/forgeflow.git    # Local mode
-git clone -b hybrid https://github.com/YOUR_ORG/forgeflow.git  # Hybrid mode
-git clone -b cloud https://github.com/YOUR_ORG/forgeflow.git   # Cloud mode
-```
+### v2.0.0 (February 2026)
+- Unified architecture — consolidated `sevaforge_local`, `sevaforge_cloud`, and `sevaforge_hybrid` into a single `forgeflow` package
+- Single config file (`forgeflow-config.yaml`) replaces three branch-specific configs
+- Web dashboard with real-time SSE log streaming
 
-### For Developers
-
-When making changes:
-
-1. **Feature development** - Work on `main` branch
-2. **Merge to other branches** - After merging to `main`, cherry-pick config changes to `hybrid` and `cloud` branches
-3. **Mode-specific changes** - Make directly on the appropriate branch
-
----
-
-## Release Checklist
-
-Before each release:
-
-- [ ] Run all tests: `make test`
-- [ ] Run linter: `make lint`
-- [ ] Update version in `pyproject.toml`
-- [ ] Update `CHANGELOG.md`
-- [ ] Create release tag: `git tag v1.0.x`
-- [ ] Push tags: `git push --tags`
-- [ ] Create GitHub release with release notes
-- [ ] Update all three branches with new code
-- [ ] Create new zip files for each mode
-
----
-
-## What's New in v1.0.0
-
-### Features
+### v1.0.0 (February 8, 2026)
+- Initial stable release
 - 10 specialized agents for platform engineering tasks
-- 14 CLI commands covering the full DevOps lifecycle
 - Three deployment modes (local, hybrid, cloud)
 - Agent-MCP architecture for modularity
 - Rich CLI output with progress indicators
-- Comprehensive security scanning
-- Terraform, Docker, and K8s generation
-- GitHub integration for CI/CD
 
-### Documentation
-- Complete user guide
-- Architecture documentation
-- Configuration reference
-- Contributing guidelines
-- Deployment guide
+---
 
-### CI/CD
-- GitHub Actions workflows
-- Pre-commit hooks
-- pytest test suite
-- Code quality tools (flake8, black, isort, mypy)
+## Installation
+
+```bash
+git clone https://github.com/DLTKMandeep/sevaforge.git
+cd sevaforge && git checkout unified
+pip install -e forgeflow/
+```
+
+**Prerequisites:** Python 3.9+ and `gh` CLI (`brew install gh`).
 
 ---
 
 ## Support
 
-- **Issues:** https://github.com/YOUR_ORG/forgeflow/issues
-- **Discussions:** https://github.com/YOUR_ORG/forgeflow/discussions
-- **Documentation:** https://github.com/YOUR_ORG/forgeflow/tree/main/docs
+- **Issues:** https://github.com/DLTKMandeep/sevaforge/issues
+- **Documentation:** See `forgeflow/docs/`
 
 ---
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT License

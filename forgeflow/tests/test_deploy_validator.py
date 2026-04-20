@@ -99,18 +99,28 @@ class TestValidatorFailures:
         assert result["status"] == "error"
         assert "missing" in result["summary"]
 
-    def test_detects_referenced_but_not_inventoried_secret(self, full_deployment):
-        # Reference a mystery secret from a workflow
-        wf = full_deployment / ".github" / "workflows"
-        wf.mkdir(parents=True, exist_ok=True)
-        (wf / "rogue.yml").write_text(
-            "jobs:\n  rogue:\n    runs-on: ubuntu-latest\n    steps:\n"
-            "      - run: echo ${{ secrets.MYSTERY_TOKEN }}\n"
-        )
+    def test_detects_stale_inventoried_secret(self, full_deployment):
+        """Inventory lists a secret that appears nowhere in the project."""
+        inv_file = full_deployment / "deploy" / "secrets" / "inventory.yaml"
+        inv = yaml.safe_load(inv_file.read_text()) or {}
+        inv["secrets"].append({"name": "PHANTOM_KEY", "source": "manual"})
+        inv_file.write_text(yaml.safe_dump(inv, sort_keys=False))
         result = DeployValidatorAgent().execute({"path": str(full_deployment)})
         assert result["status"] == "error"
         failed_checks = {f["check"] for f in result["data"]["failed"]}
         assert "secrets_referenced_are_inventoried" in failed_checks
+
+    def test_workflow_only_secret_does_not_fail(self, full_deployment):
+        """A secret used only in CI (not inventoried) should NOT block push."""
+        wf = full_deployment / ".github" / "workflows"
+        wf.mkdir(parents=True, exist_ok=True)
+        (wf / "ci-only.yml").write_text(
+            "jobs:\n  ci:\n    runs-on: ubuntu-latest\n    steps:\n"
+            "      - run: echo ${{ secrets.CODECOV_TOKEN }}\n"
+        )
+        result = DeployValidatorAgent().execute({"path": str(full_deployment)})
+        # passed is a list of check-name strings
+        assert "secrets_referenced_are_inventoried" in result["data"]["passed"]
 
     def test_detects_invalid_cron(self, full_deployment):
         intent = yaml.safe_load(

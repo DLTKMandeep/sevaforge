@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "divine-data-469116-b2",
+  "private_key_id": "ce6651730fe8924170042c18367b8097d275b3f8",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC3vJljXHkyVqEr\nQX2W6zCAlxqi58XAXUtAuQCwJnPyWPAn9WCwI3Kg2unhvep76UwgQHj1Mz52Vf74\nQU5IupUMZAaQ7CVUrg9atrPlCWweLWp59TbPJOYn8x5vKdRtGUEKs0WzlZoQb9Je\nLUvn8MW10ZtMVHycWiefLx77yQSlJWWZ77nrgVXwdBfBWD8ksKjXmdyq+FlRPtny\nyW4kWvVRHFHiv3J4kkMgXFkFoXbBx0Li6T9CJVT3dtB9qit/Y3l56PxtB5FauypF\nSaT1EXGvByoiOec4dXZVbJE4Ds5DWOdXFKBJamIfLoWeIaK6FwRSXmX9fsZQSy03\nTr1kk02hAgMBAAECggEATSWZ7B/wXYQFURHDB2LCL0QC8aLKpA4oIklrsgq7RWc1\nkzmS+vIvV74DVP82nQekqKgZga8eC3bpQ1i8Y4pAOf8nyKL2u7sIBGlRWJpftL4S\nBppBBLH0F5Mb1MYmBRcE+dazLgfjNAKXvGZdiEpO4ZxcjiytU8MA/vQ8mLDbS/GV\nODQYU1ex71LP/dO5dXoT2DynNS4NDL4I+9BsjGcR3/H5mJ44GwYl2uzdQXe5DL8R\nd5ZUB3ekHKWejBgoWOuwoleo69eleOA7Bq0cYZ4l+0aay8ckSLGewmLqLSvNXjhx\nhBPfC0M9UCAX4DSYCm5cy+PuOIOb2H15GWaYoddCjwKBgQDa7hBZMWandn9NVzuv\nuaO4aUn50IvxtB2OnXfTEUSzwF/YkL1E1ekKbr150h7NHGu8p6iy6mGUi8Jtw7Ow\nqFtBNOOudsMpABa82yuKnH4taZzc2OUL3bGxPoRBxmmsc3L5bS3BRwcyH8Y2ZR7N\nUB8xiFN8x2yN19FTa0Atb5TImwKBgQDW2QSXGsX1qzISiAh/+3ou7mvgEFZrUYD4\newtC2EthGSxbrMgA4oeSsSh1nc8CTP/i2QRoIwTMdgPZ/bdFHjqa8rLpx+BW/U+d\nr1T3w5R+aEmRaidUylV6AOdiUuvpBUujgumB6BbjB3cCKpnKDMURXVoAN+3CE9mU\nXmOoexKQcwKBgCIXIeqRm7eF5yrG459oW8sSchd5VuFLN7MGaCswrC8FTKdvWlmG\nqaQbPFvk0TEFNO2KeeVqQ8mavarT534hqRwNPUrkaV1QCzpbMnuCBM/Tez6Uc44W\ndl3wKy4G1FurGoMmchJ/meo/MmEz+8jiqgjPfpiWgRvROGIx+CtbDaLzAoGAYRlV\ntMD55MzJZYyrYsQR9XH1uR9JH1mHk0Vw0nYUoz6QSKJvBc9bfFWqtnVq4FxSbYCt\nOC9TdOCFXxkGoitGS08Swwt9fXMgb2CVYyC2VObnENxMCEsllG0iJdLaIcct5yk8\nRWTSKyrtg0IjnShmTDHHgj/Eqaj09dQu8C8nNbcCgYEAhQWXsJam0tyGhhJUX044\nGScfrTp57fIt/j1BUdlzkCnewATI3D4GOi0Tp8Q/3axUwSHHUf9ALnGaxsuJHnY2\n0PIux/boQEH9oN0YzNgBg3ddjMp8LS98yzbS7CRtNnJEePJiXYYVQvOX8ZKx9y/g\ngzOofDpub9qF2Ktiz5STdao=\n-----END PRIVATE KEY-----\n",
+  "client_email": "sevaforge-deployer@divine-data-469116-b2.iam.gserviceaccount.com",
+  "client_id": "114109101883400533567",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sevaforge-deployer%40divine-data-469116-b2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

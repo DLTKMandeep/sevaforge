@@ -1,0 +1,69 @@
+groups:
+  - name: _availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=""} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service  is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://runbooks.example.com//service-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job=""}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate on "
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold 5%)."
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job=""}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p99 latency on "
+          description: "p99 latency is {{ $value }}s (threshold 2s)."
+
+  - name: _resources
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job=""} / 1024 / 1024 > 512
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on "
+          description: "Process memory is {{ $value | humanize }}MB (threshold 512MB)."
+
+      - alert: NodeHighCPU
+        expr: 100 - (avg by(instance)(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% (threshold 80%)."
+
+      - alert: NodeDiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "{{ $labels.mountpoint }} has only {{ $value | humanizePercentage }} free."

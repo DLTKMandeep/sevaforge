@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>AI-Powered Platform Engineering CLI</strong><br>
-  From any codebase to production on AWS — fully automated, zero desktop tooling required.
+  From any codebase to production on GCP/GKE — fully automated, zero desktop tooling required.
 </p>
 
 <p align="center">
@@ -14,9 +14,9 @@
 
 ## What is ForgeFlow?
 
-ForgeFlow is an AI platform engineering CLI that analyses any repository and automatically generates everything needed to get it to production on AWS EKS — Terraform, Kubernetes manifests, ArgoCD GitOps config, CI/CD pipelines, security scans, E2E tests, and a fully automated deploy pipeline.
+ForgeFlow is an AI platform engineering CLI that analyses any repository and automatically generates everything needed to deploy it — Terraform infrastructure, GKE cluster specs, Helm charts, CI/CD pipelines, observability stacks, security policies, and cost controls. Seven specialized AI persona agents work in parallel to produce 26+ deployment artifacts from a single intent file.
 
-**Core principle: nothing runs on the developer's desktop except ForgeFlow itself.** Terraform provisioning, ArgoCD bootstrap, image builds, and deploys all happen inside GitHub Actions in the cloud.
+**Core principle: nothing runs on the developer's desktop except ForgeFlow itself.** Terraform provisioning, container builds, and deploys all happen inside GitHub Actions in the cloud.
 
 ---
 
@@ -24,51 +24,49 @@ ForgeFlow is an AI platform engineering CLI that analyses any repository and aut
 
 ```bash
 # 1. Install
-pip install forgeflow
+pip install -e forgeflow/
 
 # 2. Run ForgeFlow against your repo
 cd ~/your-repo
 forgeflow run-all .
 
-# 3. One-time secrets setup (interactive wizard — no shell scripts)
-forgeflow secrets bootstrap
-
-# 4. Push — the cloud does everything else
+# 3. Push — the cloud does everything else
 git push origin main
 ```
 
-GitHub Actions then automatically:
-- Provisions EKS + VPC + IAM via Terraform (`infra.yml`)
-- Installs ArgoCD + writes credentials back as secrets (`bootstrap.yml`)
-- Builds, tests, gates, and deploys staging → production (`deploy.yml`)
+GitHub Actions then automatically provisions infrastructure, builds containers, runs tests, and deploys to GKE.
 
 ---
 
-## Pipeline Stages
+## 16-Stage Pipeline (v2.2)
 
-ForgeFlow runs 14 stages in sequence, each backed by a dedicated Agent + MCP server:
+ForgeFlow runs **16 stages** in 4 phases, each backed by a dedicated Agent + MCP server:
 
 ```
-DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TEST → SCAN → BRIDGE
-                                                                              │
-                                                          (post-merge) DEPLOY → MONITOR
+Analyse:  DISCOVER → NORMALIZE → DOCS
+Build:    IAC → CD → CI → E2E
+Quality:  REVIEW → TEST → SCAN
+Ship:     DEPLOY-INTENT → DEPLOY-DESIGN → DEPLOY-VALIDATE → SECRETS → LIFECYCLE → BRIDGE
 ```
 
 | Stage | What it generates |
 |-------|------------------|
 | `discover` | Repository inventory — languages, frameworks, entry points |
 | `normalize` | Adds missing standard files (`.gitignore`, `pyproject.toml`, etc.) |
-| `docs` | Architecture diagrams, API docs, component maps |
-| `iac` | Terraform (EKS, VPC, IAM, ECR), Dockerfile, docker-compose |
-| `cd` | `infra.yml` + `bootstrap.yml` + `deploy.yml` GitHub Actions workflows, ArgoCD manifests, Kustomize overlays, External Secrets Operator manifests |
+| `docs` | Architecture diagrams, component maps |
+| `iac` | Terraform (VPC, networking, IAM), Dockerfile |
+| `cd` | GitHub Actions CD workflows, Kustomize overlays |
 | `ci` | CI pipeline (build, lint, test, security), Dependabot config |
 | `e2e` | Playwright / Cypress test suite + E2E workflow |
 | `review` | Code quality analysis, Git history review |
 | `test` | Test coverage report |
-| `scan` | Security vulnerability scan (SAST, secrets, misconfigs) |
-| `bridge` | GitHub PR creation, branch management |
-| `deploy` | Deploy trigger (post-merge) |
-| `monitor` | Prometheus + Grafana configs |
+| `scan` | Security vulnerability scan (SAST, CVEs, secrets, misconfigs) |
+| `deploy-intent` | Interactive deployment interview → `.sevaforge/deployment-intent.yaml` |
+| `deploy-design` | 7 persona agents in 3 parallel layers → 26+ artifacts |
+| `deploy-validate` | 7 cross-checks (secrets, crons, SLOs, hash, TF vars, image repo) |
+| `secrets` | Secrets bootstrap guide + IAM policies |
+| `lifecycle` | CI/CD lifecycle workflow chain |
+| `bridge` | GitHub push + PR creation |
 
 ---
 
@@ -76,29 +74,42 @@ DISCOVER → NORMALIZE → DOCS → IAC → CD → CI → E2E → REVIEW → TES
 
 ```bash
 # Individual stages
-forgeflow discover   --path ./my-repo
-forgeflow normalize  --path ./my-repo
-forgeflow iac        --path ./my-repo --cloud aws
-forgeflow cd         --path ./my-repo --repo-url https://github.com/org/repo
-forgeflow cd         --path ./my-repo --overwrite   # refresh existing files
-forgeflow ci         --path ./my-repo
-forgeflow e2e        --path ./my-repo
-forgeflow scan       --path ./my-repo
-forgeflow docs       --path ./my-repo
+forgeflow discover       --path ./my-repo
+forgeflow normalize      --path ./my-repo
+forgeflow iac            --path ./my-repo --cloud gcp
+forgeflow cd             --path ./my-repo --repo-url https://github.com/org/repo
+forgeflow ci             --path ./my-repo
+forgeflow e2e            --path ./my-repo
+forgeflow scan           --path ./my-repo
 
-# Full pipeline in one command
+# Pre-push deployment pipeline
+forgeflow deploy-intent  --path ./my-repo [--force] [--non-interactive]
+forgeflow deploy-design  --path ./my-repo [--only infra-architect,app-deployer]
+forgeflow deploy-validate --path ./my-repo
+
+# Full 16-stage pipeline
 forgeflow run-all ./my-repo
 
-# Secrets management (interactive — no shell scripts needed)
-forgeflow secrets list       # show all required secrets and their purpose
-forgeflow secrets check      # verify which are set in GitHub
-forgeflow secrets bootstrap  # wizard: prompts for 4 values, sets everything
+# Web dashboard
+forgeflow dashboard
 
 # Utilities
-forgeflow status --path ./my-repo   # check pipeline completion
-forgeflow doctor                     # system health check
-forgeflow audit  --path ./my-repo   # security + quality audit
+forgeflow status --path ./my-repo
+forgeflow doctor
+forgeflow audit  --path ./my-repo
 ```
+
+---
+
+## Deploy-Design: 7 Persona Agents
+
+The deploy-design stage fans out to 7 specialized agents in 3 parallel layers:
+
+| Layer | Personas | What they produce |
+|-------|----------|------------------|
+| 1 (Foundation) | InfraArchitect, SecretsManager | VPC/subnet Terraform, secrets inventory |
+| 2 (Platform) | ClusterBuilder, AppDeployer | GKE cluster Terraform, Dockerfile + Helm chart |
+| 3 (Operations) | Observability, Security, CostGuardian | Prometheus/Grafana, NetworkPolicy, shutdown workflows |
 
 ---
 
@@ -109,54 +120,14 @@ forgeflow audit  --path ./my-repo   # security + quality audit
 | `local` | All MCPs run as local Python modules (default) | Development, offline, full control |
 | `cloud` | All MCPs run on ForgeFlow cloud endpoints | Teams, CI/CD, managed service |
 
-```bash
-# Local (default)
-forgeflow cd --path ./my-repo
-
-# Cloud mode
-export FORGEFLOW_API_KEY=your_key
-forgeflow --mode cloud cd --path ./my-repo
-```
-
 ---
 
-## What `forgeflow cd` Generates
+## Architecture Diagram
 
-```
-.github/workflows/
-  infra.yml        ← Terraform EKS provisioning (GitHub Actions)
-  bootstrap.yml    ← ArgoCD install + auto-writes secrets (GitHub Actions)
-  deploy.yml       ← Build → staging → E2E gate → approval → prod
-
-infrastructure/
-  terraform/       ← EKS, VPC, IAM, ECR + S3 state bucket bootstrap
-  k8s/
-    base/          ← Deployment, Service, ConfigMap, HPA
-    overlays/      ← dev / staging / prod Kustomize overlays
-    argocd/        ← AppProject + ApplicationSet
-    secrets/       ← External Secrets Operator (AWS Secrets Manager)
-
-RUNBOOK.md         ← Complete operational guide
-```
-
----
-
-## One-Time Onboarding
-
-```bash
-gh auth login                   # 1. authenticate GitHub CLI
-forgeflow secrets bootstrap     # 2. wizard sets 4 secrets + creates environments
-git push origin main            # 3. done — cloud handles everything
-```
-
-**You provide 4 values once. ForgeFlow writes the rest automatically:**
-
-| Set by you | Set by ForgeFlow workflows |
-|------------|---------------------------|
-| `AWS_ACCESS_KEY_ID` | `EKS_CLUSTER_NAME` (infra.yml) |
-| `AWS_SECRET_ACCESS_KEY` | `ARGOCD_SERVER` (bootstrap.yml) |
-| `AWS_REGION` | `ARGOCD_AUTH_TOKEN` (bootstrap.yml) |
-| `GH_PAT` | `STAGING_URL`, `PROD_URL` (bootstrap.yml) |
+See [forgeflow-architecture.mermaid](../forgeflow-architecture.mermaid) for the full physical layout:
+- GCP infrastructure (VPC, GKE Autopilot, GCR, IAM)
+- Kubernetes internals (pods, HPA, services, observability, security)
+- Pipeline-to-infra mapping (how each stage produces artifacts)
 
 ---
 
@@ -164,19 +135,20 @@ git push origin main            # 3. done — cloud handles everything
 
 ```
 forgeflow/
-├── cli/forgeflow.py           # Entry point
+├── cli/forgeflow.py               # Entry point (16 subcommands)
 ├── core/
-│   ├── mission_control.py     # Command orchestration
-│   ├── orchestrator.py        # Routes to local modules or cloud endpoints
-│   ├── display.py             # Rich console output
-│   └── remote_client.py       # Cloud mode HTTP/SSE client
+│   ├── mission_control.py         # Pipeline orchestration (PIPELINE_STAGES)
+│   ├── orchestrator.py            # Routes to local modules or cloud endpoints
+│   ├── display.py                 # Rich console output, STAGE_MAPPING
+│   └── remote_client.py           # Cloud mode HTTP/SSE client
 ├── agents/
-│   ├── cd_agent.py            # Generates all 3 GitHub Actions workflows
-│   ├── iac_agent.py           # Terraform + Docker
-│   ├── ci_agent.py            # GitHub Actions CI
-│   ├── e2e_agent.py           # Playwright / Cypress
-│   └── ...
-├── mcp_servers/               # One server.py per stage
+│   ├── deploy_intent_agent.py     # Deployment interview + caching
+│   ├── deploy_orchestrator_agent.py # 7-persona parallel fan-out
+│   ├── deploy_validator_agent.py  # 7-check pre-push gate
+│   └── personas/                  # 7 specialized deployment agents
+├── gui/dashboard_server.py        # Web dashboard with SSE streaming
+├── ui/index.html                  # React dashboard (16 stages, 4 phases)
+├── mcp_servers/                   # One server.py per stage
 ├── config/forgeflow-config.yaml
 ├── mcp-config.yaml
 └── pyproject.toml
@@ -192,7 +164,7 @@ cd sevaforge && git checkout unified
 pip install -e forgeflow/
 ```
 
-**Prerequisites:** Python 3.9+ and `gh` CLI (`brew install gh`). Nothing else — Terraform, kubectl, Helm, ArgoCD all run in GitHub Actions.
+**Prerequisites:** Python 3.9+ and `gh` CLI (`brew install gh`). Nothing else — Terraform, kubectl, Helm all run in GitHub Actions.
 
 ---
 

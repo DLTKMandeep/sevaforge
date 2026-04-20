@@ -1,0 +1,364 @@
+# =============================================================================
+# ForgeFlow — CD Workflow
+# Stage 3 of 3: Deploy Staging → Validate → Approval → Deploy Prod → Validate
+# Auto-rollback on failure. Slack notification on every outcome.
+# Triggered automatically when Tests workflow succeeds on main (workflow_run).
+# =============================================================================
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+    branches: [main]           # CD only from main; develop stays in staging
+
+env:
+  REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+  APP_NAME: forgeflow
+
+jobs:
+  # Guard: only proceed if Tests passed
+  check-tests:
+    name: "🚦 Test Gate"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Tests passed — proceeding with deployment
+        run: echo "Tests conclusion=${{ github.event.workflow_run.conclusion }}"
+
+  # ---------------------------------------------------------------------------
+  # 1. Deploy to Staging
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: "🚀 Deploy → Staging"
+    runs-on: ubuntu-latest
+    needs: check-tests
+    environment:
+      name: staging
+      url: https://example.com/staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}
+          aws-secret-access-key: ${{{{ secrets.AWS_SECRET_ACCESS_KEY }}}}
+          aws-region: ${{{{ secrets.AWS_REGION }}}}
+
+      - name: Install tools (kubectl + kustomize + argocd)
+        run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz"
+          tar -xzf kustomize_*.tar.gz && sudo mv kustomize /usr/local/bin/
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          aws eks update-kubeconfig --name ${{{{ secrets.EKS_CLUSTER_NAME }}}} --region ${{{{ secrets.AWS_REGION }}}}
+
+
+      - name: Update staging image tag (Kustomize)
+        run: |
+          cd infrastructure/k8s/overlays/staging
+          kustomize edit set image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          cat kustomization.yaml
+
+      - name: Commit & push staging manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/k8s/overlays/staging/kustomization.yaml
+          git diff --cached --quiet && echo "No manifest change" && exit 0
+          git commit -m "chore(cd): staging image → ${{ env.IMAGE_TAG }}"
+          git push
+
+      - name: Wait for ArgoCD staging sync
+        run: |
+          echo "Waiting for ArgoCD to sync staging application..."
+          for i in $(seq 1 30); do
+            STATUS=$(argocd app get ${{ env.APP_NAME }}-staging               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.sync.status' 2>/dev/null || echo "Unknown")
+            HEALTH=$(argocd app get ${{ env.APP_NAME }}-staging               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.health.status' 2>/dev/null || echo "Unknown")
+            echo "[$i/30] Sync=$STATUS  Health=$HEALTH"
+            if [[ "$STATUS" == "Synced" && "$HEALTH" == "Healthy" ]]; then
+              echo "✅ Staging is Synced and Healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ ArgoCD staging sync timed out"
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # 2. Validate Staging (health check + smoke tests)
+  # ---------------------------------------------------------------------------
+  validate-staging:
+    name: "✅ Validate Staging"
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Health check — staging
+        run: |
+          BASE=https://example.com/staging
+          echo "Hitting $BASE/health ..."
+          for i in $(seq 1 12); do
+            CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE/health" || echo "000")
+            echo "  attempt $i: HTTP $CODE"
+            if [[ "$CODE" == "200" ]]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Staging health check failed after 2 minutes"
+          exit 1
+
+      - name: Smoke tests — staging
+        run: |
+          BASE=https://example.com/staging
+          echo "Running smoke tests against $BASE ..."
+          # Verify key API endpoints are responding
+          curl -sf "https://example.com/health"        | jq '.status' | grep -q '"ok"'
+          curl -sf "https://example.com/api/version"   | jq '.' > /dev/null
+          echo "  ✅ /health — OK"
+          echo "  ✅ /api/version — OK"
+
+          echo "✅ Smoke tests passed"
+
+  # ---------------------------------------------------------------------------
+  # 3. Production Approval Gate (GitHub Environment protection rule)
+  # ---------------------------------------------------------------------------
+  production-approval:
+    name: "🔐 Production Approval"
+    runs-on: ubuntu-latest
+    needs: validate-staging
+    environment:
+      name: production           # configure required reviewers in repo Settings
+      url: https://example.com
+    steps:
+      - name: Approval granted
+        run: echo "Production deployment approved — proceeding."
+
+  # ---------------------------------------------------------------------------
+  # 4. Deploy to Production
+  # ---------------------------------------------------------------------------
+  deploy-production:
+    name: "🚀 Deploy → Production"
+    runs-on: ubuntu-latest
+    needs: production-approval
+    environment:
+      name: production
+      url: https://example.com
+    outputs:
+      previous-tag: ${{ steps.prev-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Record previous production image tag
+        id: prev-tag
+        run: |
+          PREV=$(cd infrastructure/k8s/overlays/production &&             grep 'newTag:' kustomization.yaml | awk '{print $2}' | head -1 || echo "")
+          echo "tag=$PREV" >> $GITHUB_OUTPUT
+          echo "Previous production tag: $PREV"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{{{ secrets.AWS_ACCESS_KEY_ID }}}}
+          aws-secret-access-key: ${{{{ secrets.AWS_SECRET_ACCESS_KEY }}}}
+          aws-region: ${{{{ secrets.AWS_REGION }}}}
+
+      - name: Install tools (kubectl + kustomize + argocd)
+        run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -sLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.3.0/kustomize_v5.3.0_linux_amd64.tar.gz"
+          tar -xzf kustomize_*.tar.gz && sudo mv kustomize /usr/local/bin/
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          aws eks update-kubeconfig --name ${{{{ secrets.EKS_CLUSTER_NAME }}}} --region ${{{{ secrets.AWS_REGION }}}}
+
+
+      - name: Update production image tag (Kustomize)
+        run: |
+          cd infrastructure/k8s/overlays/production
+          kustomize edit set image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          cat kustomization.yaml
+
+      - name: Commit & push production manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/k8s/overlays/production/kustomization.yaml
+          git diff --cached --quiet && echo "No manifest change" && exit 0
+          git commit -m "chore(cd): production image → ${{ env.IMAGE_TAG }}"
+          git push
+
+      - name: Wait for ArgoCD production sync
+        run: |
+          echo "Waiting for ArgoCD to sync production application..."
+          for i in $(seq 1 60); do
+            STATUS=$(argocd app get ${{ env.APP_NAME }}-production               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.sync.status' 2>/dev/null || echo "Unknown")
+            HEALTH=$(argocd app get ${{ env.APP_NAME }}-production               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.health.status' 2>/dev/null || echo "Unknown")
+            echo "[$i/60] Sync=$STATUS  Health=$HEALTH"
+            if [[ "$STATUS" == "Synced" && "$HEALTH" == "Healthy" ]]; then
+              echo "✅ Production is Synced and Healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ ArgoCD production sync timed out"
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # 5. Validate Production
+  # ---------------------------------------------------------------------------
+  validate-production:
+    name: "✅ Validate Production"
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Health check — production
+        run: |
+          BASE=https://example.com
+          echo "Hitting $BASE/health ..."
+          for i in $(seq 1 12); do
+            CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE/health" || echo "000")
+            echo "  attempt $i: HTTP $CODE"
+            if [[ "$CODE" == "200" ]]; then
+              echo "✅ Production health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Production health check failed"
+          exit 1
+
+      - name: Production smoke tests
+        run: |
+          BASE=https://example.com
+          echo "Running production smoke tests against $BASE ..."
+          # Verify key API endpoints are responding
+          curl -sf "https://example.com/health"        | jq '.status' | grep -q '"ok"'
+          curl -sf "https://example.com/api/version"   | jq '.' > /dev/null
+          echo "  ✅ /health — OK"
+          echo "  ✅ /api/version — OK"
+
+          echo "✅ Production smoke tests passed"
+
+  # ---------------------------------------------------------------------------
+  # 6. Auto-Rollback on Failure
+  # Runs only if deploy-production or validate-production failed
+  # ---------------------------------------------------------------------------
+  rollback:
+    name: "⏪ Auto-Rollback"
+    runs-on: ubuntu-latest
+    needs: [deploy-production, validate-production]
+    if: |
+      always() &&
+      (needs.deploy-production.result == 'failure' ||
+       needs.validate-production.result == 'failure')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore previous image tag
+        env:
+          PREV_TAG: ${{ needs.deploy-production.outputs.previous-tag }}
+        run: |
+          if [[ -z "$PREV_TAG" ]]; then
+            echo "⚠️  No previous tag found — cannot auto-rollback"
+            exit 1
+          fi
+          echo "Rolling back production to: $PREV_TAG"
+          cd infrastructure/k8s/overlays/production
+          kustomize edit set image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PREV_TAG
+          cat kustomization.yaml
+
+      - name: Commit & push rollback manifest
+        env:
+          PREV_TAG: ${{ needs.deploy-production.outputs.previous-tag }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infrastructure/k8s/overlays/production/kustomization.yaml
+          git diff --cached --quiet && echo "Already rolled back" && exit 0
+          git commit -m "chore(rollback): production reverted to $PREV_TAG"
+          git push
+
+      - name: Wait for ArgoCD rollback sync
+        run: |
+          echo "Waiting for ArgoCD rollback sync..."
+          for i in $(seq 1 30); do
+            STATUS=$(argocd app get ${{ env.APP_NAME }}-production               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.sync.status' 2>/dev/null || echo "Unknown")
+            HEALTH=$(argocd app get ${{ env.APP_NAME }}-production               --auth-token ${{ secrets.ARGOCD_TOKEN }}               --server     ${{ secrets.ARGOCD_SERVER }}               --grpc-web               -o json 2>/dev/null | jq -r '.status.health.status' 2>/dev/null || echo "Unknown")
+            echo "[$i/30] Sync=$STATUS  Health=$HEALTH"
+            if [[ "$STATUS" == "Synced" && "$HEALTH" == "Healthy" ]]; then
+              echo "✅ Rollback succeeded"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Rollback sync timed out — manual intervention required"
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # 7. Slack Notification (success or failure)
+  # ---------------------------------------------------------------------------
+  notify:
+    name: "📣 Notify"
+    runs-on: ubuntu-latest
+    needs: [validate-production, rollback]
+    if: always()
+    steps:
+      - name: Set notification vars
+        id: vars
+        run: |
+          if [[ "${{ needs.validate-production.result }}" == "success" ]]; then
+            echo "status=✅ Production deployment succeeded" >> $GITHUB_OUTPUT
+            echo "color=#28a745" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.rollback.result }}" == "success" ]]; then
+            echo "status=⏪ Rollback completed — previous version restored" >> $GITHUB_OUTPUT
+            echo "color=#f0ad4e" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ Deployment failed — manual intervention required" >> $GITHUB_OUTPUT
+            echo "color=#dc3545" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ steps.vars.outputs.color }}",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "*${{ steps.vars.outputs.status }}*\n*App:* `${{ env.APP_NAME }}`  *Tag:* `${{ env.IMAGE_TAG }}`\n*Triggered by:* <${{ github.event.workflow_run.html_url }}|workflow run>  *Commit:* <${{ github.server_url }}/${{ github.repository }}/commit/${{ env.IMAGE_TAG }}|${{ env.IMAGE_TAG }}>\n*Branch:* `${{ github.event.workflow_run.head_branch }}`"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        continue-on-error: true   # never fail the workflow over a notification

@@ -1,0 +1,12 @@
+prometheus:
+  prometheusSpec:
+    retention: 15d
+grafana:
+  adminPassword: CHANGE_ME_VIA_SECRET
+  persistence:
+    enabled: true
+    size: 5Gi
+alertmanager:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
