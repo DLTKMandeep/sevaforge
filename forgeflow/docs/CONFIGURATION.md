@@ -21,7 +21,7 @@ Defines MCP servers and command mappings.
 ```yaml
 # config/forgeflow-config.yaml
 
-# Deployment mode: 'local', 'hybrid', or 'cloud'
+# Deployment mode: 'local' or 'cloud'
 mode: local
 ```
 
@@ -38,42 +38,9 @@ local:
       args: ["mcp_servers/discovery_mcp/server.py"]
 ```
 
-### Hybrid Mode Options
+### Hybrid Mode (Removed)
 
-```yaml
-mode: hybrid
-
-hybrid:
-  # Local MCPs (core functionality)
-  local_mcps:
-    discovery-mcp-server:
-      type: local
-      command: "python3"
-      args: ["mcp_servers/discovery_mcp/server.py"]
-
-  # Public/Cloud MCPs
-  public_mcps:
-    github-mcp-server:
-      type: public
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-github"]
-      fallback:
-        type: local
-        command: "python3"
-        args: ["mcp_servers/github_mcp/server.py"]
-
-    security-mcp-server:
-      type: public
-      integrations:
-        snyk:
-          enabled: true
-          api_key_env: "SNYK_API_KEY"
-          endpoint: "https://snyk.io/api/v1"
-        trivy:
-          enabled: false
-          command: "trivy"
-          args: ["fs", "--format", "json"]
-```
+> **Note:** Hybrid mode was removed in v2.0. Cloud mode now falls back to local automatically if an endpoint is unavailable, achieving the same effect without the routing complexity.
 
 ### Cloud Mode Options
 
@@ -158,7 +125,7 @@ defaults:
 
   generation:
     stack: auto  # auto, docker, kubernetes, terraform, helm
-    cloud_provider: aws  # aws, gcp, azure
+    cloud_provider: gcp  # gcp (default), aws, azure, oci
 
   deployment:
     target: staging  # dev, staging, production
@@ -192,7 +159,7 @@ servers:
     capabilities: ["scan", "security", "vulnerabilities"]
     agent: "SecurityAgent"
     type: local
-    hybrid_integrations:
+    optional_integrations:
       - snyk
       - trivy
       - sonarqube

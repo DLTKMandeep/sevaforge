@@ -120,10 +120,16 @@ forgeflow --mode cloud discover --path ./my-repo
 ### Full Pipeline Sequence
 
 ```
-DISCOVER → NORMALIZE → DOCS → GENERATE → REVIEW → TEST → SCAN → [APPROVAL] → BRIDGE
-                                                                        │
-                                                           Post-Merge: DEPLOY → MONITOR
+Analyse:  DISCOVER → NORMALIZE → DOCS
+Build:    IAC → CD → CI → E2E
+Quality:  REVIEW → TEST → SCAN
+Ship:     DEPLOY-INTENT → DEPLOY-DESIGN → DEPLOY-VALIDATE → SECRETS → LIFECYCLE → BRIDGE
 ```
+
+The **Ship** phase includes a pre-push deployment pipeline:
+- **deploy-intent** — interviews you once about cloud, region, compute, SLOs, cost limits
+- **deploy-design** — fans out to 7 persona agents (infra, cluster, app, secrets, observability, security, cost) in 3 parallel layers
+- **deploy-validate** — cross-checks all artifacts; blocks push on failure
 
 ### Running the Full Pipeline
 

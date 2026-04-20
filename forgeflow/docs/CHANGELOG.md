@@ -105,15 +105,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-04-20
+
+### Added
+
+- **Pre-push deployment pipeline** — 3 new stages inserted between `scan` and `secrets`:
+  - `deploy-intent` (DeployIntentAgent) — interactive deployment interview, caches answers in `.sevaforge/deployment-intent.yaml` with SHA256 integrity hash
+  - `deploy-design` (DeployOrchestratorAgent) — fans out to 7 persona agents in 3 parallel layers via ThreadPoolExecutor, producing 26+ deployment artifacts
+  - `deploy-validate` (DeployValidatorAgent) — 7 cross-checks (secrets inventory, cron validity, dates, SLOs, intent hash, Terraform vars, image repo); blocks push on failure
+
+- **7 Persona agents** — specialized deployment agents running inside deploy-design:
+  - Layer 1: InfraArchitectPersona (VPC/subnets/firewall Terraform), SecretsManagerPersona (secrets inventory + bootstrap)
+  - Layer 2: ClusterBuilderPersona (GKE/EKS cluster Terraform), AppDeployerPersona (Dockerfile + Helm chart + HPA)
+  - Layer 3: ObservabilityEngineerPersona (Prometheus/Grafana/SLOs/alerts), SecurityAuditorPersona (NetworkPolicy/PodSecurity/IAM), CostGuardianPersona (budget alerts/shutdown/teardown workflows)
+
+- **Inventory-anchored secret validation** — validator trusts SecretsManager persona's `deploy/secrets/inventory.yaml` instead of heuristic `${VAR}` scanning. Eliminates false positives across arbitrary repos.
+
+- **3 new CLI subcommands**: `deploy-intent`, `deploy-design`, `deploy-validate`
+
+- **Dashboard integration** — React dashboard + SSE log streaming support all 16 stages and 7 persona loggers. Ship phase shows deploy-intent (🗣️), deploy-design (🎭), deploy-validate (🛂).
+
+- **Full architecture diagram** — `forgeflow-architecture.mermaid` covering GCP infra, Kubernetes internals, and pipeline-to-infra mapping.
+
+- **51+ new tests** — test_deploy_intent (11), test_deploy_orchestrator (8), test_deploy_validator (13), test_personas (20)
+
+### Changed
+
+- Pipeline grows from 13 to **16 stages** (4 phases: Analyse, Build, Quality, Ship)
+- Default cloud provider changed from AWS to **GCP** (GKE Autopilot in us-central1)
+- `secrets` and `lifecycle` are now pipeline stages 14–15 (previously 11–12)
+
+### Removed
+
+- `DeployReadinessAgent` — replaced by deploy-intent/deploy-design/deploy-validate pipeline
+- `readiness-mcp-server` — removed from mcp-config.yaml and forgeflow-config.yaml
+- `test_deploy_readiness.py` — deleted
+
+### Deprecated
+
+- `GenerationAgent` / `generate` command — legacy, use specialized `iac`, `cd`, `ci`, `e2e` stages instead
+
+---
+
 ## [Unreleased]
 
 ### Planned
 
-- Azure and GCP Terraform modules (extended coverage)
-- Helm chart generation improvements
+- MCP servers for deploy stages (intent_mcp, design_mcp, validate_mcp) for remote/hybrid mode
 - Enhanced security scanning integrations (Snyk, Trivy, SonarQube)
-- Parallel stage execution (`features.parallel_execution: true`)
-- Web UI dashboard
 - VS Code extension
 
 ---
@@ -122,19 +161,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| 2.1.0 | 2026-03-11 | 4 new agents (iac, cd, ci, e2e), updated 10-stage pipeline |
-| 1.0.0 | 2026-02-08 | Initial release |
-
----
-
-## Migration Guides
-
-### From Pre-release to 1.0.0
-
-No migration needed - this is the first stable release.
+| 2.2.0 | 2026-04-20 | Pre-push deploy pipeline, 7 persona agents, 16-stage pipeline, GCP default |
+| 2.1.0 | 2026-03-11 | 4 new agents (iac, cd, ci, e2e), 13-stage pipeline |
+| 1.0.0 | 2026-02-08 | Initial release, 10 agents, Agent-MCP architecture |
 
 ---
 
 ## Deprecation Notices
 
-None at this time.
+- `GenerationAgent` / `generate` command — use `iac`, `cd`, `ci`, `e2e` instead
+- `DeployReadinessAgent` — removed in v2.2, replaced by deploy-intent/design/validate pipeline

@@ -1,6 +1,6 @@
-# Deploying Sevaforge on OCI Always Free
+# Deploying ForgeFlow on OCI Always Free
 
-This guide walks you through deploying Sevaforge to Oracle Cloud Infrastructure (OCI)
+This guide walks you through deploying ForgeFlow to Oracle Cloud Infrastructure (OCI)
 using the Always Free tier — **$0/month, no credit card charges**.
 
 ## What You Get (Always Free)
@@ -21,7 +21,7 @@ using the Always Free tier — **$0/month, no credit card charges**.
 - [OCI CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm) installed and configured
 - [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.3
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- A GitHub repository with this codebase (Sevaforge must be your repo)
+- A GitHub repository with this codebase (ForgeFlow must be your repo)
 
 ---
 
@@ -176,7 +176,7 @@ gh workflow run cd.yml -f image_tag=a1b2c3d4
 
 ---
 
-## Step 6 — Access Sevaforge
+## Step 6 — Access ForgeFlow
 
 Get the Load Balancer IP:
 
@@ -188,11 +188,11 @@ The `EXTERNAL-IP` column shows your IP (may take 2–3 minutes to provision).
 
 Open in browser: `http://<EXTERNAL-IP>`
 
-Sevaforge API health: `http://<EXTERNAL-IP>/health`
+ForgeFlow API health: `http://<EXTERNAL-IP>/health`
 
 ---
 
-## Updating Sevaforge
+## Updating ForgeFlow
 
 Every push to `main` automatically builds a new image and deploys it with zero downtime (rolling update). No manual steps needed after initial setup.
 

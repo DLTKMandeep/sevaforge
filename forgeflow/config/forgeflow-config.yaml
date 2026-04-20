@@ -133,8 +133,9 @@ local:
       command: "python3"
       args: ["mcp_servers/e2e_mcp/server.py"]
 
-# HYBRID mode configuration
-# Mix of local MCPs and public/remote MCPs
+# HYBRID mode configuration (DEPRECATED — removed in v2.0)
+# Cloud mode now falls back to local automatically.
+# This block is retained for reference only and is not used.
 hybrid:
   # MCPs that run locally (core functionality)
   local_mcps:
@@ -330,7 +331,7 @@ defaults:
   
   generation:
     stack: auto  # auto, docker, kubernetes, terraform, helm
-    cloud_provider: aws  # aws, gcp, azure
+    cloud_provider: gcp  # gcp (default), aws, azure, oci
   
   deployment:
     target: staging  # dev, staging, production
