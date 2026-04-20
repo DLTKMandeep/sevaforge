@@ -15,6 +15,19 @@ desktop.ini
 .env.local
 .env.*.local
 *.env
+gcp-sa-key.json
+*-sa-key.json
+*.pem
+*.key
+*.p12
+secrets.yaml
+secrets.json
+
+# Terraform state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
 
 # ForgeFlow
 staging/
