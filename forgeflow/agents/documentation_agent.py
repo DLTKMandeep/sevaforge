@@ -94,6 +94,9 @@ Please use GitHub Issues and include:
 class DocumentationAgent(BaseAgent):
     """Agent that generates architecture diagrams, API docs, and contribution guides."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="documentation_agent",

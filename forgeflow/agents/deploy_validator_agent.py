@@ -30,6 +30,9 @@ from .base_agent import BaseAgent
 class DeployValidatorAgent(BaseAgent):
     """Cross-checks orchestrator outputs for deployability."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="deploy_validator_agent",

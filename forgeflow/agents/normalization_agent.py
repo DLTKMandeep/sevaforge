@@ -502,6 +502,9 @@ DEFAULT_RUN_COMMANDS = {
 class NormalizationAgent(BaseAgent):
     """Agent that normalizes repository structure — language-aware, inventory-driven."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="normalization_agent",

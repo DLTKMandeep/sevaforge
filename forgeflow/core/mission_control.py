@@ -155,6 +155,10 @@ except ImportError:
             return None
 
 
+# Intelligence maturity imports (v2.3)
+from .intelligence_maturity import IntelligencePhase, STAGE_MATURITY, get_pipeline_maturity
+from .run_history import RunHistory
+
 # New pipeline sequence (v2.2 — pre-push deployment pipeline inserted before secrets/lifecycle)
 PIPELINE_STAGES = [
     "discover",
@@ -551,6 +555,12 @@ class MissionControl:
         # Rebind path — everything below operates on the _cloudready copy.
         path = str(_output_path)
 
+        # ── Initialize run history for maturity tracking ─────────────────
+        try:
+            run_history = RunHistory(_output_path)
+        except Exception:
+            run_history = None
+
         stages = [
             ("discover",  lambda: self._execute_stage("discover",  path, greenfield)),
             ("normalize", lambda: self._execute_stage("normalize", path, greenfield)),
@@ -716,6 +726,19 @@ class MissionControl:
 
             results.append((stage_name, result))
 
+            # ── Record stage result in run history (maturity tracking) ───
+            if run_history and not dry_run:
+                try:
+                    run_history.record_stage(
+                        stage=stage_name,
+                        status=result.get("status", "error"),
+                        summary=result.get("summary", "")[:200],
+                        findings_count=len(result.get("findings", [])),
+                    )
+                    run_history.save()
+                except Exception:
+                    pass  # Never break the pipeline for history failures
+
             # Display stage result
             print_stage_result(stage_name, result)
 
@@ -768,6 +791,26 @@ class MissionControl:
 
         # All stages completed (dry run or real)
         print_pipeline_summary(results, success=True)
+
+        # ── Maturity summary ────────────────────────────────────────────
+        maturity_report = None
+        if run_history and not dry_run:
+            try:
+                trust_scores = run_history.compute_trust_scores()
+                maturity_report = get_pipeline_maturity(trust_scores)
+                overall = maturity_report["overall_label"]
+                dist = maturity_report["phase_distribution"]
+                console.print()
+                console.print(f"  [bold]Intelligence Maturity:[/] {overall}")
+                for phase_label, count in dist.items():
+                    if count > 0:
+                        console.print(f"    {phase_label}: {count} stages")
+                history_info = run_history.summary()
+                console.print(f"  [dim]Run history: {history_info['total_runs']} runs tracked "
+                              f"across {history_info['stages_tracked']} stages[/]")
+            except Exception:
+                pass
+
         if dry_run:
             print_success_banner("DRY RUN COMPLETE: All selected stages previewed — no files written.")
             _log("🔬  Dry run complete — all selected stages previewed!", "bridge")
@@ -786,7 +829,7 @@ class MissionControl:
                            if dry_run
                            else "Full pipeline completed + pushed to GitHub")
             dash.emit_pipeline_done(success=True, summary=summary_msg)
-        return {
+        result_dict = {
             "status": "success",
             "mission": "run-all",
             "deployment_mode": self.mode,
@@ -796,6 +839,9 @@ class MissionControl:
                         else "Full pipeline completed successfully — code pushed to GitHub"),
             "stages": [r[0] for r in results],
         }
+        if maturity_report:
+            result_dict["maturity"] = maturity_report
+        return result_dict
     
     def _run_post_merge_stages(self, path: str, results: List[tuple]) -> Dict[str, Any]:
         """Run post-merge stages: deploy → monitor."""

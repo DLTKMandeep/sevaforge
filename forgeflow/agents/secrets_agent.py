@@ -1022,6 +1022,9 @@ class SecretsAgent(BaseAgent):
     2. scripts/bootstrap-secrets.sh — interactive secret-setting CLI script
     """
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="secrets-agent",

@@ -28,6 +28,9 @@ MAX_ARGS = 7
 class CodeReviewAgent(BaseAgent):
     """Agent that performs real code quality analysis and git review."""
 
+    intelligence_phase = 1
+    intelligence_label = "Assisted"
+
     def __init__(self):
         super().__init__(
             name="code_review_agent",

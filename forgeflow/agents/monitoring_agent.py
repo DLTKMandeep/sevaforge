@@ -20,6 +20,9 @@ from .base_agent import BaseAgent
 class MonitoringAgent(BaseAgent):
     """Agent that generates a complete, production-ready observability stack."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="monitoring_agent",

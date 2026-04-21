@@ -1137,7 +1137,10 @@ class CIAgent(BaseAgent):
     - Dependabot config
     - Security scanning pipelines
     """
-    
+
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="CIAgent",

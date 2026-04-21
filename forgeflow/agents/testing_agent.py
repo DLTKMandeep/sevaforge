@@ -17,6 +17,9 @@ from .base_agent import BaseAgent
 class TestingAgent(BaseAgent):
     """Agent that runs tests using the project's actual test framework."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="testing_agent",

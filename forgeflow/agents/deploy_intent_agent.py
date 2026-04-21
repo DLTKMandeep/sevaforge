@@ -84,6 +84,9 @@ DEFAULT_PORTS = {
 class DeployIntentAgent(BaseAgent):
     """Conducts the pre-push deployment interview and produces intent.yaml."""
 
+    intelligence_phase = 1
+    intelligence_label = "Assisted"
+
     INTENT_DIR = ".sevaforge"
     INTENT_FILE = "deployment-intent.yaml"
 
@@ -132,15 +135,39 @@ class DeployIntentAgent(BaseAgent):
                 },
             )
 
+        # ── Phase 3: Load run history for smart defaults ─────────────────
+        try:
+            from core.run_history import RunHistory
+            history = RunHistory(project_path)
+            past_suggestions = history.suggest_intent_defaults()
+            if past_suggestions:
+                self.log(f"Loaded {len(past_suggestions)} smart defaults from run history")
+        except Exception:
+            history = None
+            past_suggestions = {}
+
         # Derive app facts
         derived = self._derive_app_facts(project_path)
         self.log(f"Derived app facts: {derived}")
 
-        # Run interview (or consume answers)
-        captured = self._conduct_interview(derived, answers, interactive)
+        # Run interview (or consume answers) — pass smart defaults
+        captured = self._conduct_interview(derived, answers, interactive,
+                                           smart_defaults=past_suggestions)
 
         # Assemble the intent document
         intent = self._assemble_intent(derived, captured)
+
+        # ── Phase 3: Record choices in run history ───────────────────────
+        if history is not None:
+            try:
+                history.record_intent_choices(captured)
+                # Track which suggestions were accepted vs changed
+                for key, suggestion in past_suggestions.items():
+                    accepted = (key in captured and captured[key] == suggestion["value"])
+                    history.record_suggestion("deploy-intent", accepted)
+                history.save()
+            except Exception:
+                pass  # Don't break the pipeline for history failures
 
         # Write it
         intent_dir.mkdir(parents=True, exist_ok=True)
@@ -155,6 +182,7 @@ class DeployIntentAgent(BaseAgent):
                 "intent_path": str(intent_path),
                 "intent": intent,
                 "cached": False,
+                "smart_defaults_used": len(past_suggestions),
             },
             actions=[{"action": "created", "file": str(intent_path.relative_to(project_path))}],
         )
@@ -227,30 +255,65 @@ class DeployIntentAgent(BaseAgent):
         derived: Dict[str, Any],
         answers: Dict[str, Any],
         interactive: bool,
+        smart_defaults: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Collect answers either from the provided dict or via stdin prompts."""
+        """Collect answers either from the provided dict or via stdin prompts.
+
+        Phase 3 (Augmented Intelligence): when smart_defaults is provided
+        (from run history), past values are used as defaults instead of
+        hard-coded ones. The prompt shows a 🧠 icon for learned defaults
+        so the user knows the suggestion comes from their history.
+        """
+        smart_defaults = smart_defaults or {}
+
+        def _smart_default(key: str, fallback: Any) -> Any:
+            """Return learned default from history if available, else fallback."""
+            if key in smart_defaults:
+                return smart_defaults[key]["value"]
+            return fallback
+
+        def _smart_hint(key: str) -> str:
+            """Return a confidence hint for smart defaults."""
+            if key in smart_defaults:
+                conf = smart_defaults[key]["confidence"]
+                n = smart_defaults[key].get("times_used", 0)
+                if conf == "stable":
+                    return f" 🧠 (learned — used {n}× consistently)"
+                elif conf == "recent":
+                    return f" 🧠 (from last run)"
+                else:
+                    return " 🧠 (varies)"
+            return ""
 
         def ask(key: str, prompt: str, default: Any, choices: Optional[List[str]] = None):
             # Pre-supplied answer wins
             if key in answers:
                 return answers[key]
+            # Smart default overrides hard-coded default
+            effective_default = _smart_default(key, default)
             if not interactive:
-                return default
-            hint = f" [{default}]" if default is not None else ""
+                return effective_default
+            hint = f" [{effective_default}]" if effective_default is not None else ""
             if choices:
                 hint = f" ({'/'.join(choices)})" + hint
-            sys.stderr.write(f"  {prompt}{hint}: ")
+            learned = _smart_hint(key)
+            sys.stderr.write(f"  {prompt}{hint}{learned}: ")
             sys.stderr.flush()
             raw = sys.stdin.readline().strip()
             if not raw:
-                return default
+                return effective_default
             if choices and raw not in choices:
-                sys.stderr.write(f"  ! expected one of {choices}, using default {default}\n")
-                return default
+                sys.stderr.write(f"  ! expected one of {choices}, using default {effective_default}\n")
+                return effective_default
             return raw
 
         sys.stderr.write("\n=== ForgeFlow Deployment Intent Interview ===\n")
-        sys.stderr.write(f"(App: {derived['app_name']} · {derived['language']} · port {derived['port']})\n\n")
+        sys.stderr.write(f"(App: {derived['app_name']} · {derived['language']} · port {derived['port']})\n")
+        if smart_defaults:
+            n_stable = sum(1 for s in smart_defaults.values() if s["confidence"] == "stable")
+            sys.stderr.write(f"🧠 {len(smart_defaults)} smart defaults loaded from run history "
+                             f"({n_stable} stable)\n")
+        sys.stderr.write("\n")
 
         # Cloud
         provider = ask("cloud_provider", "Target cloud", "gcp", CLOUD_OPTIONS)

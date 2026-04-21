@@ -40,6 +40,9 @@ PERSONA_LAYERS = [
 class DeployOrchestratorAgent(BaseAgent):
     """Fans out to persona agents, collects results into a single report."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="deploy_orchestrator_agent",

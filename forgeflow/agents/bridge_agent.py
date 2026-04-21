@@ -23,6 +23,9 @@ from .lifecycle_agent import LifecycleAgent
 class BridgeAgent(BaseAgent):
     """Agent that bridges the local repo to GitHub via the gh CLI."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="bridge_agent",

@@ -69,6 +69,10 @@ def _shannon_entropy(data: str, charset: str) -> float:
 
 
 class SecurityAgent(BaseAgent):
+
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="security_agent",

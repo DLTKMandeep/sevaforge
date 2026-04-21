@@ -7,6 +7,11 @@ Architecture: Orchestrator → MCP Server → Agent → Results
 - MCP server delegates to Agent
 - Agent executes business logic
 - Results flow back up the chain
+
+Intelligence Maturity: every agent is tagged with its current intelligence
+phase (Assisted → Automated → Augmented → Agentic). This is a cross-cutting
+overlay — the phase classifies *how smart* the agent is, independent of which
+pipeline phase (Analyse/Build/Quality/Ship) it belongs to.
 """
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -25,11 +30,22 @@ logging.basicConfig(
 class BaseAgent(ABC):
     """
     Base class for all ForgeFlow agents.
-    
+
     Agents contain the actual business logic that was previously in MCP servers.
     MCP servers are now thin protocol/communication layers that delegate to agents.
+
+    Intelligence Maturity:
+        Each agent is tagged with its intelligence_phase (1–4). Subclasses
+        can override this to reflect their actual capabilities. The phase
+        is included in every result dict so the CLI and dashboard can display
+        the maturity overlay.
     """
-    
+
+    # Subclasses should override to declare their intelligence level.
+    # Default = Phase 1 (Assisted) — safest starting point.
+    intelligence_phase: int = 1    # 1=Assisted, 2=Automated, 3=Augmented, 4=Agentic
+    intelligence_label: str = "Assisted"
+
     def __init__(self, name: str, description: str = ""):
         self.name = name
         self.description = description
@@ -93,7 +109,11 @@ class BaseAgent(ABC):
             "data": data or {},
             "findings": findings or [],
             "agent": self.name,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "intelligence": {
+                "phase": self.intelligence_phase,
+                "label": self.intelligence_label,
+            },
         }
         if actions is not None:
             result["actions"] = actions

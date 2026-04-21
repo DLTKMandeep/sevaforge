@@ -313,6 +313,14 @@ Examples:
     dashboard_parser.add_argument("--no-browser", action="store_true",
                                   help="Start the server but don't auto-open a browser tab")
 
+    # === maturity (intelligence maturity dashboard) ===
+    maturity_parser = subparsers.add_parser("maturity",
+        help="Show intelligence maturity report — per-stage phase, trust scores, and capabilities")
+    maturity_parser.add_argument("--path", "-p", default=".",
+        help="Path to repository (default: .) — loads run history from .sevaforge/")
+    maturity_parser.add_argument("--json", action="store_true", dest="json_output",
+        help="Output raw JSON maturity report")
+
     # === run-all (full pipeline + bridge) ===
     runall_parser = subparsers.add_parser("run-all", help="Run full pipeline: discover → normalize → docs → iac → cd → ci → e2e → review → test → scan → bridge")
     runall_parser.add_argument("path", nargs="?", default=".", help="Path to repository (default: .)")
@@ -487,6 +495,116 @@ REQUIRED_VARS = [
         "example": "https://myapp.yourdomain.com",
     },
 ]
+
+
+def run_maturity_command(args):
+    """
+    Handle 'forgeflow maturity' — show intelligence maturity report.
+
+    Displays per-stage intelligence phase, trust scores from run history,
+    and the 4-phase maturity framework overlay.
+    """
+    import json as json_mod
+    from core.intelligence_maturity import (
+        IntelligencePhase, STAGE_MATURITY, get_pipeline_maturity, TrustScore,
+    )
+    from core.run_history import RunHistory
+
+    path = Path(getattr(args, "path", ".")).resolve()
+    json_output = getattr(args, "json_output", False)
+
+    # Load run history if available
+    history = RunHistory(path)
+    trust_scores = history.compute_trust_scores()
+    report = get_pipeline_maturity(trust_scores)
+
+    if json_output:
+        console.print(json_mod.dumps(report, indent=2, default=str))
+        return
+
+    # ── Pretty display ───────────────────────────────────────────────
+    from rich.table import Table
+    from rich.panel import Panel
+
+    console.print()
+    console.print(Panel(
+        f"[bold]{report['overall_label']}[/]\n"
+        f"[dim]Goal: {report['overall_goal']}[/]\n"
+        f"[dim]Metric: {report['overall_metric']}[/]",
+        title="[bold]ForgeFlow Intelligence Maturity[/]",
+        border_style="bright_blue",
+        width=80,
+    ))
+    console.print()
+
+    # Phase distribution
+    dist = report["phase_distribution"]
+    phase_bar = "  ".join(
+        f"[{'cyan' if i==1 else 'yellow' if i==2 else 'green' if i==3 else 'magenta'}]"
+        f"{IntelligencePhase(i).icon} {label}: {count}[/]"
+        for i, (label, count) in enumerate(dist.items(), 1)
+        if count > 0
+    )
+    console.print(f"  {phase_bar}")
+    console.print()
+
+    # History summary
+    hist_info = history.summary()
+    if hist_info["has_history"]:
+        console.print(f"  [dim]📊 Run history: {hist_info['total_runs']} runs across "
+                      f"{hist_info['stages_tracked']} stages · "
+                      f"{hist_info['intents_recorded']} intents recorded[/]")
+        console.print()
+
+    # Per-stage table
+    table = Table(show_header=True, header_style="bold", width=100, pad_edge=False)
+    table.add_column("Stage", style="bold", width=18)
+    table.add_column("Current", width=14)
+    table.add_column("Target", width=14)
+    table.add_column("Trust", justify="right", width=8)
+    table.add_column("Runs", justify="right", width=6)
+    table.add_column("Streak", justify="right", width=7)
+    table.add_column("Gap", width=6)
+
+    # Group by pipeline phase
+    pipeline_phases = {
+        "Analyse": ["discover", "normalize", "docs"],
+        "Build": ["iac", "cd", "ci", "e2e"],
+        "Quality": ["review", "test", "scan"],
+        "Ship": ["deploy-intent", "deploy-design", "deploy-validate", "secrets", "lifecycle", "bridge"],
+    }
+
+    for phase_name, stage_names in pipeline_phases.items():
+        table.add_row(f"[bold dim]── {phase_name} ──[/]", "", "", "", "", "", "")
+        for s in report["stages"]:
+            if s["stage"] not in stage_names:
+                continue
+            trust_info = s.get("trust")
+            trust_val = f"{trust_info['trust_score']}" if trust_info else "—"
+            runs_val = str(trust_info["total_runs"]) if trust_info else "0"
+            streak_val = str(trust_info["consecutive_successes"]) if trust_info else "0"
+
+            gap = s["gap"]
+            gap_str = f"[green]✓[/]" if gap <= 0 else f"[yellow]+{gap}[/]"
+
+            table.add_row(
+                s["stage"],
+                s["current_label"],
+                s["target_label"],
+                trust_val,
+                runs_val,
+                streak_val,
+                gap_str,
+            )
+
+    console.print(table)
+    console.print()
+
+    # Phase legend
+    console.print("  [dim]Phases: 👁️ Assisted → ⚙️ Automated → 🧠 Augmented → 🤖 Agentic[/]")
+    console.print("  [dim]Trust: earned from consecutive successes, suggestion acceptance, low override rate[/]")
+    console.print("  [dim]Gap: how many phases until target (✓ = at target)[/]")
+    console.print()
 
 
 def run_secrets_command(args):
@@ -894,6 +1012,11 @@ def main():
         # Handle secrets command separately (no MissionControl needed)
         if args.command == "secrets":
             run_secrets_command(args)
+            sys.exit(0)
+
+        # Handle maturity command (no MissionControl needed)
+        if args.command == "maturity":
+            run_maturity_command(args)
             sys.exit(0)
         
         # Create MissionControl instance with specified mode

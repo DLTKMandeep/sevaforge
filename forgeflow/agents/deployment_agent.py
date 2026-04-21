@@ -81,6 +81,9 @@ variable "region" {{
 class DeploymentAgent(BaseAgent):
     """Agent that actually deploys to cloud infrastructure via Terraform, Docker, and ArgoCD."""
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="deployment_agent",

@@ -347,7 +347,10 @@ SHEBANG_PATTERNS = {
 
 class DiscoveryAgent(BaseAgent):
     """Agent that discovers repository structure, languages, and frameworks."""
-    
+
+    intelligence_phase = 1
+    intelligence_label = "Assisted"
+
     def __init__(self):
         super().__init__(
             name="discovery_agent",

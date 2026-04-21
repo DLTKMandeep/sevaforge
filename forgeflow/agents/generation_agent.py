@@ -35,6 +35,9 @@ class GenerationAgent(BaseAgent):
         skip            : list of agents to skip, e.g. ['cd', 'ci']
     """
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="generation_agent",

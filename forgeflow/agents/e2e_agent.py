@@ -730,7 +730,10 @@ class E2ETestingAgent(BaseAgent):
     - CI integration for E2E tests
     - Test reporting setup
     """
-    
+
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="E2ETestingAgent",

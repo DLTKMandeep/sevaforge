@@ -732,6 +732,9 @@ class IAMAgent(BaseAgent):
       scripts/verify-iam.sh                 — Verification script
     """
 
+    intelligence_phase = 2
+    intelligence_label = "Automated"
+
     def __init__(self):
         super().__init__(
             name="iam_agent",
