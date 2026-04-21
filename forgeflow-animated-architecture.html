@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeFlow — Animated Pipeline Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #38bdf8, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p {
+    font-size: 13px;
+    color: #64748b;
+    letter-spacing: 0.5px;
+  }
+
+  /* Phase */
+  .phase {
+    position: relative;
+    margin-bottom: 0;
+  }
+  .phase-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+  .phase-label .num {
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  /* Stage Grid */
+  .stages {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .stage-card {
+    flex: 1;
+    min-width: 120px;
+    max-width: 180px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .stage-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+    opacity: 0.8;
+  }
+  .stage-card:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .stage-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .stage-name {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .stage-agent {
+    font-size: 9px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* Phase colors */
+  .phase-analyse .phase-label { color: #a78bfa; background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2); }
+  .phase-analyse .stage-card::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .phase-build .phase-label { color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); }
+  .phase-build .stage-card::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .phase-quality .phase-label { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); }
+  .phase-quality .stage-card::before { background: linear-gradient(90deg, #10b981, #34d399); }
+  .phase-ship .phase-label { color: #38bdf8; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2); }
+  .phase-ship .stage-card::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+
+  /* Animated arrows between phases */
+  .arrow-connector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 56px;
+    position: relative;
+  }
+  .arrow-connector svg {
+    overflow: visible;
+  }
+
+  /* Marching ants animation */
+  @keyframes marchDown {
+    to { stroke-dashoffset: -20; }
+  }
+  @keyframes marchRight {
+    to { stroke-dashoffset: -20; }
+  }
+  @keyframes marchDiag {
+    to { stroke-dashoffset: -20; }
+  }
+  .march-line {
+    stroke-dasharray: 8 6;
+    animation: marchDown 0.6s linear infinite;
+  }
+  .march-line-slow {
+    stroke-dasharray: 6 4;
+    animation: marchDown 0.8s linear infinite;
+  }
+
+  /* Persona section */
+  .persona-section {
+    margin-top: 4px;
+    background: rgba(139, 92, 246, 0.06);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+  }
+  .persona-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #a78bfa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .persona-layer {
+    margin-bottom: 6px;
+  }
+  .layer-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .persona-cards {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .persona-card {
+    flex: 1;
+    max-width: 200px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  .persona-card:hover {
+    background: rgba(255,255,255,0.07);
+    transform: translateY(-1px);
+  }
+  .persona-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+  .persona-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .persona-output { font-size: 9px; color: #64748b; }
+
+  .layer-1 .layer-label { color: #a78bfa; }
+  .layer-1 .persona-card { border-color: rgba(167,139,250,0.2); }
+  .layer-2 .layer-label { color: #60a5fa; }
+  .layer-2 .persona-card { border-color: rgba(96,165,250,0.2); }
+  .layer-3 .layer-label { color: #34d399; }
+  .layer-3 .persona-card { border-color: rgba(52,211,153,0.2); }
+
+  /* Layer arrows */
+  .layer-arrow {
+    display: flex;
+    justify-content: center;
+    height: 32px;
+    align-items: center;
+  }
+
+  /* Data flow bar */
+  .data-flow {
+    margin-top: 48px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 20px 24px;
+  }
+  .data-flow h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+  }
+  .flow-chain {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .flow-node {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .flow-arrow-h {
+    width: 32px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* Pulsing glow on active pipeline */
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  .glow-dot {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 36px;
+    font-size: 11px;
+    color: #475569;
+  }
+
+  /* Fan-out / fan-in SVG arrows */
+  .fanout-svg {
+    width: 100%;
+    height: 40px;
+    overflow: visible;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>ForgeFlow — Pipeline Architecture</h1>
+    <p>16 stages · 4 phases · 7 persona agents · animated data flow</p>
+  </div>
+
+  <!-- ═══ PHASE 1: ANALYSE ═══ -->
+  <div class="phase phase-analyse">
+    <div class="phase-label"><span class="num">01</span> 📊 Analyse <span style="font-weight:400;font-size:10px;opacity:0.6;margin-left:4px;">— understand the repository</span></div>
+    <div class="stages">
+      <div class="stage-card">
+        <span class="stage-icon">🔍</span>
+        <div class="stage-name">Discover</div>
+        <div class="stage-agent">DiscoveryAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">📐</span>
+        <div class="stage-name">Normalize</div>
+        <div class="stage-agent">NormalizationAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">📝</span>
+        <div class="stage-name">Docs</div>
+        <div class="stage-agent">DocumentationAgent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Analyse → Build -->
+  <div class="arrow-connector">
+    <svg width="40" height="56" viewBox="0 0 40 56">
+      <line x1="20" y1="0" x2="20" y2="48" class="march-line" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="14,42 20,54 26,42" fill="#a78bfa" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- ═══ PHASE 2: BUILD ═══ -->
+  <div class="phase phase-build">
+    <div class="phase-label"><span class="num">02</span> 🔨 Build <span style="font-weight:400;font-size:10px;opacity:0.6;margin-left:4px;">— generate infrastructure & CI/CD</span></div>
+    <div class="stages">
+      <div class="stage-card">
+        <span class="stage-icon">🏗️</span>
+        <div class="stage-name">IaC</div>
+        <div class="stage-agent">IACAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🚀</span>
+        <div class="stage-name">CD</div>
+        <div class="stage-agent">CDAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">⚙️</span>
+        <div class="stage-name">CI</div>
+        <div class="stage-agent">CIAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🧪</span>
+        <div class="stage-name">E2E</div>
+        <div class="stage-agent">E2ETestingAgent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Build → Quality -->
+  <div class="arrow-connector">
+    <svg width="40" height="56" viewBox="0 0 40 56">
+      <line x1="20" y1="0" x2="20" y2="48" class="march-line" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="14,42 20,54 26,42" fill="#fbbf24" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- ═══ PHASE 3: QUALITY ═══ -->
+  <div class="phase phase-quality">
+    <div class="phase-label"><span class="num">03</span> ✅ Quality <span style="font-weight:400;font-size:10px;opacity:0.6;margin-left:4px;">— validate code & security</span></div>
+    <div class="stages">
+      <div class="stage-card">
+        <span class="stage-icon">👁️</span>
+        <div class="stage-name">Review</div>
+        <div class="stage-agent">CodeReviewAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🧪</span>
+        <div class="stage-name">Test</div>
+        <div class="stage-agent">TestingAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🔒</span>
+        <div class="stage-name">Scan</div>
+        <div class="stage-agent">SecurityAgent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Quality → Ship -->
+  <div class="arrow-connector">
+    <svg width="40" height="56" viewBox="0 0 40 56">
+      <line x1="20" y1="0" x2="20" y2="48" class="march-line" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="14,42 20,54 26,42" fill="#34d399" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- ═══ PHASE 4: SHIP ═══ -->
+  <div class="phase phase-ship">
+    <div class="phase-label"><span class="num">04</span> 🚢 Ship <span style="font-weight:400;font-size:10px;opacity:0.6;margin-left:4px;">— deploy pipeline → validate → push</span></div>
+    <div class="stages">
+      <div class="stage-card">
+        <span class="stage-icon">🗣️</span>
+        <div class="stage-name">Deploy Intent</div>
+        <div class="stage-agent">DeployIntentAgent</div>
+      </div>
+      <div class="stage-card" style="border-color: rgba(167,139,250,0.3); background: rgba(139,92,246,0.08);">
+        <span class="stage-icon">🎭</span>
+        <div class="stage-name" style="color:#c4b5fd;">Deploy Design</div>
+        <div class="stage-agent">DeployOrchestratorAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🛂</span>
+        <div class="stage-name">Deploy Validate</div>
+        <div class="stage-agent">DeployValidatorAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🔑</span>
+        <div class="stage-name">Secrets</div>
+        <div class="stage-agent">SecretsAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">♻️</span>
+        <div class="stage-name">Lifecycle</div>
+        <div class="stage-agent">LifecycleAgent</div>
+      </div>
+      <div class="stage-card">
+        <span class="stage-icon">🌉</span>
+        <div class="stage-name">Bridge</div>
+        <div class="stage-agent">BridgeAgent</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fan-out arrow from Deploy Design to Personas -->
+  <div class="arrow-connector" style="height: 44px;">
+    <svg width="600" height="44" viewBox="0 0 600 44" style="overflow:visible;">
+      <!-- Center stem -->
+      <line x1="300" y1="0" x2="300" y2="18" class="march-line-slow" stroke="#a78bfa" stroke-width="1.5"/>
+      <!-- Fan-out lines -->
+      <line x1="300" y1="18" x2="60" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <line x1="300" y1="18" x2="150" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <line x1="300" y1="18" x2="240" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.7"/>
+      <line x1="300" y1="18" x2="300" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.8"/>
+      <line x1="300" y1="18" x2="360" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.7"/>
+      <line x1="300" y1="18" x2="450" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <line x1="300" y1="18" x2="540" y2="38" class="march-line-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <!-- Dots at fan-out endpoints -->
+      <circle cx="60" cy="38" r="3" fill="#a78bfa" class="glow-dot"/>
+      <circle cx="150" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.15s"/>
+      <circle cx="240" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.3s"/>
+      <circle cx="300" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.45s"/>
+      <circle cx="360" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.6s"/>
+      <circle cx="450" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.75s"/>
+      <circle cx="540" cy="38" r="3" fill="#a78bfa" class="glow-dot" style="animation-delay:0.9s"/>
+      <!-- Label -->
+      <text x="300" y="12" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="600" font-family="system-ui">ThreadPoolExecutor fan-out</text>
+    </svg>
+  </div>
+
+  <!-- ═══ PERSONA AGENTS ═══ -->
+  <div class="persona-section">
+    <div class="persona-title">🎭 7 Persona Agents — 3 Parallel Layers</div>
+
+    <!-- Layer 1: Foundation -->
+    <div class="persona-layer layer-1">
+      <div class="layer-label">Layer 1 · Foundation</div>
+      <div class="persona-cards">
+        <div class="persona-card">
+          <span class="persona-icon">🏗️</span>
+          <div class="persona-name">InfraArchitect</div>
+          <div class="persona-output">VPC, subnets, firewall (Terraform)</div>
+        </div>
+        <div class="persona-card">
+          <span class="persona-icon">🔐</span>
+          <div class="persona-name">SecretsManager</div>
+          <div class="persona-output">inventory.yaml, bootstrap.sh</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow: Layer 1 → Layer 2 -->
+    <div class="layer-arrow">
+      <svg width="200" height="32" viewBox="0 0 200 32">
+        <line x1="100" y1="2" x2="100" y2="26" class="march-line-slow" stroke="#a78bfa" stroke-width="1.5"/>
+        <polygon points="95,22 100,30 105,22" fill="#a78bfa" opacity="0.7"/>
+        <text x="116" y="18" fill="#64748b" font-size="8" font-family="system-ui" font-weight="600">waits</text>
+      </svg>
+    </div>
+
+    <!-- Layer 2: Platform -->
+    <div class="persona-layer layer-2">
+      <div class="layer-label">Layer 2 · Platform</div>
+      <div class="persona-cards">
+        <div class="persona-card">
+          <span class="persona-icon">☸️</span>
+          <div class="persona-name">ClusterBuilder</div>
+          <div class="persona-output">GKE/EKS cluster.tf</div>
+        </div>
+        <div class="persona-card">
+          <span class="persona-icon">📦</span>
+          <div class="persona-name">AppDeployer</div>
+          <div class="persona-output">Dockerfile, Helm chart, HPA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow: Layer 2 → Layer 3 -->
+    <div class="layer-arrow">
+      <svg width="200" height="32" viewBox="0 0 200 32">
+        <line x1="100" y1="2" x2="100" y2="26" class="march-line-slow" stroke="#60a5fa" stroke-width="1.5"/>
+        <polygon points="95,22 100,30 105,22" fill="#60a5fa" opacity="0.7"/>
+        <text x="116" y="18" fill="#64748b" font-size="8" font-family="system-ui" font-weight="600">waits</text>
+      </svg>
+    </div>
+
+    <!-- Layer 3: Operations -->
+    <div class="persona-layer layer-3">
+      <div class="layer-label">Layer 3 · Operations</div>
+      <div class="persona-cards">
+        <div class="persona-card">
+          <span class="persona-icon">📈</span>
+          <div class="persona-name">Observability</div>
+          <div class="persona-output">Prometheus, Grafana, SLOs, alerts</div>
+        </div>
+        <div class="persona-card">
+          <span class="persona-icon">🛡️</span>
+          <div class="persona-name">SecurityAuditor</div>
+          <div class="persona-output">NetworkPolicy, PodSecurity, IAM</div>
+        </div>
+        <div class="persona-card">
+          <span class="persona-icon">💰</span>
+          <div class="persona-name">CostGuardian</div>
+          <div class="persona-output">Budget alerts, shutdown, teardown</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fan-in arrow from Personas back to Validate -->
+  <div class="arrow-connector" style="height: 44px;">
+    <svg width="600" height="44" viewBox="0 0 600 44" style="overflow:visible;">
+      <!-- Fan-in lines -->
+      <line x1="60" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.6"/>
+      <line x1="150" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.6"/>
+      <line x1="240" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.7"/>
+      <line x1="300" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.8"/>
+      <line x1="360" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.7"/>
+      <line x1="450" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.6"/>
+      <line x1="540" y1="4" x2="300" y2="24" class="march-line-slow" stroke="#34d399" stroke-width="1.2" opacity="0.6"/>
+      <!-- Center stem down -->
+      <line x1="300" y1="24" x2="300" y2="40" class="march-line-slow" stroke="#34d399" stroke-width="1.5"/>
+      <polygon points="295,36 300,44 305,36" fill="#34d399" opacity="0.8"/>
+      <!-- Label -->
+      <text x="300" y="36" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600" font-family="system-ui">26+ artifacts → DeployValidator</text>
+    </svg>
+  </div>
+
+  <!-- Validation result -->
+  <div style="text-align:center; margin: 4px 0 0;">
+    <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.2); border-radius:10px; padding:10px 20px;">
+      <span style="font-size:18px;">🛂</span>
+      <div style="text-align:left;">
+        <div style="font-size:12px; font-weight:700; color:#34d399;">7 Cross-Checks</div>
+        <div style="font-size:9px; color:#64748b;">Secrets inventory · Cron validity · Dates · SLOs · Hash integrity · TF vars · Image repo</div>
+      </div>
+      <div style="margin-left:12px;">
+        <svg width="20" height="20" viewBox="0 0 20 20">
+          <circle cx="10" cy="10" r="9" fill="none" stroke="#34d399" stroke-width="2" class="glow-dot"/>
+          <path d="M6 10 L9 13 L14 7" stroke="#34d399" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final arrow to Bridge -->
+  <div class="arrow-connector" style="height:48px;">
+    <svg width="40" height="48" viewBox="0 0 40 48">
+      <line x1="20" y1="0" x2="20" y2="40" class="march-line" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="14,34 20,46 26,34" fill="#38bdf8" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- Bridge / GitHub Push -->
+  <div style="text-align:center;">
+    <div style="display:inline-flex; align-items:center; gap:12px; background:linear-gradient(135deg, rgba(56,189,248,0.1), rgba(139,92,246,0.1)); border:2px solid rgba(56,189,248,0.3); border-radius:14px; padding:16px 28px;">
+      <span style="font-size:28px;">🌉</span>
+      <div style="text-align:left;">
+        <div style="font-size:14px; font-weight:800; color:#38bdf8;">Bridge → GitHub Push</div>
+        <div style="font-size:10px; color:#64748b;">Commits all artifacts · Creates PR · Triggers CI/CD</div>
+      </div>
+      <svg width="24" height="24" viewBox="0 0 24 24" style="margin-left:8px;">
+        <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.16.58.67.48A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z" fill="#e2e8f0"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Data Flow Summary -->
+  <div class="data-flow">
+    <h3>Data Flow</h3>
+    <div class="flow-chain">
+      <div class="flow-node" style="background:rgba(167,139,250,0.15); color:#c4b5fd;">Repository</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#a78bfa" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#a78bfa" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(167,139,250,0.1); color:#a78bfa;">inventory.json</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#fbbf24" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#fbbf24" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(251,191,36,0.12); color:#fbbf24;">Terraform + K8s + CI</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#34d399" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#34d399" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(52,211,153,0.12); color:#34d399;">Quality Gate</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#38bdf8" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#38bdf8" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(56,189,248,0.12); color:#38bdf8;">intent.yaml</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#a78bfa" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#a78bfa" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(139,92,246,0.12); color:#c4b5fd;">7 Personas → 26 Artifacts</div>
+      <svg class="flow-arrow-h" viewBox="0 0 32 16"><line x1="2" y1="8" x2="24" y2="8" class="march-line" stroke="#34d399" stroke-width="1.5"/><polygon points="20,4 28,8 20,12" fill="#34d399" opacity="0.7"/></svg>
+      <div class="flow-node" style="background:rgba(226,232,240,0.1); color:#e2e8f0; border:1px solid rgba(226,232,240,0.2);">GitHub Push</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    ForgeFlow v2.2 · 16 stages · 4 phases · 7 personas · GCP / GKE Autopilot default
+  </div>
+
+</div>
+</body>
+</html>
