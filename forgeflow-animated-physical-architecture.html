@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeFlow — Animated Physical Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px 60px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 40px; }
+  .header h1 {
+    font-size: 26px; font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #42a5f5, #66bb6a);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .header p { font-size: 12px; color: #64748b; letter-spacing: 0.5px; }
+
+  /* Animated marching ants */
+  @keyframes march { to { stroke-dashoffset: -20; } }
+  @keyframes marchSlow { to { stroke-dashoffset: -16; } }
+  @keyframes pulseGlow { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
+  .march { stroke-dasharray: 8 6; animation: march 0.6s linear infinite; }
+  .march-slow { stroke-dasharray: 6 4; animation: marchSlow 0.8s linear infinite; }
+  .march-dotted { stroke-dasharray: 3 5; animation: marchSlow 1s linear infinite; }
+  .glow { animation: pulseGlow 2s ease-in-out infinite; }
+
+  /* Layer wrapper */
+  .layer {
+    border: 1.5px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 0;
+    position: relative;
+    background: rgba(255,255,255,0.015);
+  }
+  .layer-tag {
+    position: absolute; top: -10px; left: 20px;
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    padding: 2px 12px; border-radius: 20px;
+  }
+
+  /* Arrow connector between layers */
+  .layer-connector { display: flex; justify-content: center; height: 48px; }
+
+  /* Cards / boxes */
+  .card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { background: rgba(255,255,255,0.07); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+  .card-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+  .card-title { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .card-sub { font-size: 9px; color: #64748b; line-height: 1.4; }
+  .card-top-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 2.5px; border-radius: 10px 10px 0 0;
+  }
+
+  /* Flex helpers */
+  .flex-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .flex-center { justify-content: center; align-items: center; }
+  .flex-1 { flex: 1; min-width: 120px; }
+
+  /* Subgraph inside layers */
+  .subgraph {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 14px;
+    background: rgba(255,255,255,0.01);
+    position: relative;
+  }
+  .subgraph-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* Phase mini-cards (pipeline) */
+  .phase-block {
+    border-radius: 10px;
+    padding: 10px 12px;
+    flex: 1; min-width: 160px;
+  }
+  .phase-title { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .stage-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .stage-chip {
+    font-size: 9px; font-weight: 600; padding: 3px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .stage-chip.active { border-color: rgba(167,139,250,0.4); background: rgba(139,92,246,0.12); color: #c4b5fd; }
+
+  /* Namespace block */
+  .namespace {
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+  }
+  .ns-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    position: absolute; top: -8px; left: 12px; padding: 0 6px;
+    background: #0f172a;
+  }
+
+  /* Pod */
+  .pod {
+    background: rgba(46,125,50,0.1);
+    border: 1px solid rgba(102,187,106,0.25);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+    flex: 1; min-width: 90px;
+  }
+  .pod-name { font-size: 10px; font-weight: 700; color: #81c784; }
+  .pod-detail { font-size: 8px; color: #64748b; line-height: 1.3; margin-top: 2px; }
+
+  /* Inline SVG arrow helper */
+  .arrow-down {
+    display: flex; justify-content: center; padding: 4px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>ForgeFlow — Physical Deployment Architecture</h1>
+    <p>GCP · GKE Autopilot · GitHub Actions CI/CD · Kustomize · Secrets Inventory</p>
+  </div>
+
+  <!-- ══════════ LAYER 0: Developer Workstation ══════════ -->
+  <div class="layer" style="border-color: rgba(144,164,174,0.2);">
+    <div class="layer-tag" style="color:#90a4ae; background:rgba(144,164,174,0.1); border:1px solid rgba(144,164,174,0.2);">👤 Developer Workstation</div>
+    <div class="flex-row flex-center" style="gap:16px; margin-top:4px;">
+      <div class="card" style="min-width:140px;">
+        <div class="card-top-bar" style="background:#90a4ae;"></div>
+        <span class="card-icon">👤</span>
+        <div class="card-title" style="color:#e2e8f0;">Developer</div>
+        <div class="card-sub" style="font-family:monospace;">forgeflow run-all ./repo</div>
+      </div>
+      <svg width="60" height="20" viewBox="0 0 60 20">
+        <line x1="0" y1="10" x2="48" y2="10" class="march" stroke="#90a4ae" stroke-width="1.5"/>
+        <polygon points="44,6 54,10 44,14" fill="#90a4ae" opacity="0.8"/>
+      </svg>
+      <div class="card" style="min-width:120px;">
+        <div class="card-top-bar" style="background:#90a4ae;"></div>
+        <span class="card-icon">⌨️</span>
+        <div class="card-title" style="color:#e2e8f0;">ForgeFlow CLI</div>
+        <div class="card-sub">forgeflow.py</div>
+      </div>
+      <svg width="60" height="20" viewBox="0 0 60 20">
+        <line x1="0" y1="10" x2="48" y2="10" class="march" stroke="#90a4ae" stroke-width="1.5"/>
+        <polygon points="44,6 54,10 44,14" fill="#90a4ae" opacity="0.8"/>
+      </svg>
+      <div class="card" style="min-width:220px; border-color:rgba(244,143,177,0.25); background:rgba(136,14,79,0.08);">
+        <div class="card-top-bar" style="background:linear-gradient(90deg,#880e4f,#f48fb1);"></div>
+        <span class="card-icon">📋</span>
+        <div class="card-title" style="color:#f48fb1;">deployment-intent.yaml</div>
+        <div class="card-sub" style="text-align:left; font-family:monospace; font-size:8px; line-height:1.5;">
+          cloud: GCP · region: us-central1<br>
+          compute: gke-autopilot · port: 9001<br>
+          replicas: 2–6 · SLO: 99.5% / 500ms<br>
+          shutdown: 4AM–2PM UTC
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Workstation → Pipeline -->
+  <div class="layer-connector">
+    <svg width="60" height="48" viewBox="0 0 60 48">
+      <line x1="30" y1="0" x2="30" y2="40" class="march" stroke="#818cf8" stroke-width="2"/>
+      <polygon points="24,34 30,46 36,34" fill="#818cf8" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- ══════════ LAYER 1: 16-Stage Pipeline ══════════ -->
+  <div class="layer" style="border-color: rgba(129,140,248,0.2);">
+    <div class="layer-tag" style="color:#818cf8; background:rgba(129,140,248,0.1); border:1px solid rgba(129,140,248,0.2);">⚡ 16-Stage Pipeline · 4 Phases</div>
+    <div class="flex-row" style="gap:10px; margin-top:4px;">
+      <!-- Analyse -->
+      <div class="phase-block" style="background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.15);">
+        <div class="phase-title" style="color:#a78bfa;">📊 Analyse</div>
+        <div class="stage-list">
+          <span class="stage-chip">🔍 discover</span>
+          <span class="stage-chip">📐 normalize</span>
+          <span class="stage-chip">📝 docs</span>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display:flex;align-items:center;">
+        <svg width="28" height="16" viewBox="0 0 28 16"><line x1="0" y1="8" x2="20" y2="8" class="march" stroke="#a78bfa" stroke-width="1.5"/><polygon points="17,4 25,8 17,12" fill="#a78bfa" opacity="0.7"/></svg>
+      </div>
+      <!-- Build -->
+      <div class="phase-block" style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.15);">
+        <div class="phase-title" style="color:#fbbf24;">🔨 Build</div>
+        <div class="stage-list">
+          <span class="stage-chip">🏗️ iac</span>
+          <span class="stage-chip">🚀 cd</span>
+          <span class="stage-chip">⚙️ ci</span>
+          <span class="stage-chip">🧪 e2e</span>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display:flex;align-items:center;">
+        <svg width="28" height="16" viewBox="0 0 28 16"><line x1="0" y1="8" x2="20" y2="8" class="march" stroke="#fbbf24" stroke-width="1.5"/><polygon points="17,4 25,8 17,12" fill="#fbbf24" opacity="0.7"/></svg>
+      </div>
+      <!-- Quality -->
+      <div class="phase-block" style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.15);">
+        <div class="phase-title" style="color:#34d399;">✅ Quality</div>
+        <div class="stage-list">
+          <span class="stage-chip">👁️ review</span>
+          <span class="stage-chip">🧪 test</span>
+          <span class="stage-chip">🔒 scan</span>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display:flex;align-items:center;">
+        <svg width="28" height="16" viewBox="0 0 28 16"><line x1="0" y1="8" x2="20" y2="8" class="march" stroke="#34d399" stroke-width="1.5"/><polygon points="17,4 25,8 17,12" fill="#34d399" opacity="0.7"/></svg>
+      </div>
+      <!-- Ship -->
+      <div class="phase-block" style="background:rgba(14,165,233,0.06); border:1px solid rgba(14,165,233,0.15);">
+        <div class="phase-title" style="color:#38bdf8;">🚢 Ship</div>
+        <div class="stage-list">
+          <span class="stage-chip active">🗣️ intent</span>
+          <span class="stage-chip active">🎭 design</span>
+          <span class="stage-chip active">🛂 validate</span>
+          <span class="stage-chip">🔑 secrets</span>
+          <span class="stage-chip">♻️ lifecycle</span>
+          <span class="stage-chip">🌉 bridge</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Pipeline → Personas (fan-out from deploy-design) -->
+  <div class="layer-connector" style="height:52px;">
+    <svg width="700" height="52" viewBox="0 0 700 52" style="overflow:visible;">
+      <line x1="350" y1="0" x2="350" y2="18" class="march" stroke="#a78bfa" stroke-width="2"/>
+      <text x="350" y="14" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="600" font-family="system-ui">🎭 deploy-design fan-out</text>
+      <line x1="350" y1="20" x2="50" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.5"/>
+      <line x1="350" y1="20" x2="150" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <line x1="350" y1="20" x2="250" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.7"/>
+      <line x1="350" y1="20" x2="350" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.8"/>
+      <line x1="350" y1="20" x2="450" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.7"/>
+      <line x1="350" y1="20" x2="550" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.6"/>
+      <line x1="350" y1="20" x2="650" y2="46" class="march-slow" stroke="#a78bfa" stroke-width="1.2" opacity="0.5"/>
+      <circle cx="50" cy="46" r="3" fill="#a78bfa" class="glow"/>
+      <circle cx="150" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.12s"/>
+      <circle cx="250" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.24s"/>
+      <circle cx="350" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.36s"/>
+      <circle cx="450" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.48s"/>
+      <circle cx="550" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.6s"/>
+      <circle cx="650" cy="46" r="3" fill="#a78bfa" class="glow" style="animation-delay:.72s"/>
+    </svg>
+  </div>
+
+  <!-- ══════════ LAYER 2: 7 Persona Agents ══════════ -->
+  <div class="layer" style="border-color: rgba(110,231,183,0.2); background:rgba(6,78,59,0.04);">
+    <div class="layer-tag" style="color:#6ee7b7; background:rgba(110,231,183,0.1); border:1px solid rgba(110,231,183,0.2);">🎭 7 Persona Agents · 3 Parallel Layers</div>
+
+    <!-- Layer 1: Foundation -->
+    <div style="margin-top:6px;">
+      <div style="font-size:9px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Layer 1 · Foundation</div>
+      <div class="flex-row" style="gap:8px;">
+        <div class="card flex-1" style="border-color:rgba(167,139,250,0.2);">
+          <div class="card-top-bar" style="background:#a78bfa;"></div>
+          <span class="card-icon">🏗️</span>
+          <div class="card-title" style="color:#c4b5fd;">InfraArchitect</div>
+          <div class="card-sub">VPC · Subnets · Firewall<br>network.tf · providers.tf · backend.tf</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(167,139,250,0.2);">
+          <div class="card-top-bar" style="background:#a78bfa;"></div>
+          <span class="card-icon">🔐</span>
+          <div class="card-title" style="color:#c4b5fd;">SecretsManager</div>
+          <div class="card-sub">Code scan → inventory.yaml<br>bootstrap.sh · SECRETS_GUIDE.md</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">
+      <svg width="140" height="28" viewBox="0 0 140 28"><line x1="70" y1="0" x2="70" y2="22" class="march-slow" stroke="#a78bfa" stroke-width="1.2"/><polygon points="66,18 70,26 74,18" fill="#a78bfa" opacity="0.6"/><text x="86" y="14" fill="#475569" font-size="7" font-family="system-ui" font-weight="600">waits</text></svg>
+    </div>
+
+    <!-- Layer 2: Platform -->
+    <div>
+      <div style="font-size:9px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Layer 2 · Platform</div>
+      <div class="flex-row" style="gap:8px;">
+        <div class="card flex-1" style="border-color:rgba(96,165,250,0.2);">
+          <div class="card-top-bar" style="background:#60a5fa;"></div>
+          <span class="card-icon">☸️</span>
+          <div class="card-title" style="color:#93c5fd;">ClusterBuilder</div>
+          <div class="card-sub">GKE Autopilot cluster.tf<br>us-central1 · REGULAR channel</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(96,165,250,0.2);">
+          <div class="card-top-bar" style="background:#60a5fa;"></div>
+          <span class="card-icon">📦</span>
+          <div class="card-title" style="color:#93c5fd;">AppDeployer</div>
+          <div class="card-sub">Dockerfile · Helm chart<br>values.yaml · HPA · gcr.io · port 9001</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">
+      <svg width="140" height="28" viewBox="0 0 140 28"><line x1="70" y1="0" x2="70" y2="22" class="march-slow" stroke="#60a5fa" stroke-width="1.2"/><polygon points="66,18 70,26 74,18" fill="#60a5fa" opacity="0.6"/><text x="86" y="14" fill="#475569" font-size="7" font-family="system-ui" font-weight="600">waits</text></svg>
+    </div>
+
+    <!-- Layer 3: Operations -->
+    <div>
+      <div style="font-size:9px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Layer 3 · Operations</div>
+      <div class="flex-row" style="gap:8px;">
+        <div class="card flex-1" style="border-color:rgba(52,211,153,0.2);">
+          <div class="card-top-bar" style="background:#34d399;"></div>
+          <span class="card-icon">📈</span>
+          <div class="card-title" style="color:#6ee7b7;">Observability</div>
+          <div class="card-sub">Prometheus · Grafana<br>ServiceMonitor · SLOs · Alerts</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(52,211,153,0.2);">
+          <div class="card-top-bar" style="background:#34d399;"></div>
+          <span class="card-icon">🛡️</span>
+          <div class="card-title" style="color:#6ee7b7;">SecurityAuditor</div>
+          <div class="card-sub">NetworkPolicy · PodSecurity<br>IAM minimization</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(52,211,153,0.2);">
+          <div class="card-top-bar" style="background:#34d399;"></div>
+          <span class="card-icon">💰</span>
+          <div class="card-title" style="color:#6ee7b7;">CostGuardian</div>
+          <div class="card-sub">Budget alerts · Shutdown 4–2PM<br>Auto-teardown workflow</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: Personas → 26 artifacts → CI/CD -->
+  <div class="layer-connector" style="height:52px;">
+    <svg width="700" height="52" viewBox="0 0 700 52" style="overflow:visible;">
+      <!-- Fan-in -->
+      <line x1="50" y1="4" x2="350" y2="22" class="march-slow" stroke="#34d399" stroke-width="1" opacity="0.5"/>
+      <line x1="200" y1="4" x2="350" y2="22" class="march-slow" stroke="#34d399" stroke-width="1" opacity="0.6"/>
+      <line x1="350" y1="4" x2="350" y2="22" class="march-slow" stroke="#34d399" stroke-width="1" opacity="0.7"/>
+      <line x1="500" y1="4" x2="350" y2="22" class="march-slow" stroke="#34d399" stroke-width="1" opacity="0.6"/>
+      <line x1="650" y1="4" x2="350" y2="22" class="march-slow" stroke="#34d399" stroke-width="1" opacity="0.5"/>
+      <text x="350" y="36" text-anchor="middle" fill="#34d399" font-size="9" font-weight="600" font-family="system-ui">26 artifacts → bridge → git push</text>
+      <line x1="350" y1="38" x2="350" y2="48" class="march" stroke="#38bdf8" stroke-width="2"/>
+      <polygon points="345,44 350,52 355,44" fill="#38bdf8" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- ══════════ LAYER 3: GitHub Actions CI/CD ══════════ -->
+  <div class="layer" style="border-color: rgba(77,208,225,0.2);">
+    <div class="layer-tag" style="color:#4dd0e1; background:rgba(77,208,225,0.1); border:1px solid rgba(77,208,225,0.2);">🔄 GitHub Actions CI/CD</div>
+    <div class="flex-row" style="gap:12px; margin-top:4px;">
+      <!-- CI Pipeline -->
+      <div class="subgraph" style="flex:2; border-color:rgba(77,208,225,0.15);">
+        <div class="subgraph-label" style="color:#4dd0e1;">CI Pipeline</div>
+        <div class="flex-row" style="gap:6px;">
+          <div class="card flex-1"><div class="card-top-bar" style="background:#4dd0e1;"></div><span class="card-icon" style="font-size:16px;">🧹</span><div class="card-title" style="color:#4dd0e1;">Lint</div><div class="card-sub">flake8 · black · isort</div></div>
+          <div class="card flex-1"><div class="card-top-bar" style="background:#4dd0e1;"></div><span class="card-icon" style="font-size:16px;">🧪</span><div class="card-title" style="color:#4dd0e1;">Test</div><div class="card-sub">pytest · Py 3.10–3.12<br>Codecov</div></div>
+          <div class="card flex-1"><div class="card-top-bar" style="background:#4dd0e1;"></div><span class="card-icon" style="font-size:16px;">🔒</span><div class="card-title" style="color:#4dd0e1;">Sec Scan</div><div class="card-sub">bandit · safety</div></div>
+        </div>
+        <div class="arrow-down">
+          <svg width="100" height="24" viewBox="0 0 100 24"><line x1="50" y1="0" x2="50" y2="18" class="march" stroke="#4dd0e1" stroke-width="1.5"/><polygon points="46,14 50,22 54,14" fill="#4dd0e1" opacity="0.7"/></svg>
+        </div>
+        <div class="card" style="max-width:260px; margin:0 auto;">
+          <div class="card-top-bar" style="background:linear-gradient(90deg,#4dd0e1,#42a5f5);"></div>
+          <span class="card-icon" style="font-size:16px;">🐳</span>
+          <div class="card-title" style="color:#4dd0e1;">Build & Push</div>
+          <div class="card-sub">Docker multi-arch (amd64+arm64) → gcr.io</div>
+        </div>
+      </div>
+
+      <!-- Arrow CI → CD -->
+      <div style="display:flex;align-items:center;">
+        <svg width="36" height="20" viewBox="0 0 36 20"><line x1="0" y1="10" x2="28" y2="10" class="march" stroke="#4dd0e1" stroke-width="1.5"/><polygon points="24,6 34,10 24,14" fill="#4dd0e1" opacity="0.7"/></svg>
+      </div>
+
+      <!-- CD Pipeline -->
+      <div class="subgraph" style="flex:1; border-color:rgba(77,208,225,0.15);">
+        <div class="subgraph-label" style="color:#4dd0e1;">CD Pipeline</div>
+        <div class="card" style="margin-bottom:8px;">
+          <div class="card-top-bar" style="background:#4dd0e1;"></div>
+          <span class="card-icon" style="font-size:16px;">✋</span>
+          <div class="card-title" style="color:#4dd0e1;">Manual Approval</div>
+          <div class="card-sub">(prod only)</div>
+        </div>
+        <div class="arrow-down">
+          <svg width="60" height="20" viewBox="0 0 60 20"><line x1="30" y1="0" x2="30" y2="14" class="march" stroke="#4dd0e1" stroke-width="1.2"/><polygon points="27,11 30,18 33,11" fill="#4dd0e1" opacity="0.7"/></svg>
+        </div>
+        <div class="card">
+          <div class="card-top-bar" style="background:linear-gradient(90deg,#4dd0e1,#66bb6a);"></div>
+          <span class="card-icon" style="font-size:16px;">🚀</span>
+          <div class="card-title" style="color:#4dd0e1;">Deploy to GKE</div>
+          <div class="card-sub">kubectl apply · Kustomize</div>
+        </div>
+      </div>
+
+      <!-- Cost Workflows -->
+      <div class="subgraph" style="flex:1; border-color:rgba(206,147,216,0.15);">
+        <div class="subgraph-label" style="color:#ce93d8;">💰 Cost Workflows</div>
+        <div class="card" style="margin-bottom:8px; border-color:rgba(206,147,216,0.2);">
+          <div class="card-top-bar" style="background:#ce93d8;"></div>
+          <span class="card-icon" style="font-size:16px;">⬇️</span>
+          <div class="card-title" style="color:#ce93d8;">cost-shutdown.yml</div>
+          <div class="card-sub">4AM: scale → 0<br>2PM: restore replicas</div>
+        </div>
+        <div class="card" style="border-color:rgba(206,147,216,0.2);">
+          <div class="card-top-bar" style="background:#ce93d8;"></div>
+          <span class="card-icon" style="font-size:16px;">💣</span>
+          <div class="card-title" style="color:#ce93d8;">cost-teardown.yml</div>
+          <div class="card-sub">One-shot destroy<br>terraform destroy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow: CI/CD → GCP -->
+  <div class="layer-connector" style="height:52px;">
+    <svg width="400" height="52" viewBox="0 0 400 52" style="overflow:visible;">
+      <line x1="120" y1="0" x2="120" y2="44" class="march" stroke="#4dd0e1" stroke-width="1.5"/>
+      <polygon points="115,38 120,50 125,38" fill="#4dd0e1" opacity="0.8"/>
+      <text x="120" y="28" text-anchor="middle" fill="#475569" font-size="8" font-family="system-ui" font-weight="600" dx="24">docker push → gcr.io</text>
+      <line x1="280" y1="0" x2="280" y2="44" class="march" stroke="#66bb6a" stroke-width="1.5"/>
+      <polygon points="275,38 280,50 285,38" fill="#66bb6a" opacity="0.8"/>
+      <text x="280" y="28" text-anchor="middle" fill="#475569" font-size="8" font-family="system-ui" font-weight="600" dx="30">kubectl apply</text>
+    </svg>
+  </div>
+
+  <!-- ══════════ LAYER 4: GCP Infrastructure ══════════ -->
+  <div class="layer" style="border-color: rgba(66,165,245,0.2);">
+    <div class="layer-tag" style="color:#42a5f5; background:rgba(66,165,245,0.1); border:1px solid rgba(66,165,245,0.2);">☁️ Google Cloud Platform · divine-data-469116-b2</div>
+
+    <!-- VPC -->
+    <div class="subgraph" style="border-color:rgba(100,181,246,0.15); margin-top:4px;">
+      <div class="subgraph-label" style="color:#64b5f6;">🌐 VPC: sevaforge-unified-vpc</div>
+
+      <!-- Subnet -->
+      <div class="subgraph" style="border-color:rgba(100,181,246,0.1); margin-bottom:10px;">
+        <div class="subgraph-label" style="color:#90caf9; font-size:9px;">Subnet: sevaforge-unified-subnet · Primary: 10.10.0.0/20 · Pods: 10.20.0.0/14 · Services: 10.24.0.0/20</div>
+
+        <!-- GKE Cluster -->
+        <div class="subgraph" style="border-color:rgba(102,187,106,0.15); background:rgba(27,94,32,0.03);">
+          <div class="subgraph-label" style="color:#66bb6a;">☸️ GKE Autopilot: sevaforge-unified-cluster · us-central1 · REGULAR</div>
+
+          <div class="flex-row" style="gap:10px;">
+            <!-- App namespace -->
+            <div class="namespace" style="flex:2; border-color:rgba(102,187,106,0.2);">
+              <div class="ns-label" style="color:#81c784;">ns: sevaforge-unified · PodSecurity: restricted</div>
+              <div style="margin-top:8px;">
+                <div style="font-size:9px;font-weight:600;color:#81c784;margin-bottom:6px;">Deployment: sevaforge-unified · Replicas: 2–6 (HPA)</div>
+                <div class="flex-row" style="gap:6px; margin-bottom:8px;">
+                  <div class="pod">
+                    <div class="pod-name">Pod 1</div>
+                    <div class="pod-detail">gcr.io/…/sevaforge-unified:latest<br>Port 9001 · runAsNonRoot<br>CPU: 100m–500m · Mem: 128–512Mi<br>Liveness: /health</div>
+                  </div>
+                  <div class="pod">
+                    <div class="pod-name">Pod 2</div>
+                    <div class="pod-detail">(identical)</div>
+                  </div>
+                  <div class="pod" style="border-style:dashed;">
+                    <div class="pod-name">Pod N</div>
+                    <div class="pod-detail">(auto-scaled)</div>
+                  </div>
+                </div>
+                <div class="flex-row" style="gap:6px;">
+                  <div class="card flex-1" style="padding:8px; border-color:rgba(102,187,106,0.2);"><div class="card-title" style="color:#81c784; font-size:9px;">Service</div><div class="card-sub">ClusterIP · 80→9001</div></div>
+                  <div class="card flex-1" style="padding:8px; border-color:rgba(102,187,106,0.2);"><div class="card-title" style="color:#81c784; font-size:9px;">HPA</div><div class="card-sub">CPU:70% Mem:80%<br>Min:2 Max:6</div></div>
+                  <div class="card flex-1" style="padding:8px; border-color:rgba(102,187,106,0.2);"><div class="card-title" style="color:#81c784; font-size:9px;">ConfigMap</div><div class="card-sub">ENV · LOG_LEVEL<br>APP_NAME</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Observability namespace -->
+            <div class="namespace" style="flex:1; border-color:rgba(255,183,77,0.2);">
+              <div class="ns-label" style="color:#ffb74d;">ns: observability</div>
+              <div style="margin-top:8px;">
+                <div class="card" style="margin-bottom:6px; border-color:rgba(255,183,77,0.15);">
+                  <div class="card-top-bar" style="background:#ffb74d;"></div>
+                  <div class="card-title" style="color:#ffb74d; font-size:10px;">Prometheus :9090</div>
+                  <div class="card-sub">Retention: 15d<br>ServiceMonitor /metrics@30s</div>
+                </div>
+                <div class="arrow-down"><svg width="40" height="16" viewBox="0 0 40 16"><line x1="20" y1="0" x2="20" y2="12" class="march-slow" stroke="#ffb74d" stroke-width="1"/><polygon points="17,9 20,15 23,9" fill="#ffb74d" opacity="0.6"/></svg></div>
+                <div class="flex-row" style="gap:4px;">
+                  <div class="card flex-1" style="padding:6px; border-color:rgba(255,183,77,0.15);">
+                    <div class="card-title" style="color:#ffb74d; font-size:9px;">Grafana :3000</div>
+                    <div class="card-sub">PVC:5Gi · SLO Dash</div>
+                  </div>
+                  <div class="card flex-1" style="padding:6px; border-color:rgba(255,183,77,0.15);">
+                    <div class="card-title" style="color:#ffb74d; font-size:9px;">AlertManager</div>
+                    <div class="card-sub">Err>5%:page<br>P99>500ms:warn</div>
+                  </div>
+                </div>
+                <!-- scrape arrow -->
+                <div style="margin-top:8px; text-align:center;">
+                  <svg width="180" height="20" viewBox="0 0 180 20" style="overflow:visible;">
+                    <line x1="0" y1="10" x2="170" y2="10" class="march-dotted" stroke="#ffb74d" stroke-width="1" opacity="0.5"/>
+                    <text x="90" y="8" text-anchor="middle" fill="#64748b" font-size="7" font-family="system-ui">← scrape /metrics</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network Policies -->
+          <div class="flex-row" style="gap:6px; margin-top:10px;">
+            <div class="card flex-1" style="padding:8px; border-color:rgba(239,83,80,0.2); max-width:200px;">
+              <div class="card-title" style="color:#ef5350; font-size:9px;">🔒 Default Deny All Ingress</div>
+            </div>
+            <div class="card flex-1" style="padding:8px; border-color:rgba(239,83,80,0.2); max-width:280px;">
+              <div class="card-title" style="color:#ef5350; font-size:9px;">🔓 Allow from: ingress-nginx, observability · port: http</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Firewall rules -->
+      <div class="flex-row" style="gap:6px;">
+        <div class="card flex-1" style="padding:8px; border-color:rgba(100,181,246,0.15);">
+          <div class="card-title" style="color:#64b5f6; font-size:9px;">🔥 allow-internal</div>
+          <div class="card-sub">TCP/UDP/ICMP · 10.10.0.0/20 · 10.20.0.0/14 · 10.24.0.0/20</div>
+        </div>
+        <div class="card flex-1" style="padding:8px; border-color:rgba(100,181,246,0.15);">
+          <div class="card-title" style="color:#64b5f6; font-size:9px;">🔥 allow-health-checks</div>
+          <div class="card-sub">TCP 80,443,8000,6443 from 35.191.0.0/16 · 130.211.0.0/22</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GCP Services row -->
+    <div class="flex-row" style="gap:8px; margin-top:12px;">
+      <div class="card flex-1" style="border-color:rgba(66,165,245,0.2);">
+        <div class="card-top-bar" style="background:#42a5f5;"></div>
+        <span class="card-icon" style="font-size:16px;">🗄️</span>
+        <div class="card-title" style="color:#42a5f5;">Cloud Storage</div>
+        <div class="card-sub">Terraform state (remote backend)</div>
+      </div>
+      <div class="card flex-1" style="border-color:rgba(66,165,245,0.2);">
+        <div class="card-top-bar" style="background:#42a5f5;"></div>
+        <span class="card-icon" style="font-size:16px;">🐳</span>
+        <div class="card-title" style="color:#42a5f5;">Container Registry</div>
+        <div class="card-sub">gcr.io/divine-data-469116-b2/sevaforge-unified</div>
+      </div>
+      <div class="card flex-1" style="border-color:rgba(66,165,245,0.2);">
+        <div class="card-top-bar" style="background:#42a5f5;"></div>
+        <span class="card-icon" style="font-size:16px;">🔑</span>
+        <div class="card-title" style="color:#42a5f5;">IAM Service Accounts</div>
+        <div class="card-sub">terraform-deployer · cicd-image-pusher<br>node-role · eso-sa · app-workload</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dotted lines: Secrets & Kustomize -->
+  <div class="layer-connector" style="height:36px;">
+    <svg width="600" height="36" viewBox="0 0 600 36" style="overflow:visible;">
+      <line x1="150" y1="0" x2="150" y2="30" class="march-dotted" stroke="#ffd54f" stroke-width="1.2" opacity="0.5"/>
+      <polygon points="146,26 150,34 154,26" fill="#ffd54f" opacity="0.6"/>
+      <text x="150" y="18" text-anchor="middle" fill="#475569" font-size="7" font-family="system-ui" dx="-40">secrets injected</text>
+      <line x1="450" y1="0" x2="450" y2="30" class="march-dotted" stroke="#66bb6a" stroke-width="1.2" opacity="0.5"/>
+      <polygon points="446,26 450,34 454,26" fill="#66bb6a" opacity="0.6"/>
+      <text x="450" y="18" text-anchor="middle" fill="#475569" font-size="7" font-family="system-ui" dx="38">applied per env</text>
+    </svg>
+  </div>
+
+  <!-- ══════════ LAYER 5+6: Secrets & Kustomize ══════════ -->
+  <div class="flex-row" style="gap:12px;">
+    <!-- Secrets Inventory -->
+    <div class="layer" style="flex:1; border-color:rgba(255,213,79,0.2);">
+      <div class="layer-tag" style="color:#ffd54f; background:rgba(255,213,79,0.08); border:1px solid rgba(255,213,79,0.2);">🔑 Secrets Inventory</div>
+      <div class="flex-row" style="gap:6px; margin-top:4px;">
+        <div class="card flex-1" style="border-color:rgba(255,213,79,0.2); padding:10px;">
+          <div class="card-title" style="color:#ffd54f; font-size:10px;">Cloud</div>
+          <div class="card-sub" style="font-family:monospace; font-size:8px; text-align:left;">GH_TOKEN<br>GCP_SA_KEY<br>GCP_PROJECT_ID<br>GCP_REGION</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(255,213,79,0.2); padding:10px;">
+          <div class="card-title" style="color:#ffd54f; font-size:10px;">Application</div>
+          <div class="card-sub" style="font-family:monospace; font-size:8px; text-align:left;">DATABASE_URL<br>JWT_SECRET<br>REDIS_URL<br>SESSION_SECRET</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(255,213,79,0.2); padding:10px;">
+          <div class="card-title" style="color:#ffd54f; font-size:10px;">Third-Party</div>
+          <div class="card-sub" style="font-family:monospace; font-size:8px; text-align:left;">STRIPE_API_KEY<br>OPENAI_API_KEY<br>ANTHROPIC_API_KEY<br>SENDGRID_API_KEY</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kustomize Overlays -->
+    <div class="layer" style="flex:1; border-color:rgba(102,187,106,0.2);">
+      <div class="layer-tag" style="color:#66bb6a; background:rgba(102,187,106,0.08); border:1px solid rgba(102,187,106,0.2);">📁 Kustomize Overlays</div>
+      <div class="flex-row" style="gap:6px; margin-top:4px;">
+        <div class="card flex-1" style="border-color:rgba(102,187,106,0.2); padding:10px;">
+          <div class="card-title" style="color:#81c784; font-size:10px;">dev</div>
+          <div class="card-sub">ns: forgeflow-dev<br>replicas: 2 · debug</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(102,187,106,0.2); padding:10px;">
+          <div class="card-title" style="color:#81c784; font-size:10px;">staging</div>
+          <div class="card-sub">ns: forgeflow-staging<br>replicas: 2 · info</div>
+        </div>
+        <div class="card flex-1" style="border-color:rgba(102,187,106,0.2); padding:10px;">
+          <div class="card-title" style="color:#81c784; font-size:10px;">prod</div>
+          <div class="card-sub">ns: forgeflow-prod<br>replicas: 3 · warn</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center; margin-top:36px; font-size:11px; color:#475569;">
+    ForgeFlow v2.2 · Physical Deployment Architecture · GCP / GKE Autopilot · us-central1
+  </div>
+
+</div>
+</body>
+</html>
