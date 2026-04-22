@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SevaForge Dashboard — Preview v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; background: #0a0e1a; color: #e2e8f0; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+  @keyframes glow-pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+  @keyframes slide-up { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+  .slide-up { animation: slide-up .4s ease-out both; }
+
+  /* Sidebar */
+  .nav-btn { position: relative; transition: all .15s; }
+  .nav-btn::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:2.5px; border-radius:0 2px 2px 0; background:#818cf8; opacity:0; transition:opacity .15s; }
+  .nav-btn.active::before { opacity:1; }
+  .nav-btn.active { background: rgba(99,102,241,.1); color: #a5b4fc; }
+  .nav-btn:hover { background: rgba(255,255,255,.03); }
+
+  /* Cards */
+  .card { background: #111827; border: 1px solid #1e293b; border-radius: 16px; transition: all .2s; }
+  .card:hover { border-color: #334155; box-shadow: 0 8px 32px -8px rgba(0,0,0,.4); }
+
+  /* Toggle */
+  .tog { width:40px; height:22px; border-radius:11px; position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; }
+  .tog.on { background:#6366f1; }
+  .tog.off { background:#334155; }
+  .tog::after { content:''; position:absolute; top:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s; }
+  .tog.on::after { left:20px; }
+  .tog.off::after { left:2px; }
+
+  /* Stage chip */
+  .stage { transition: all .15s; cursor: default; }
+  .stage:hover { transform: scale(1.04); }
+
+  /* Gradient orbs (background deco) */
+  .orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+
+  /* Tooltip */
+  .hint { position: relative; }
+  .hint .hint-dot {
+    position: absolute; top: -4px; right: -4px; width: 14px; height: 14px; border-radius: 50%;
+    background: #6366f1; color: #fff; font-size: 8px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    z-index: 20; border: 2px solid #111827; transition: all .15s;
+    box-shadow: 0 0 8px rgba(99,102,241,.3);
+  }
+  .hint .hint-dot:hover { transform: scale(1.2); box-shadow: 0 0 14px rgba(99,102,241,.5); }
+  .hint .hint-tip {
+    display: none; position: absolute; top: -8px; right: 18px; z-index: 30;
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    padding: 10px 14px; width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .hint .hint-dot:hover + .hint-tip,
+  .hint .hint-tip:hover { display: block; }
+  .hint .hint-tip .tip-title { font-size: 11px; font-weight: 700; color: #a5b4fc; margin-bottom: 3px; }
+  .hint .hint-tip .tip-text { font-size: 10px; color: #94a3b8; line-height: 1.5; }
+
+  /* Quick-start collapse */
+  .qs-content { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+  .qs-content.open { max-height: 400px; }
+
+  /* Guide view */
+  .guide-section { border-left: 2px solid #1e293b; padding-left: 16px; margin-bottom: 20px; }
+  .guide-section:hover { border-left-color: #6366f1; }
+</style>
+</head>
+<body class="h-screen overflow-hidden">
+
+<div class="flex h-screen">
+
+  <!-- ▌SIDEBAR -->
+  <nav class="w-[68px] bg-[#0d1117] border-r border-[#1e293b]/60 flex flex-col items-center py-4 flex-shrink-0">
+    <!-- Logo -->
+    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-6 cursor-pointer hover:scale-105 transition-transform shadow-lg shadow-indigo-500/20">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><line x1="22" y1="8.5" x2="12" y2="15.5"/><line x1="2" y1="8.5" x2="12" y2="15.5"/></svg>
+    </div>
+
+    <div class="flex flex-col gap-1 w-full px-2.5">
+      <button onclick="nav(this)" class="nav-btn active w-full flex flex-col items-center py-2 rounded-lg text-indigo-300 gap-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">Run</span>
+      </button>
+      <button onclick="nav(this)" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">Home</span>
+      </button>
+      <button onclick="nav(this)" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">Intel</span>
+      </button>
+      <button onclick="nav(this)" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">Stages</span>
+      </button>
+      <button onclick="nav(this)" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">History</span>
+      </button>
+      <button onclick="nav(this); showGuide()" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5" id="guide-nav">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <span class="text-[8px] font-bold uppercase tracking-widest">Guide</span>
+      </button>
+    </div>
+
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-1 mb-3">
+      <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 glow-pulse shadow-[0_0_6px_rgba(52,211,153,.5)]"></div>
+    </div>
+    <button onclick="nav(this)" class="nav-btn w-full flex flex-col items-center py-2 rounded-lg text-slate-500 gap-0.5 mx-2.5">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09c.02.5.24.99.56 1.37a1.65 1.65 0 0 0 1.82.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.26.46.68.84 1.17 1.08H21a2 2 0 0 1 0 4h-.09c-.5.02-.99.24-1.37.56z"/></svg>
+      <span class="text-[8px] font-bold uppercase tracking-widest">Config</span>
+    </button>
+  </nav>
+
+  <!-- ▌MAIN -->
+  <div class="flex-1 flex flex-col overflow-hidden relative">
+
+    <!-- Background orbs -->
+    <div class="orb w-96 h-96 bg-indigo-600/[.07] top-[-100px] right-[-50px]"></div>
+    <div class="orb w-72 h-72 bg-blue-600/[.05] bottom-[10%] left-[5%]"></div>
+
+    <!-- Topbar -->
+    <header class="h-12 bg-[#0d1117]/80 backdrop-blur-lg border-b border-[#1e293b]/60 flex items-center px-6 flex-shrink-0 z-10">
+      <span class="text-sm font-bold text-white/90">SevaForge</span>
+      <span class="mx-2 text-slate-600">›</span>
+      <span class="text-sm text-slate-400 font-medium">Run Pipeline</span>
+      <div class="ml-auto flex items-center gap-2">
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">v2.2</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">16 Stages</span>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1 overflow-y-auto px-8 py-6 relative z-[1]">
+      <div class="max-w-[1080px] mx-auto" id="run-view">
+
+        <!-- Preview banner -->
+        <div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6 slide-up">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="text-xs font-semibold text-amber-400/90">DESIGN PREVIEW — Review before applying</span>
+        </div>
+
+        <!-- Quick-Start Guide (collapsible) -->
+        <div class="card mb-6 slide-up overflow-hidden" style="animation-delay:.04s; border-color: #6366f1/20;">
+          <button onclick="toggleQS()" class="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[.02] transition-colors cursor-pointer" id="qs-toggle">
+            <div class="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <span class="text-xs font-bold text-indigo-300">Quick Start — 3 steps to your first pipeline run</span>
+            <svg id="qs-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" class="ml-auto transition-transform"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="qs-content open" id="qs-body">
+            <div class="px-5 pb-4 pt-1 space-y-3">
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 mt-0.5">1</div>
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Select your project folder</div>
+                  <div class="text-[10px] text-slate-500">Click "Browse" or paste a path to your codebase</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 mt-0.5">2</div>
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Hit "Run Full Pipeline"</div>
+                  <div class="text-[10px] text-slate-500">7 AI agents analyze your code across 16 stages in ~60 seconds</div>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px] font-extrabold flex-shrink-0 mt-0.5">3</div>
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Review & push to GitHub</div>
+                  <div class="text-[10px] text-slate-500">Terraform, CI/CD, security scans, docs — all auto-committed to your repo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hero -->
+        <div class="card p-8 mb-6 slide-up relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-64 h-64 opacity-[.03]">
+            <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" stroke="#818cf8" stroke-width="1" fill="none"/><circle cx="100" cy="100" r="50" stroke="#818cf8" stroke-width=".7" fill="none"/><polygon points="100,30 160,70 145,135 55,135 40,70" stroke="#818cf8" stroke-width=".7" fill="none"/></svg>
+          </div>
+          <div class="flex items-center gap-5 relative">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 animate-float flex-shrink-0">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-extrabold text-white mb-1">SevaForge — Agentic AI Driven Platform Engineering</h2>
+              <p class="text-sm text-slate-400 leading-relaxed max-w-lg">Point at any codebase. Get production-ready infrastructure, CI/CD, security, and docs — pushed to GitHub.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two columns -->
+        <div class="flex gap-5 items-start">
+
+          <!-- LEFT -->
+          <div class="flex-1 flex flex-col gap-5">
+
+            <!-- Step 1: Pick project -->
+            <div class="card overflow-hidden slide-up hint" style="animation-delay:.08s">
+              <div class="hint-dot">?</div>
+              <div class="hint-tip">
+                <div class="tip-title">Project Selection</div>
+                <div class="tip-text">Point SevaForge at any codebase — Node, Python, Go, Java, etc. It auto-detects your stack and tailors all generated output accordingly.</div>
+              </div>
+              <div class="flex items-center gap-3 px-5 pt-5 pb-2">
+                <div class="w-7 h-7 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-extrabold shadow shadow-indigo-500/30">1</div>
+                <h3 class="text-sm font-bold text-white">Choose Project</h3>
+              </div>
+              <div class="px-5 pb-5 pt-2">
+                <div class="flex gap-2.5 mb-3">
+                  <button class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                    <svg class="text-slate-500 group-hover:text-indigo-400 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span class="text-xs font-semibold text-slate-300 group-hover:text-indigo-300">Browse</span>
+                  </button>
+                  <button class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all cursor-pointer group">
+                    <svg class="text-slate-500 group-hover:text-emerald-400 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    <span class="text-xs font-semibold text-slate-300 group-hover:text-emerald-300">New Project</span>
+                  </button>
+                </div>
+                <input class="w-full px-3.5 py-2.5 rounded-xl bg-[#0a0e1a] border border-slate-700/60 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 transition-all font-mono text-xs" placeholder="~/my-project" />
+              </div>
+            </div>
+
+            <!-- Step 2: Run -->
+            <div class="card overflow-hidden slide-up hint" style="animation-delay:.15s">
+              <div class="hint-dot">?</div>
+              <div class="hint-tip">
+                <div class="tip-title">Pipeline Execution</div>
+                <div class="tip-text">Runs all 16 stages sequentially. Each stage is powered by specialized AI agents that cross-validate each other's output for reliability.</div>
+              </div>
+              <div class="flex items-center gap-3 px-5 pt-5 pb-2">
+                <div class="w-7 h-7 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-extrabold shadow shadow-indigo-500/30">2</div>
+                <h3 class="text-sm font-bold text-white">Launch Pipeline</h3>
+              </div>
+              <div class="px-5 pb-5 pt-2">
+                <button class="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all cursor-pointer">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Run Full Pipeline
+                </button>
+                <div class="flex items-center justify-center gap-3 mt-3 text-[11px] text-slate-500">
+                  <span>~60s</span>
+                  <span class="w-0.5 h-0.5 rounded-full bg-slate-600"></span>
+                  <span>16 stages</span>
+                  <span class="w-0.5 h-0.5 rounded-full bg-slate-600"></span>
+                  <span>7 AI agents</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pipeline Phases -->
+            <div class="card overflow-hidden slide-up hint" style="animation-delay:.22s">
+              <div class="hint-dot">?</div>
+              <div class="hint-tip">
+                <div class="tip-title">4-Phase Pipeline</div>
+                <div class="tip-text">Analyse → Build → Quality → Ship. Each phase groups related stages. Stages within a phase can run in parallel for speed.</div>
+              </div>
+              <div class="flex items-center gap-2 px-5 py-3.5 border-b border-[#1e293b]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pipeline — 4 Phases</span>
+              </div>
+              <div class="p-5 space-y-4">
+
+                <!-- Analyse -->
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-violet-400"></div>
+                    <span class="text-[11px] font-bold text-violet-400 uppercase tracking-wider">Analyse</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/15">🔍 Discover</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/15">📐 Normalize</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/15">📝 Docs</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/15">🗣️ Intent</span>
+                  </div>
+                </div>
+
+                <!-- Build -->
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+                    <span class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Build</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/15">🏗️ IaC</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/15">🚀 CD</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/15">⚙️ CI</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/15">🎭 Design</span>
+                  </div>
+                </div>
+
+                <!-- Quality -->
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Quality</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/15">🧪 E2E</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/15">👁️ Review</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/15">🔒 Security</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/15">✅ Validate</span>
+                  </div>
+                </div>
+
+                <!-- Ship -->
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                    <span class="text-[11px] font-bold text-blue-400 uppercase tracking-wider">Ship</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/15">📈 Observe</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/15">🌉 Bridge</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/15">🛂 Gate</span>
+                    <span class="stage text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/15">📦 Deliver</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div class="w-[300px] flex-shrink-0 flex flex-col gap-5">
+
+            <!-- What You Get -->
+            <div class="card overflow-hidden slide-up hint" style="animation-delay:.12s">
+              <div class="hint-dot">?</div>
+              <div class="hint-tip">
+                <div class="tip-title">Auto-Generated Files</div>
+                <div class="tip-text">All these artifacts are created from your codebase automatically. Each file is validated by multiple AI agents before delivery.</div>
+              </div>
+              <div class="flex items-center gap-2 px-5 py-3.5 border-b border-[#1e293b]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="23 7 16 12 23 17 23 7"/></svg>
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Generated Output</span>
+              </div>
+              <div class="divide-y divide-[#1e293b]/60">
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4m2 0h6"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">Terraform + Docker</div>
+                    <div class="text-[10px] text-slate-500">Infrastructure as Code</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">ArgoCD + Kustomize</div>
+                    <div class="text-[10px] text-slate-500">GitOps Deployment</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">GitHub Actions</div>
+                    <div class="text-[10px] text-slate-500">CI/CD Workflows</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">Security Scan</div>
+                    <div class="text-[10px] text-slate-500">CVE + Secrets</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">E2E Tests</div>
+                    <div class="text-[10px] text-slate-500">Playwright Suite</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">Observability</div>
+                    <div class="text-[10px] text-slate-500">Prometheus + Grafana</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition-colors">
+                  <div class="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-slate-200">Documentation</div>
+                    <div class="text-[10px] text-slate-500">README + API Docs</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Options -->
+            <div class="card overflow-hidden slide-up" style="animation-delay:.2s">
+              <div class="flex items-center gap-2 px-5 py-3.5 border-b border-[#1e293b]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09c.5.02.99-.16 1.37-.48A1.65 1.65 0 0 0 4.6 9c-.08-.46-.32-.88-.68-1.18l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06c.3.36.72.6 1.18.68A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09c.02.5.24.99.56 1.37a1.65 1.65 0 0 0 1.82.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06c-.36.3-.6.72-.68 1.18a1.65 1.65 0 0 0 .48 1.37c.26.26.6.43.97.48H21a2 2 0 0 1 0 4h-.09c-.5.02-.99.24-1.37.56z"/></svg>
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Options</span>
+              </div>
+              <div>
+                <div class="flex items-center gap-3 px-5 py-3.5 border-b border-[#1e293b]/40">
+                  <div class="flex-1">
+                    <div class="text-xs font-semibold text-slate-200">Private repo</div>
+                    <div class="text-[10px] text-slate-500">Only you can see it</div>
+                  </div>
+                  <div class="tog on"></div>
+                </div>
+                <div class="flex items-center gap-3 px-5 py-3.5">
+                  <div class="flex-1">
+                    <div class="text-xs font-semibold text-slate-200">Dry run</div>
+                    <div class="text-[10px] text-slate-500">Preview without writing</div>
+                  </div>
+                  <div class="tog off"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- GitHub -->
+            <div class="rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/[.06] to-blue-500/[.04] overflow-hidden slide-up" style="animation-delay:.28s">
+              <div class="px-5 py-4 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#e2e8f0"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.66-.22.66-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0112 6.8c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.16.58.67.48A10.01 10.01 0 0022 12c0-5.52-4.48-10-10-10z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-bold text-white">Pushes to GitHub</div>
+                  <div class="text-[10px] text-indigo-300/70">Auto-commit all generated files</div>
+                </div>
+                <div class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                  <div class="w-1.5 h-1.5 rounded-full bg-emerald-400 glow-pulse"></div>
+                  <span class="text-[10px] font-bold text-emerald-400">Ready</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agents -->
+            <div class="card overflow-hidden slide-up" style="animation-delay:.32s">
+              <div class="flex items-center gap-2 px-5 py-3.5 border-b border-[#1e293b]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">AI Agents</span>
+              </div>
+              <div class="p-4 grid grid-cols-2 gap-1.5">
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-violet-500/15 flex items-center justify-center text-[10px]">🔍</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Scout</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-amber-500/15 flex items-center justify-center text-[10px]">🏗️</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Architect</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-blue-500/15 flex items-center justify-center text-[10px]">⚙️</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Builder</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-emerald-500/15 flex items-center justify-center text-[10px]">🧪</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Tester</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-red-500/15 flex items-center justify-center text-[10px]">🔒</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Guardian</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/[.02] border border-[#1e293b]/40">
+                  <div class="w-5 h-5 rounded bg-cyan-500/15 flex items-center justify-center text-[10px]">📝</div>
+                  <span class="text-[11px] font-semibold text-slate-300">Scribe</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-indigo-500/[.06] border border-indigo-500/15 col-span-2">
+                  <div class="w-5 h-5 rounded bg-indigo-500/15 flex items-center justify-center text-[10px]">🎯</div>
+                  <span class="text-[11px] font-semibold text-indigo-300">Orchestrator</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ GUIDE VIEW (hidden by default) ═══ -->
+      <div id="guide-view" class="hidden max-w-3xl mx-auto px-8 py-6 view-panel">
+        <div class="card p-6 mb-5 slide-up">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-lg font-extrabold text-white">User Guide</h2>
+              <p class="text-xs text-slate-400">Everything you need to know about SevaForge</p>
+            </div>
+          </div>
+
+          <!-- Getting Started -->
+          <div class="guide-section">
+            <h3 class="text-sm font-bold text-indigo-300 mb-2">Getting Started</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-2">SevaForge generates production-ready infrastructure for any codebase. Just point it at a folder, hit Run, and review the output.</p>
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="text-indigo-400 font-bold">1.</span> Select a project folder using Browse or paste a path</div>
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="text-indigo-400 font-bold">2.</span> Click "Run Full Pipeline" to start analysis</div>
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="text-indigo-400 font-bold">3.</span> Monitor progress across 16 stages in real-time</div>
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="text-indigo-400 font-bold">4.</span> Review generated files and push to GitHub</div>
+            </div>
+          </div>
+
+          <!-- Pipeline Phases -->
+          <div class="guide-section">
+            <h3 class="text-sm font-bold text-violet-300 mb-2">Pipeline Phases</h3>
+            <div class="space-y-2.5">
+              <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                  <div class="w-2 h-2 rounded-full bg-violet-400"></div>
+                  <span class="text-xs font-bold text-violet-300">Analyse</span>
+                </div>
+                <p class="text-[11px] text-slate-500 ml-4">Scans your codebase, detects the tech stack, normalizes project structure, generates documentation, and captures your intent.</p>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                  <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+                  <span class="text-xs font-bold text-amber-300">Build</span>
+                </div>
+                <p class="text-[11px] text-slate-500 ml-4">Generates Terraform, Dockerfiles, ArgoCD configs, GitHub Actions workflows, and architecture designs tailored to your stack.</p>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                  <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                  <span class="text-xs font-bold text-emerald-300">Quality</span>
+                </div>
+                <p class="text-[11px] text-slate-500 ml-4">Creates Playwright E2E tests, runs AI-powered code reviews, performs security scans for CVEs and secrets, and cross-validates all outputs.</p>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                  <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                  <span class="text-xs font-bold text-blue-300">Ship</span>
+                </div>
+                <p class="text-[11px] text-slate-500 ml-4">Sets up Prometheus + Grafana observability, assembles the final package, runs quality gates, and delivers everything to GitHub.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Agents -->
+          <div class="guide-section">
+            <h3 class="text-sm font-bold text-amber-300 mb-2">AI Agents</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-2">Seven specialized agents collaborate on every pipeline run. Each focuses on a domain and validates its work against the others.</p>
+            <div class="space-y-1.5 text-xs text-slate-300">
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Scout</span> Discovers project structure, dependencies, and tech stack</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Architect</span> Designs infrastructure topology and deployment strategy</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Builder</span> Generates IaC, CI/CD, and container configurations</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Tester</span> Creates E2E test suites from your app's routes</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Guardian</span> Scans for vulnerabilities, secrets, and compliance issues</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Scribe</span> Writes README, API docs, runbooks, and architecture docs</div>
+              <div class="flex gap-2"><span class="text-slate-500 font-mono w-20 flex-shrink-0">Orchestrator</span> Coordinates all agents and resolves conflicts</div>
+            </div>
+          </div>
+
+          <!-- Intelligence Maturity -->
+          <div class="guide-section">
+            <h3 class="text-sm font-bold text-emerald-300 mb-2">Intelligence Maturity</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-2">SevaForge learns from your decisions over time. Each stage progresses through 4 maturity phases:</p>
+            <div class="space-y-1.5 text-xs text-slate-300">
+              <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-slate-700 text-[10px] font-bold text-slate-300 w-20 text-center flex-shrink-0">Phase 1</span> Assisted — suggests defaults, you confirm every time</div>
+              <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-blue-900/40 text-[10px] font-bold text-blue-300 w-20 text-center flex-shrink-0">Phase 2</span> Automated — applies stable patterns, flags changes only</div>
+              <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-violet-900/40 text-[10px] font-bold text-violet-300 w-20 text-center flex-shrink-0">Phase 3</span> Augmented — adapts to new patterns, learns from feedback</div>
+              <div class="flex items-center gap-2"><span class="px-1.5 py-0.5 rounded bg-amber-900/40 text-[10px] font-bold text-amber-300 w-20 text-center flex-shrink-0">Phase 4</span> Agentic — fully autonomous decisions with high trust scores</div>
+            </div>
+          </div>
+
+          <!-- Keyboard Shortcuts -->
+          <div class="guide-section">
+            <h3 class="text-sm font-bold text-cyan-300 mb-2">Tips</h3>
+            <div class="space-y-1.5 text-xs text-slate-300">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">•</span> Use <strong class="text-slate-200">Dry Run</strong> to preview outputs without writing any files
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">•</span> Check the <strong class="text-slate-200">Intel</strong> tab to see your trust scores evolve over time
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">•</span> The <strong class="text-slate-200">History</strong> tab shows all previous pipeline runs and their results
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">•</span> Hover over the <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-500 text-white text-[8px] font-bold">?</span> icons for context on any section
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">•</span> CLI command: <code class="font-mono text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded">forgeflow dashboard</code> to launch this UI
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+function nav(el) {
+  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('active'); b.style.color = ''; });
+  el.classList.add('active');
+  // Hide guide view when navigating elsewhere
+  if (el.id !== 'guide-nav') {
+    document.getElementById('guide-view').classList.add('hidden');
+    document.getElementById('run-view').classList.remove('hidden');
+  }
+}
+
+function showGuide() {
+  document.getElementById('run-view').classList.add('hidden');
+  document.getElementById('guide-view').classList.remove('hidden');
+}
+
+function toggleQS() {
+  const body = document.getElementById('qs-body');
+  const arrow = document.getElementById('qs-arrow');
+  body.classList.toggle('open');
+  arrow.style.transform = body.classList.contains('open') ? '' : 'rotate(-90deg)';
+}
+</script>
+</body>
+</html>

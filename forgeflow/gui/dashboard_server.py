@@ -372,6 +372,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_sse()
         elif path == "/api/state":
             self._serve_state()
+        elif path == "/api/maturity":
+            self._serve_maturity()
         elif path == "/api/running":
             self._json({"running": _running})
         elif path == "/api/history":
@@ -521,6 +523,73 @@ class _Handler(BaseHTTPRequestHandler):
             self._json({"path": path, "parent": parent, "entries": entries})
         except PermissionError:
             self._json({"error": "Permission denied"}, 403)
+        except Exception as exc:
+            self._json({"error": str(exc)}, 500)
+
+    # ── Maturity API ────────────────────────────────────────────────────
+    def _serve_maturity(self):
+        """Return intelligence maturity report as JSON.
+
+        Tries to load from the most recently used project path (from the
+        current pipeline run or the latest history entry).  Falls back to
+        a report with no trust scores if no history is available.
+        """
+        try:
+            # Try importing the maturity module
+            for _imp in [
+                "forgeflow.core.intelligence_maturity",
+                "core.intelligence_maturity",
+            ]:
+                try:
+                    import importlib
+                    _mod = importlib.import_module(_imp)
+                    get_pipeline_maturity = _mod.get_pipeline_maturity
+                    break
+                except ImportError:
+                    continue
+            else:
+                self._json({"error": "maturity module not found"}, 500)
+                return
+
+            # Try to load run history for trust scores
+            trust_scores = None
+            project_path = None
+
+            # Check current pipeline state first
+            inst = DashboardServer._instance
+            if inst and inst._state.get("path"):
+                project_path = inst._state["path"]
+
+            # Fall back to most recent history entry
+            if not project_path:
+                hist = _load_history()
+                if hist:
+                    project_path = hist[0].get("path")
+
+            if project_path:
+                try:
+                    for _rh_imp in [
+                        "forgeflow.core.run_history",
+                        "core.run_history",
+                    ]:
+                        try:
+                            _rh_mod = importlib.import_module(_rh_imp)
+                            RunHistory = _rh_mod.RunHistory
+                            break
+                        except ImportError:
+                            continue
+                    else:
+                        RunHistory = None
+
+                    if RunHistory:
+                        rh = RunHistory(project_path)
+                        trust_scores = rh.compute_trust_scores()
+                except Exception:
+                    pass
+
+            report = get_pipeline_maturity(trust_scores)
+            self._json(report)
+
         except Exception as exc:
             self._json({"error": str(exc)}, 500)
 

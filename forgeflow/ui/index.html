@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sevaforge — AIDDaaS</title>
+  <title>SevaForge — Agentic AI Driven Platform Engineering</title>
   <link rel="preconnect" href="https://fonts.bunny.net">
   <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800,900&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -514,12 +514,14 @@ const STAGE_INFO_FULL = [
 ];
 
 const VIEWS = [
-  { id:'live',      label:'Run Pipeline', icon:'▶' },
-  { id:'dashboard', label:'Dashboard',    icon:'◈' },
-  { id:'pipeline',  label:'Pipeline Stages', icon:'⬡' },
-  { id:'history',   label:'History',      icon:'⊙' },
-  { id:'health',    label:'Health',       icon:'♡' },
-  { id:'settings',  label:'Settings',     icon:'⚙' },
+  { id:'live',         label:'Run Pipeline', icon:'▶' },
+  { id:'dashboard',    label:'Dashboard',    icon:'◈' },
+  { id:'intelligence', label:'Intelligence', icon:'🧠' },
+  { id:'pipeline',     label:'Pipeline Stages', icon:'⬡' },
+  { id:'history',      label:'History',      icon:'⊙' },
+  { id:'health',       label:'Health',       icon:'♡' },
+  { id:'settings',     label:'Settings',     icon:'⚙' },
+  { id:'guide',        label:'User Guide',   icon:'📖' },
 ];
 
 const timeSince = (ts) => {
@@ -1095,7 +1097,27 @@ function IdleScreen({ connected, onLaunch }) {
   const labelStyle = { fontSize:'17px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:5,display:'block' };
 
   return (
-    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,height:'100%',alignItems:'start'}}>
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:12,height:'100%'}}>
+
+      {/* Quick-start tip */}
+      <div className="sf-card" style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:12,
+        background:'linear-gradient(135deg,#eff6ff,#e0e7ff)',border:'1px solid #c7d2fe'}}>
+        <span style={{fontSize:'18px'}}>⚡</span>
+        <div style={{flex:1}}>
+          <span style={{fontSize:'14px',fontWeight:700,color:'#3730a3'}}>Quick Start: </span>
+          <span style={{fontSize:'13.5px',color:'#4338ca'}}>
+            Select a folder → Hit "Run Pipeline" → Review generated infrastructure → Push to GitHub
+          </span>
+        </div>
+        <button onClick={()=>{ /* navigate to guide */ }}
+                style={{fontSize:'12px',fontWeight:700,color:'#4f46e5',background:'white',
+                border:'1px solid #c7d2fe',borderRadius:6,padding:'4px 12px',cursor:'pointer',
+                fontFamily:'inherit',whiteSpace:'nowrap'}}>
+          📖 Full Guide
+        </button>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,flex:1,alignItems:'start'}}>
 
       {/* ═══ LEFT COLUMN — Source ═══ */}
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -1564,7 +1586,7 @@ function IdleScreen({ connected, onLaunch }) {
 
         {/* ── What you get — compact output grid ── */}
         <div className="sf-card">
-          <div className="sf-card-header">What Sevaforge generates</div>
+          <div className="sf-card-header">What SevaForge Generates</div>
           <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
             {[
               {emoji:'🏗️', label:'Terraform + Docker'},
@@ -1589,6 +1611,7 @@ function IdleScreen({ connected, onLaunch }) {
         </div>
 
       </div>
+    </div>
     </div>
   );
 }
@@ -2549,7 +2572,7 @@ function StatTile({ label, value, sub, color, icon }) {
 }
 
 // ── Dashboard — executive overview ────────────────────────────────────────────
-function DashboardView({ history, connected, onNavigate }) {
+function DashboardView({ history, connected, onNavigate, subView }) {
   const runs      = history.length;
   const successes = history.filter(r=>r.status==='success').length;
   const failures  = runs - successes;
@@ -2564,9 +2587,87 @@ function DashboardView({ history, connected, onNavigate }) {
     {label:'Ship',    stages:['scan','deploy-intent','deploy-design','deploy-validate','secrets','lifecycle','bridge'], color:'#0ea5e9', icon:'🚀', desc:'Security scan, deploy interview, persona fan-out, validator, push'},
   ];
 
+  // Sub-view: System Health
+  if (subView === 'system') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="System Overview" sub="Server connection and platform status" />
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          <StatTile label="Server"       value={connected?'Live':'Offline'}     sub={connected?'SSE events flowing':'Run forgeflow dashboard'} color={connected?'var(--ok)':'var(--err)'} icon="◈" />
+          <StatTile label="Pipeline Runs" value={runs||0}                       sub={runs?`${successes} passed · ${failures} failed`:'No runs yet'} color="#6366f1" icon="▶" />
+          <StatTile label="Avg Time"      value={avgTime?`${avgTime}s`:'—'}     sub={avgTime?'across completed runs':'No data yet'} color="var(--text)" icon="⏱" />
+        </div>
+        <div className="sf-card" style={{padding:'24px',textAlign:'center'}}>
+          <div style={{fontSize:'3rem',marginBottom:10}}>{connected?'🟢':'🔴'}</div>
+          <div style={{fontSize:'17px',fontWeight:700,color:connected?'var(--ok)':'var(--err)',marginBottom:6}}>
+            {connected?'Connected — real-time events active':'Disconnected — start the dashboard server'}
+          </div>
+          <div style={{fontSize:'14px',color:'var(--muted)'}}>
+            ForgeFlow v2.2 · {STAGE_INFO_FULL.length} stages · NoCaaS mode
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Sub-view: Recent runs
+  if (subView === 'recent') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="Recent Runs" sub={`${runs} pipeline runs recorded`} />
+        <div className="sf-card" style={{overflow:'hidden'}}>
+          {history.length===0 ? (
+            <div style={{padding:'40px 24px',textAlign:'center',color:'var(--muted)',fontSize:'15px'}}>
+              No runs yet — launch a pipeline from the Pipeline tab.
+            </div>
+          ) : (
+            <div>
+              <div style={{display:'grid',gridTemplateColumns:'32px 1fr 80px 80px 100px',
+                           padding:'8px 18px',background:'#fafbfc',borderBottom:'1px solid var(--border)',
+                           fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.07em',gap:12}}>
+                <div/><div>Project</div><div>Stages</div><div>Time</div><div style={{textAlign:'right'}}>Status</div>
+              </div>
+              {history.map((r,i)=>{
+                const ok=r.status==='success';
+                const proj=(r.path||'—').split('/').filter(Boolean).pop()||'—';
+                return (
+                  <div key={i} style={{
+                    display:'grid',gridTemplateColumns:'32px 1fr 80px 80px 100px',
+                    padding:'12px 18px',gap:12,alignItems:'center',
+                    borderBottom:i<history.length-1?'1px solid var(--border-lt)':undefined,
+                  }}>
+                    <div style={{
+                      width:22,height:22,borderRadius:'50%',
+                      background:ok?'var(--ok-bg)':'var(--err-bg)',
+                      border:`1.5px solid ${ok?'var(--ok-br)':'var(--err-br)'}`,
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:'12px',color:ok?'var(--ok)':'var(--err)',fontWeight:800,
+                    }}>{ok?'✓':'✗'}</div>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:'14px',color:'var(--text)',lineHeight:1.2}}>{proj}</div>
+                      <div style={{fontSize:'12px',color:'var(--muted)',fontFamily:'monospace',
+                                   overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.path||'—'}</div>
+                    </div>
+                    <div style={{fontSize:'14px',color:'var(--text2)',fontWeight:500}}>{r.stageCount||0} stages</div>
+                    <div style={{fontSize:'14px',color:'var(--text2)',fontWeight:500}}>{r.elapsed?`${r.elapsed}s`:'—'}</div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:'13px',fontWeight:700,color:ok?'var(--ok)':'var(--err)'}}>{ok?'PASSED':'FAILED'}</div>
+                      <div style={{fontSize:'12px',color:'var(--muted)'}}>{timeSince(r.ts)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Default: Overview
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
-      <PageHeader title="Dashboard" sub="AIDDaaS pipeline overview — ForgeFlow v2.1" />
+      <PageHeader title="Dashboard" sub="AIDDaaS pipeline overview — ForgeFlow v2.2" />
 
       {/* KPI row */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
@@ -2683,7 +2784,7 @@ function DashboardView({ history, connected, onNavigate }) {
 }
 
 // ── Stages — pipeline reference, grouped by phase ─────────────────────────────
-function StagesView() {
+function StagesView({ subView }) {
   const [expanded, setExpanded] = React.useState(null);
   const PHASES = [
     {label:'Analyse',  color:'#6366f1', icon:'🔍', ids:['discover','normalize','docs']},
@@ -2691,6 +2792,33 @@ function StagesView() {
     {label:'Quality',  color:'#059669', icon:'🧪', ids:['e2e','review','test']},
     {label:'Ship',     color:'#0ea5e9', icon:'🚀', ids:['scan','deploy-intent','deploy-design','deploy-validate','secrets','lifecycle','bridge']},
   ];
+
+  // Sub-view: Documentation
+  if (subView === 'docs') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="Stage Documentation" sub="CLI commands and output details for each stage" />
+        <div className="sf-card" style={{overflow:'hidden'}}>
+          {STAGE_INFO_FULL.map((s,i)=>(
+            <div key={s.id} style={{
+              padding:'16px 20px',
+              borderBottom:i<STAGE_INFO_FULL.length-1?'1px solid var(--border-lt)':undefined,
+            }}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                <span style={{fontSize:'1.2rem'}}>{s.emoji}</span>
+                <span style={{fontWeight:700,fontSize:'15px',color:'var(--text)'}}>{s.label}</span>
+                <code style={{fontSize:'12px',background:'var(--bg2)',padding:'2px 8px',borderRadius:4,color:'var(--blue)',fontFamily:'monospace',border:'1px solid var(--border)'}}>forgeflow {s.id}</code>
+              </div>
+              <div style={{fontSize:'14px',color:'var(--muted)',lineHeight:1.5,marginBottom:4,paddingLeft:34}}>{s.consumer}</div>
+              <div style={{fontSize:'13px',color:'var(--light)',fontFamily:'monospace',paddingLeft:34}}>→ {s.outputs}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Default: All Stages overview
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
       <PageHeader title="Pipeline Stages"
@@ -2786,7 +2914,7 @@ function StagesView() {
 }
 
 // ── History — full run log as a sortable table ─────────────────────────────────
-function HistoryView({ history, onClear }) {
+function HistoryView({ history, onClear, subView }) {
   const [filter, setFilter] = React.useState('all'); // all | passed | failed
   const successes = history.filter(r=>r.status==='success').length;
   const failures  = history.length - successes;
@@ -2794,6 +2922,41 @@ function HistoryView({ history, onClear }) {
   const avgTime   = history.filter(r=>r.elapsed).length
     ? Math.round(history.filter(r=>r.elapsed).reduce((a,r)=>a+r.elapsed,0)/history.filter(r=>r.elapsed).length)
     : null;
+
+  // Sub-view: Statistics
+  if (subView === 'stats') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="Run Statistics" sub="Aggregate metrics from your pipeline history" />
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+          <StatTile label="Total Runs"    value={history.length||0}         sub="pipeline executions"   color="#6366f1" icon="▶" />
+          <StatTile label="Success Rate"  value={rate!=null?`${rate}%`:'—'} sub={`${successes} of ${history.length}`} color={rate>=80?'var(--ok)':rate>50?'var(--warn)':'var(--muted)'} icon="◉" />
+          <StatTile label="Avg Time"      value={avgTime?`${avgTime}s`:'—'} sub="per pipeline"         color="var(--text)" icon="⏱" />
+          <StatTile label="Failures"      value={failures}                  sub={failures?'need attention':'all clear'}  color={failures?'var(--err)':'var(--ok)'} icon="✗" />
+        </div>
+        {history.length>0 && (
+          <div className="sf-card">
+            <div className="sf-card-header">Success Rate</div>
+            <div style={{padding:'20px 24px'}}>
+              <div style={{height:16,borderRadius:8,background:'var(--err-bg)',border:'1px solid var(--err-br)',overflow:'hidden'}}>
+                <div style={{height:'100%',borderRadius:8,background:'var(--ok)',width:rate!=null?`${rate}%`:'0%',transition:'width 1s ease'}}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:'13px'}}>
+                <span style={{color:'var(--ok)',fontWeight:600}}>✓ {successes} passed</span>
+                <span style={{color:'var(--err)',fontWeight:600}}>✗ {failures} failed</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {history.length===0 && (
+          <div className="sf-card" style={{padding:'50px 24px',textAlign:'center'}}>
+            <div style={{fontSize:'2.5rem',marginBottom:10}}>◈</div>
+            <div style={{fontSize:'16px',fontWeight:600,color:'var(--muted)'}}>No data yet — run a pipeline first</div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const filtered = history.filter(r=>
     filter==='all' ? true : filter==='passed' ? r.status==='success' : r.status!=='success'
@@ -2913,10 +3076,52 @@ function HistoryView({ history, onClear }) {
 }
 
 // ── Health — system status ────────────────────────────────────────────────────
-function HealthView({ connected, liveState }) {
+function HealthView({ connected, liveState, subView }) {
   const { stages=[], stageState={}, done=false, elapsed=0, totalStages=0 } = liveState;
   const passedCount = Object.values(stageState).filter(s=>s==='success'||s==='preview').length;
   const hasFailed   = Object.values(stageState).some(s=>s==='error');
+
+  // Sub-view: Agent Status
+  if (subView === 'agents') {
+    const agents = STAGE_INFO_FULL.map(s => {
+      const st = stageState[s.id];
+      return { ...s, status: st || 'idle' };
+    });
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="Agent Status" sub="Current state of each pipeline agent" />
+        <div className="sf-card" style={{overflow:'hidden'}}>
+          <div style={{display:'grid',gridTemplateColumns:'36px 1fr 100px 120px',
+                       padding:'8px 18px',background:'#fafbfc',borderBottom:'1px solid var(--border)',
+                       fontSize:'12px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.07em',gap:12}}>
+            <div/><div>Agent</div><div>Stage ID</div><div style={{textAlign:'right'}}>Status</div>
+          </div>
+          {agents.map((a,i)=>{
+            const stColor = a.status==='success'?'var(--ok)':a.status==='error'?'var(--err)':a.status==='running'?'var(--blue)':'var(--light)';
+            const stLabel = a.status==='success'?'Passed':a.status==='error'?'Failed':a.status==='running'?'Running':a.status==='preview'?'Preview':'Idle';
+            return (
+              <div key={a.id} style={{
+                display:'grid',gridTemplateColumns:'36px 1fr 100px 120px',
+                padding:'12px 18px',gap:12,alignItems:'center',
+                borderBottom:i<agents.length-1?'1px solid var(--border-lt)':undefined,
+              }}>
+                <span style={{fontSize:'1.2rem'}}>{a.emoji}</span>
+                <div style={{fontWeight:600,fontSize:'14px',color:'var(--text)'}}>{a.label}</div>
+                <code style={{fontSize:'12px',color:'var(--muted)',fontFamily:'monospace'}}>{a.id}</code>
+                <div style={{textAlign:'right'}}>
+                  <span style={{
+                    fontSize:'12px',fontWeight:700,padding:'3px 10px',borderRadius:20,
+                    color:stColor,background:a.status==='success'?'var(--ok-bg)':a.status==='error'?'var(--err-bg)':'var(--bg2)',
+                    border:`1px solid ${a.status==='success'?'var(--ok-br)':a.status==='error'?'var(--err-br)':'var(--border)'}`,
+                  }}>{stLabel}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   const checks = [
     {category:'Connection', label:'SSE Dashboard Stream', ok:connected,
@@ -3009,8 +3214,389 @@ function HealthView({ connected, liveState }) {
   );
 }
 
+// ── Intelligence Maturity ──────────────────────────────────────────────────────
+
+const INTEL_PHASES = [
+  { level:1, label:'Assisted',  icon:'👁️', color:'#06b6d4', bg:'#06b6d412', border:'#06b6d430', goal:'Build trust, gather data' },
+  { level:2, label:'Automated', icon:'⚙️', color:'#eab308', bg:'#eab30812', border:'#eab30830', goal:'Prove reliability'         },
+  { level:3, label:'Augmented', icon:'🧠', color:'#10b981', bg:'#10b98112', border:'#10b98130', goal:'Learn from decisions'      },
+  { level:4, label:'Agentic',   icon:'🤖', color:'#a855f7', bg:'#a855f712', border:'#a855f730', goal:'Autonomous + guardrails'   },
+];
+const getIntelPhase = (level) => INTEL_PHASES.find(p=>p.level===level) || INTEL_PHASES[0];
+
+const MATURITY_STAGES = [
+  { name:'Discover',         icon:'🔍', phase:'Analyse',  current:1, target:3 },
+  { name:'Normalize',        icon:'📐', phase:'Analyse',  current:2, target:3 },
+  { name:'Docs',             icon:'📝', phase:'Analyse',  current:2, target:3 },
+  { name:'IaC',              icon:'🏗️', phase:'Build',    current:2, target:3 },
+  { name:'CD',               icon:'🚀', phase:'Build',    current:2, target:3 },
+  { name:'CI',               icon:'⚙️', phase:'Build',    current:2, target:3 },
+  { name:'E2E',              icon:'🧪', phase:'Build',    current:2, target:3 },
+  { name:'Review',           icon:'👁️', phase:'Quality',  current:1, target:3 },
+  { name:'Test',             icon:'✅', phase:'Quality',  current:2, target:3 },
+  { name:'Scan',             icon:'🔒', phase:'Quality',  current:2, target:3 },
+  { name:'Deploy Intent',    icon:'🗣️', phase:'Ship',     current:1, target:3 },
+  { name:'Deploy Design',    icon:'🎭', phase:'Ship',     current:2, target:4 },
+  { name:'Deploy Validate',  icon:'🛂', phase:'Ship',     current:2, target:4 },
+  { name:'Secrets',          icon:'🔑', phase:'Ship',     current:2, target:3 },
+  { name:'Lifecycle',        icon:'♻️', phase:'Ship',     current:2, target:4 },
+  { name:'Bridge',           icon:'🌉', phase:'Ship',     current:2, target:4 },
+];
+
+const MATURITY_PERSONAS = [
+  { layer:1, name:'InfraArchitect',  icon:'🏗️', output:'VPC, subnets, firewall',         files:'main.tf, network.tf'          },
+  { layer:1, name:'SecretsManager',  icon:'🔐', output:'Secret inventory, bootstrap',     files:'inventory.yaml, bootstrap.sh' },
+  { layer:2, name:'ClusterBuilder',  icon:'☸️', output:'GKE/EKS cluster',                 files:'cluster.tf, node-pools.tf'    },
+  { layer:2, name:'AppDeployer',     icon:'📦', output:'Container and Helm packaging',    files:'Dockerfile, chart/, HPA'      },
+  { layer:3, name:'Observability',   icon:'📈', output:'Monitoring stack and SLOs',       files:'prometheus.yaml, grafana.json' },
+  { layer:3, name:'SecurityAuditor', icon:'🛡️', output:'Network policies and IAM',        files:'netpol.yaml, pod-security'    },
+  { layer:3, name:'CostGuardian',    icon:'💰', output:'Budget alerts and teardown',      files:'budget.tf, shutdown.yaml'      },
+];
+
+const PHASE_CLR = { Analyse:'#6366f1', Build:'#2563eb', Quality:'#059669', Ship:'#0ea5e9' };
+
+function IntelligenceView({ subView }) {
+  const [maturityData, setMaturityData] = useState(null);
+  const [sortBy, setSortBy] = useState('default');
+
+  useEffect(()=>{
+    fetch('/api/maturity').then(r=>r.ok?r.json():null).then(d=>{if(d)setMaturityData(d);}).catch(()=>{});
+  },[]);
+
+  // Merge live data from API with static stage definitions
+  const stages = MATURITY_STAGES.map(s => {
+    const live = maturityData?.stages?.find(ms => ms.stage === s.name.toLowerCase().replace(/ /g,'-'));
+    return {
+      ...s,
+      runs:    live?.trust?.total_runs ?? 0,
+      success: live?.trust?.reliability ? Math.round(live.trust.reliability / 100 * (live.trust.total_runs||0)) : 0,
+      streak:  live?.trust?.consecutive_successes ?? 0,
+      trust:   live?.trust?.trust_score ?? 0,
+    };
+  });
+
+  const sorted = sortBy==='trust' ? [...stages].sort((a,b)=>b.trust-a.trust)
+               : sortBy==='gap'   ? [...stages].sort((a,b)=>(b.target-b.current)-(a.target-a.current))
+               : stages;
+
+  // ── Sub-views ──
+  if (subView === 'personas') return <IntelPersonasView />;
+
+  if (subView === 'evolution') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="Evolution Roadmap" sub="Intelligence maturity progression path" />
+
+        {/* Current → Target distribution */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+          {INTEL_PHASES.map(p=>{
+            const count  = stages.filter(s=>s.current===p.level).length;
+            const tCount = stages.filter(s=>s.target===p.level).length;
+            return (
+              <div key={p.level} className="sf-card" style={{padding:'18px 20px',borderLeft:`3px solid ${p.color}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:'22px'}}>{p.icon}</span>
+                  <span style={{fontSize:'28px',fontWeight:800,color:p.color}}>{count}</span>
+                </div>
+                <div style={{fontSize:'14px',fontWeight:700,color:'var(--text)',marginBottom:2}}>{p.label}</div>
+                <div style={{fontSize:'12px',color:'var(--muted)'}}>{p.goal}</div>
+                {tCount>0 && <div style={{fontSize:'12px',fontWeight:600,color:p.color,marginTop:8}}>{tCount} stages target this</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Trust earning thresholds */}
+        <div className="sf-card">
+          <div className="sf-card-header">Trust Earning Path</div>
+          <div style={{padding:'16px 20px',display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap'}}>
+            {[
+              {icon:'👁️',label:'Default',        req:'No history',             color:'#06b6d4'},
+              {icon:'⚙️',label:'Automated',       req:'Score ≥ 40 + 3 runs',   color:'#eab308'},
+              {icon:'🧠',label:'Augmented',       req:'Score ≥ 65 + 5 streak', color:'#10b981'},
+              {icon:'🤖',label:'Agentic',         req:'Score ≥ 85 + 10 streak',color:'#a855f7'},
+            ].map((t,i,arr)=>(
+              <React.Fragment key={t.label}>
+                <div style={{
+                  padding:'12px 18px',borderRadius:10,textAlign:'center',minWidth:140,
+                  background:`${t.color}0a`,border:`1px solid ${t.color}25`,
+                }}>
+                  <div style={{fontSize:'20px',marginBottom:4}}>{t.icon}</div>
+                  <div style={{fontSize:'13px',fontWeight:700,color:t.color}}>{t.label}</div>
+                  <div style={{fontSize:'11px',color:'var(--muted)',marginTop:4}}>{t.req}</div>
+                </div>
+                {i<arr.length-1 && <span style={{fontSize:'18px',color:'var(--light)',fontWeight:700}}>→</span>}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* Trust score formula */}
+        <div className="sf-card">
+          <div className="sf-card-header">Trust Score Composition</div>
+          <div style={{padding:'16px 20px',display:'flex',alignItems:'center',justifyContent:'center',gap:10,flexWrap:'wrap'}}>
+            {[
+              {w:'40%',label:'Reliability',  desc:'success / total runs', color:'#2563eb'},
+              {w:'25%',label:'Acceptance',   desc:'suggestions accepted', color:'#6366f1'},
+              {w:'20%',label:'Streak',       desc:'consecutive successes',color:'#eab308'},
+              {w:'15%',label:'Autonomy',     desc:'low override rate',    color:'#10b981'},
+            ].map((c,i,arr)=>(
+              <React.Fragment key={c.label}>
+                <div style={{
+                  padding:'10px 16px',borderRadius:8,textAlign:'center',
+                  background:'var(--bg2)',border:'1px solid var(--border)',
+                }}>
+                  <div style={{fontSize:'20px',fontWeight:800,color:c.color}}>{c.w}</div>
+                  <div style={{fontSize:'11px',fontWeight:700,color:'var(--text)',textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</div>
+                  <div style={{fontSize:'10px',color:'var(--muted)',marginTop:2}}>{c.desc}</div>
+                </div>
+                {i<arr.length-1 && <span style={{fontSize:'14px',color:'var(--light)',fontWeight:700}}>+</span>}
+              </React.Fragment>
+            ))}
+            <span style={{fontSize:'14px',color:'var(--light)',fontWeight:800}}>=</span>
+            <div style={{
+              padding:'10px 18px',borderRadius:8,textAlign:'center',
+              background:'var(--ok-bg)',border:'1px solid var(--ok-br)',
+            }}>
+              <div style={{fontSize:'20px',fontWeight:800,color:'var(--ok)'}}>0–100</div>
+              <div style={{fontSize:'11px',fontWeight:700,color:'var(--ok)',textTransform:'uppercase'}}>Trust Score</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Smart defaults / memory */}
+        <div className="sf-card" style={{borderLeft:'3px solid #10b981'}}>
+          <div className="sf-card-header">🧠 Phase 3 — Per-Repo Memory</div>
+          <div style={{padding:'16px 20px'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',marginBottom:16}}>
+              {['Pipeline Run','run-history.json','Intent Choices','Confidence','🧠 Smart Defaults'].map((n,i,arr)=>(
+                <React.Fragment key={n}>
+                  <span style={{
+                    fontSize:'12px',fontWeight:600,padding:'6px 12px',borderRadius:6,
+                    background:'var(--bg2)',border:'1px solid var(--border)',color:'var(--text)',
+                  }}>{n}</span>
+                  {i<arr.length-1 && <span style={{color:'var(--light)',fontWeight:700}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+            <div style={{display:'flex',justifyContent:'center',gap:16}}>
+              {[
+                {label:'stable',  desc:'Same 3+ times',   color:'var(--ok)'},
+                {label:'recent',  desc:'Used 2+ times',   color:'var(--blue)'},
+                {label:'volatile',desc:'Changes every run',color:'var(--warn)'},
+              ].map(c=>(
+                <div key={c.label} style={{textAlign:'center',padding:'8px 16px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'14px',fontWeight:800,color:c.color}}>{c.label}</div>
+                  <div style={{fontSize:'11px',color:'var(--muted)'}}>{c.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Default: Overview ──
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Intelligence Maturity" sub="4-phase AI evolution overlay — per-stage trust scoring" />
+
+      {/* KPI row */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        <StatTile label="Overall Maturity" value="👁️ Assisted" sub="Limited by 3 Phase-1 stages" color="#06b6d4" icon="🧠" />
+        <StatTile label="Pipeline Stages"  value="16" sub="3 Assisted · 13 Automated" color="var(--text)" icon="⬡" />
+        <StatTile label="Persona Agents"   value="7" sub="3 parallel layers" color="#6366f1" icon="🎭" />
+        <StatTile label="Target State"     value="🧠 / 🤖" sub="12 Augmented · 4 Agentic" color="#10b981" icon="△" />
+      </div>
+
+      {/* Phase distribution */}
+      <div className="sf-card">
+        <div className="sf-card-header" style={{justifyContent:'space-between'}}>
+          <span>Intelligence Distribution</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)'}}>
+          {INTEL_PHASES.map((p,i)=>{
+            const count  = stages.filter(s=>s.current===p.level).length;
+            const tCount = stages.filter(s=>s.target===p.level).length;
+            return (
+              <div key={p.level} style={{
+                padding:'18px 20px', textAlign:'center',
+                borderRight:i<3?'1px solid var(--border)':undefined,
+              }}>
+                <div style={{fontSize:'28px',marginBottom:4}}>{p.icon}</div>
+                <div style={{fontSize:'24px',fontWeight:800,color:p.color}}>{count}</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text)',marginTop:2}}>{p.label}</div>
+                <div style={{fontSize:'11px',color:'var(--muted)',marginTop:4}}>{p.goal}</div>
+                {tCount>0 && <div style={{
+                  fontSize:'11px',fontWeight:600,color:p.color,marginTop:8,
+                  padding:'2px 8px',borderRadius:10,display:'inline-block',
+                  background:p.bg,border:`1px solid ${p.border}`,
+                }}>target: {tCount}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Maturity table */}
+      <div className="sf-card" style={{overflow:'hidden'}}>
+        <div className="sf-card-header" style={{justifyContent:'space-between'}}>
+          <span>Stage Maturity</span>
+          <div style={{display:'flex',gap:4}}>
+            {[{id:'default',label:'Pipeline Order'},{id:'trust',label:'By Trust'},{id:'gap',label:'By Gap'}].map(s=>(
+              <button key={s.id} onClick={()=>setSortBy(s.id)} style={{
+                padding:'4px 10px',borderRadius:6,border:'none',cursor:'pointer',fontSize:'12px',fontWeight:600,
+                fontFamily:'inherit',
+                background:sortBy===s.id?'var(--blue-lt)':'transparent',
+                color:sortBy===s.id?'var(--blue)':'var(--muted)',
+              }}>{s.label}</button>
+            ))}
+          </div>
+        </div>
+        {/* Table header */}
+        <div style={{
+          display:'grid',gridTemplateColumns:'32px 1fr 90px 1fr 60px 60px 80px',
+          padding:'8px 18px',background:'#fafbfc',borderBottom:'1px solid var(--border)',
+          fontSize:'11px',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'0.06em',gap:10,
+        }}>
+          <div/><div>Stage</div><div>Current</div><div>Trust</div><div>Runs</div><div>Streak</div><div style={{textAlign:'right'}}>Gap</div>
+        </div>
+        {sorted.map((s,i)=>{
+          const intel   = getIntelPhase(s.current);
+          const target  = getIntelPhase(s.target);
+          const gap     = s.target - s.current;
+          const pColor  = PHASE_CLR[s.phase] || 'var(--muted)';
+          return (
+            <div key={s.name} style={{
+              display:'grid',gridTemplateColumns:'32px 1fr 90px 1fr 60px 60px 80px',
+              padding:'10px 18px',gap:10,alignItems:'center',
+              borderBottom:i<sorted.length-1?'1px solid var(--border-lt)':undefined,
+              transition:'background .12s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--bg2)'}
+            onMouseLeave={e=>e.currentTarget.style.background=''}
+            >
+              <div style={{fontSize:'16px'}}>{s.icon}</div>
+              <div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text)'}}>{s.name}</div>
+                <div style={{fontSize:'11px',fontWeight:600,color:pColor}}>{s.phase}</div>
+              </div>
+              <div style={{
+                display:'inline-flex',alignItems:'center',gap:4,
+                fontSize:'11px',fontWeight:700,padding:'3px 8px',borderRadius:6,width:'fit-content',
+                background:intel.bg,border:`1px solid ${intel.border}`,color:intel.color,
+              }}>{intel.icon} {intel.label}</div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{flex:1,height:6,borderRadius:3,background:'var(--border)',overflow:'hidden',position:'relative'}}>
+                  <div style={{
+                    height:'100%',borderRadius:3,transition:'width .6s ease',
+                    width:`${Math.max(s.trust,2)}%`,
+                    background:s.trust>=70?'var(--ok)':s.trust>=50?'var(--warn)':'var(--light)',
+                  }}/>
+                  <div style={{
+                    position:'absolute',left:`${(s.target/4)*100}%`,top:0,bottom:0,width:2,
+                    background:target.color,opacity:.4,transform:'translateX(-1px)',
+                  }}/>
+                </div>
+                <span style={{fontSize:'12px',fontWeight:800,color:s.trust>=70?'var(--ok)':s.trust>=50?'var(--warn)':'var(--light)',minWidth:20}}>{s.trust}</span>
+              </div>
+              <div style={{fontSize:'13px',fontWeight:600,color:'var(--text2)'}}>{s.runs}</div>
+              <div style={{fontSize:'13px',fontWeight:600,color:s.streak>=10?'var(--ok)':'var(--text2)'}}>{s.streak}</div>
+              <div style={{textAlign:'right'}}>
+                {gap>0 ? (
+                  <span style={{
+                    fontSize:'11px',fontWeight:700,padding:'3px 8px',borderRadius:6,
+                    background:gap>=2?'#fed7aa40':'#fef08a40',
+                    color:gap>=2?'#ea580c':'#ca8a04',
+                  }}>+{gap} → {target.icon}</span>
+                ) : (
+                  <span style={{fontSize:'11px',color:'var(--ok)',fontWeight:700}}>✓ target</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function IntelPersonasView() {
+  const layers = [
+    { num:1, name:'Foundation', color:'#6366f1', desc:'Infrastructure and secrets — must complete first' },
+    { num:2, name:'Platform',   color:'#2563eb', desc:'Cluster and app deployment — depends on Layer 1' },
+    { num:3, name:'Operations', color:'#059669', desc:'Observability, security, cost — depends on Layer 2' },
+  ];
+  return (
+    <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+      <PageHeader title="Persona Agents" sub="7 specialized agents in 3 dependency layers — orchestrated by Deploy Design" />
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        <StatTile label="Total Personas"   value="7"    sub="across 3 layers"                 color="#6366f1" icon="🎭" />
+        <StatTile label="Artifacts"        value="26+"  sub="Terraform, K8s, CI configs"      color="var(--ok)" icon="📦" />
+        <StatTile label="Execution Model"  value="Parallel" sub="ThreadPoolExecutor fan-out"   color="var(--warn)" icon="⚡" />
+        <StatTile label="Post-Validation"  value="7 checks" sub="Cross-checks after fan-in"   color="var(--blue)" icon="🛂" />
+      </div>
+
+      {layers.map((layer)=>{
+        const agents = MATURITY_PERSONAS.filter(p=>p.layer===layer.num);
+        return (
+          <div key={layer.num} className="sf-card">
+            <div className="sf-card-header" style={{gap:8}}>
+              <span style={{
+                display:'inline-flex',alignItems:'center',justifyContent:'center',
+                width:22,height:22,borderRadius:6,fontSize:'11px',fontWeight:800,
+                background:`${layer.color}18`,color:layer.color,border:`1px solid ${layer.color}30`,
+              }}>{layer.num}</span>
+              <span style={{color:layer.color,fontWeight:700}}>{layer.name}</span>
+              <span style={{fontWeight:400,color:'var(--muted)',fontSize:'13px',marginLeft:4}}>— {layer.desc}</span>
+            </div>
+            <div style={{padding:'12px 16px',display:'grid',gridTemplateColumns:`repeat(${Math.min(agents.length,3)},1fr)`,gap:12}}>
+              {agents.map(a=>(
+                <div key={a.name} style={{
+                  padding:'16px 18px',borderRadius:10,
+                  background:'var(--bg2)',border:'1px solid var(--border)',
+                  transition:'border-color .15s',
+                }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=layer.color+'60'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+                >
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',marginBottom:8}}>
+                    <span style={{fontSize:'24px'}}>{a.icon}</span>
+                    <span style={{width:8,height:8,borderRadius:4,background:'var(--ok)'}}/>
+                  </div>
+                  <div style={{fontSize:'14px',fontWeight:700,color:'var(--text)',marginBottom:4}}>{a.name}</div>
+                  <div style={{fontSize:'13px',color:'var(--muted)',marginBottom:8,lineHeight:1.4}}>{a.output}</div>
+                  <code style={{
+                    fontSize:'11px',color:'var(--light)',padding:'4px 8px',borderRadius:4,
+                    background:'var(--navy)',display:'block',fontFamily:'monospace',
+                  }}>{a.files}</code>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Validation checks */}
+      <div className="sf-card" style={{borderLeft:'3px solid var(--ok)'}}>
+        <div className="sf-card-header">🛂 Post-Merge Validation — 7 Cross-Checks</div>
+        <div style={{padding:'12px 16px',display:'flex',flexWrap:'wrap',gap:8}}>
+          {['Secrets inventory','Cron validity','Date freshness','SLO targets','Hash integrity','TF var consistency','Image repo'].map(c=>(
+            <span key={c} style={{
+              fontSize:'12px',fontWeight:600,padding:'5px 12px',borderRadius:20,
+              background:'var(--ok-bg)',color:'var(--ok)',border:'1px solid var(--ok-br)',
+            }}>✓ {c}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Settings — configuration & CLI reference ──────────────────────────────────
-function SettingsView() {
+function SettingsView({ subView }) {
   const [copied, setCopied] = React.useState(null);
   const copy = (cmd) => {
     navigator.clipboard?.writeText(cmd).catch(()=>{});
@@ -3018,16 +3604,41 @@ function SettingsView() {
   };
 
   const platform = [
-    {k:'Version',        v:'v2.1.0',                    icon:'◈'},
+    {k:'Version',        v:'v2.2.0',                    icon:'◈'},
     {k:'Architecture',   v:'Agent → MCP → Tool',        icon:'⬡'},
-    {k:'AI Agents',      v:'13 production-ready',        icon:'▶'},
-    {k:'Core Stages',    v:'11 (discover → bridge)',     icon:'⚡'},
+    {k:'AI Agents',      v:'21 production-ready',        icon:'▶'},
+    {k:'Core Stages',    v:'16 (discover → bridge)',     icon:'⚡'},
     {k:'CI Generator',   v:'GitHub Actions · GitLab CI', icon:'⚙'},
     {k:'Cloud Support',  v:'AWS · GCP · Azure',          icon:'☁️'},
     {k:'CD Engine',      v:'ArgoCD + Kustomize',         icon:'🚀'},
     {k:'E2E Framework',  v:'Playwright',                 icon:'🧪'},
     {k:'Pricing',        v:'🆓 NoCaaS — zero cost',      icon:'◉'},
   ];
+
+  // Sub-view: About
+  if (subView === 'about') {
+    return (
+      <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
+        <PageHeader title="About SevaForge" sub="AIDDaaS — AI-Driven Development as a Service" />
+        <div className="sf-card" style={{padding:'32px',textAlign:'center'}}>
+          <div style={{fontSize:'3rem',marginBottom:12}}>🔥</div>
+          <div style={{fontSize:'22px',fontWeight:800,color:'var(--text)',marginBottom:4}}>SevaForge</div>
+          <div style={{fontSize:'14px',color:'var(--muted)',marginBottom:20}}>Intelligence-Maturity Platform Engineering CLI</div>
+          <div style={{display:'flex',justifyContent:'center',gap:12,flexWrap:'wrap'}}>
+            {platform.map(({k,v,icon})=>(
+              <div key={k} style={{
+                padding:'8px 14px',borderRadius:8,background:'var(--bg2)',border:'1px solid var(--border)',
+                textAlign:'left',minWidth:160,
+              }}>
+                <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:2}}>{icon} {k}</div>
+                <div style={{fontSize:'14px',fontWeight:700,color:'var(--text)'}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const cmds = [
     {desc:'Open dashboard only',          cmd:'forgeflow dashboard'},
@@ -3041,7 +3652,7 @@ function SettingsView() {
 
   return (
     <div className="fade-in" style={{display:'flex',flexDirection:'column',gap:20}}>
-      <PageHeader title="Settings" sub="Platform configuration · Sevaforge AIDDaaS · ForgeFlow v2.1" />
+      <PageHeader title="Settings" sub="Platform configuration · SevaForge — Agentic AI Driven Platform Engineering · ForgeFlow v2.1" />
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,alignItems:'start'}}>
         {/* Left: Platform info */}
@@ -3093,6 +3704,185 @@ function SettingsView() {
 }
 
 // ── App shell ─────────────────────────────────────────────────────────────────
+// ── Guide View ──────────────────────────────────────────────────────────────
+function GuideView({ subView }) {
+  const sectionStyle = {
+    borderLeft:'2px solid var(--border)', paddingLeft:16, marginBottom:20,
+    transition:'border-color .15s',
+  };
+  const headStyle = { fontSize:'16px', fontWeight:800, marginBottom:8 };
+  const paraStyle = { fontSize:'14px', color:'var(--muted)', lineHeight:1.6, marginBottom:8 };
+  const stepStyle = { display:'flex', alignItems:'center', gap:8, fontSize:'14px', color:'var(--text2)', marginBottom:4 };
+  const numStyle  = { fontWeight:800, color:'var(--blue)', minWidth:18 };
+  const agentRow  = { display:'flex', gap:8, marginBottom:4, fontSize:'14px' };
+  const agentName = { fontWeight:700, color:'var(--text)', minWidth:90, flexShrink:0 };
+  const phaseChip = (bg, color, text) => ({
+    display:'inline-block', padding:'2px 8px', borderRadius:4, fontSize:'12px',
+    fontWeight:700, background:bg, color:color, marginRight:6, minWidth:60, textAlign:'center',
+  });
+
+  // Sub-view: Quick Start
+  if (subView === 'overview' || !subView) return (
+    <div className="fade-in">
+      <PageHeader title="Quick Start Guide" sub="Get up and running with SevaForge in 4 simple steps" />
+      <div className="sf-card" style={{padding:'20px 24px'}}>
+        <div style={sectionStyle}>
+          <div style={headStyle}>Getting Started</div>
+          <p style={paraStyle}>
+            SevaForge is an Agentic AI Driven Platform Engineering tool. Point it at any codebase
+            and it generates production-ready infrastructure, CI/CD pipelines, security scanning,
+            end-to-end tests, observability stacks, and full documentation — all pushed to GitHub automatically.
+          </p>
+          <div style={stepStyle}><span style={numStyle}>1.</span> Select a project folder using <b>Browse</b> or paste a path</div>
+          <div style={stepStyle}><span style={numStyle}>2.</span> Click <b>"Run Full Pipeline"</b> to start the analysis</div>
+          <div style={stepStyle}><span style={numStyle}>3.</span> Monitor real-time progress across all <b>16 stages</b></div>
+          <div style={stepStyle}><span style={numStyle}>4.</span> Review the generated files and <b>push to GitHub</b></div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={headStyle}>Dashboard Navigation</div>
+          <p style={paraStyle}>Use the sidebar to navigate between views:</p>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>▶</span> <b>Pipeline</b> — Launch and monitor pipeline runs</div>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>◈</span> <b>Dashboard</b> — Overview of recent activity and system status</div>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>🧠</span> <b>Intel</b> — Intelligence maturity scores and trust evolution</div>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>⬡</span> <b>Stages</b> — Detailed view of all 16 pipeline stages</div>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>⊙</span> <b>History</b> — Past pipeline runs and statistics</div>
+          <div style={stepStyle}><span style={{fontSize:'14px'}}>♡</span> <b>Health</b> — System health and agent status</div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={headStyle}>Tips</div>
+          <p style={paraStyle}>• Use <b>Dry Run</b> mode to preview all outputs without writing files to disk</p>
+          <p style={paraStyle}>• Check the <b>Intel</b> tab to watch your trust scores evolve over multiple runs</p>
+          <p style={paraStyle}>• The <b>History</b> tab keeps a record of every pipeline run and its results</p>
+          <p style={paraStyle}>• CLI command: <code style={{fontFamily:'monospace',background:'var(--bg2)',padding:'2px 6px',borderRadius:4}}>forgeflow dashboard</code> to launch this UI anytime</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Sub-view: Pipeline Guide
+  if (subView === 'pipeline') return (
+    <div className="fade-in">
+      <PageHeader title="Pipeline Guide" sub="Understanding the 4-phase, 16-stage pipeline" />
+      <div className="sf-card" style={{padding:'20px 24px'}}>
+        <div style={sectionStyle}>
+          <div style={{...headStyle, color:'#7c3aed'}}>Phase 1 — Analyse</div>
+          <p style={paraStyle}>Scans your codebase, detects the tech stack, normalizes project structure, generates documentation, and captures your intent.</p>
+          <div style={stepStyle}>🔍 <b>Discover</b> — Scan project files, detect languages, frameworks, dependencies</div>
+          <div style={stepStyle}>📐 <b>Normalize</b> — Standardize folder structure and naming conventions</div>
+          <div style={stepStyle}>📝 <b>Document</b> — Generate README, API docs, architecture diagrams</div>
+          <div style={stepStyle}>🗣️ <b>Intent</b> — Understand project goals and deployment requirements</div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={{...headStyle, color:'#d97706'}}>Phase 2 — Build</div>
+          <p style={paraStyle}>Generates Terraform, Dockerfiles, ArgoCD configs, GitHub Actions workflows, and architecture designs tailored to your stack.</p>
+          <div style={stepStyle}>🏗️ <b>IaC Gen</b> — Create Terraform modules and Docker configurations</div>
+          <div style={stepStyle}>🚀 <b>CD Setup</b> — Generate ArgoCD manifests and Kustomize overlays</div>
+          <div style={stepStyle}>⚙️ <b>CI Setup</b> — Build GitHub Actions workflows for your stack</div>
+          <div style={stepStyle}>🎭 <b>Design</b> — Create architecture plans and deployment topology</div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={{...headStyle, color:'#059669'}}>Phase 3 — Quality</div>
+          <p style={paraStyle}>Creates Playwright E2E tests, runs AI-powered code reviews, performs security scans, and cross-validates all outputs.</p>
+          <div style={stepStyle}>🧪 <b>E2E Tests</b> — Generate Playwright test suites from app routes</div>
+          <div style={stepStyle}>👁️ <b>Review</b> — AI-powered code review of all generated files</div>
+          <div style={stepStyle}>🔒 <b>Security</b> — CVE scanning, secret detection, SARIF reports</div>
+          <div style={stepStyle}>✅ <b>Validate</b> — Cross-check all configs for consistency</div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={{...headStyle, color:'#2563eb'}}>Phase 4 — Ship</div>
+          <p style={paraStyle}>Sets up observability, assembles the final package, runs quality gates, and delivers everything to GitHub.</p>
+          <div style={stepStyle}>📈 <b>Observability</b> — Prometheus metrics, Grafana dashboards, alerting rules</div>
+          <div style={stepStyle}>🌉 <b>Bridge</b> — Assemble all artifacts into final package</div>
+          <div style={stepStyle}>🛂 <b>Gate</b> — Quality gate checks before delivery</div>
+          <div style={stepStyle}>📦 <b>Deliver</b> — Push everything to your GitHub repository</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Sub-view: AI Agents
+  if (subView === 'agents') return (
+    <div className="fade-in">
+      <PageHeader title="AI Agents" sub="7 specialized agents collaborate on every pipeline run" />
+      <div className="sf-card" style={{padding:'20px 24px'}}>
+        <p style={{...paraStyle, marginBottom:16}}>
+          SevaForge uses specialized AI agents that work together across your pipeline.
+          Each agent focuses on a specific domain and validates its outputs against the others
+          to ensure reliability and consistency.
+        </p>
+        <div style={sectionStyle}>
+          <div style={agentRow}><span style={agentName}>🔍 Scout</span><span style={{color:'var(--muted)'}}>Discovers project structure, dependencies, languages, and tech stack</span></div>
+          <div style={agentRow}><span style={agentName}>🏗️ Architect</span><span style={{color:'var(--muted)'}}>Designs infrastructure topology, cloud layout, and deployment strategy</span></div>
+          <div style={agentRow}><span style={agentName}>⚙️ Builder</span><span style={{color:'var(--muted)'}}>Generates IaC, CI/CD pipelines, and container configurations</span></div>
+          <div style={agentRow}><span style={agentName}>🧪 Tester</span><span style={{color:'var(--muted)'}}>Creates end-to-end test suites from your app's routes and interactions</span></div>
+          <div style={agentRow}><span style={agentName}>🔒 Guardian</span><span style={{color:'var(--muted)'}}>Scans for vulnerabilities, exposed secrets, and compliance issues</span></div>
+          <div style={agentRow}><span style={agentName}>📝 Scribe</span><span style={{color:'var(--muted)'}}>Writes README, API documentation, runbooks, and architecture docs</span></div>
+          <div style={agentRow}><span style={agentName}>🎯 Orchestrator</span><span style={{color:'var(--muted)'}}>Coordinates all agents, resolves conflicts, and ensures quality</span></div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={headStyle}>How Agents Collaborate</div>
+          <p style={paraStyle}>Agents work in three layers:</p>
+          <div style={stepStyle}><b>Layer 1 — Discovery:</b> Scout analyzes the codebase and shares findings with all other agents</div>
+          <div style={stepStyle}><b>Layer 2 — Generation:</b> Architect, Builder, Tester, and Scribe work in parallel using Scout's data</div>
+          <div style={stepStyle}><b>Layer 3 — Validation:</b> Guardian reviews everything, Orchestrator resolves conflicts</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Sub-view: Intelligence Maturity
+  if (subView === 'maturity') return (
+    <div className="fade-in">
+      <PageHeader title="Intelligence Maturity" sub="How SevaForge learns from your decisions over time" />
+      <div className="sf-card" style={{padding:'20px 24px'}}>
+        <p style={{...paraStyle, marginBottom:16}}>
+          SevaForge remembers your choices and gets smarter with every run.
+          Each pipeline stage progresses through 4 maturity phases based on a Trust Score.
+        </p>
+        <div style={sectionStyle}>
+          <div style={headStyle}>4 Maturity Phases</div>
+          <div style={{...stepStyle, marginBottom:8}}>
+            <span style={phaseChip('var(--bg2)','var(--text)','Phase 1')}>Phase 1</span>
+            <b>Assisted</b> — Suggests defaults, you confirm every time
+          </div>
+          <div style={{...stepStyle, marginBottom:8}}>
+            <span style={phaseChip('#eff6ff','#2563eb','Phase 2')}>Phase 2</span>
+            <b>Automated</b> — Applies stable patterns automatically, flags changes only
+          </div>
+          <div style={{...stepStyle, marginBottom:8}}>
+            <span style={phaseChip('#ede9fe','#7c3aed','Phase 3')}>Phase 3</span>
+            <b>Augmented</b> — Adapts to new patterns, learns from your feedback
+          </div>
+          <div style={{...stepStyle, marginBottom:8}}>
+            <span style={phaseChip('#fef3c7','#d97706','Phase 4')}>Phase 4</span>
+            <b>Agentic</b> — Fully autonomous decisions backed by high trust scores
+          </div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={headStyle}>Trust Score</div>
+          <p style={paraStyle}>
+            Each stage earns a Trust Score (0–100) based on four factors:
+          </p>
+          <div style={stepStyle}><b>Reliability (40%)</b> — How often the stage succeeds without errors</div>
+          <div style={stepStyle}><b>Acceptance (25%)</b> — How often you accept the generated output without changes</div>
+          <div style={stepStyle}><b>Streak (20%)</b> — Consecutive successful runs without overrides</div>
+          <div style={stepStyle}><b>Low Override (15%)</b> — Fewer manual overrides means higher trust</div>
+        </div>
+        <div style={sectionStyle}>
+          <div style={headStyle}>Smart Defaults</div>
+          <p style={paraStyle}>
+            SevaForge stores per-repo memory in <code style={{fontFamily:'monospace',background:'var(--bg2)',padding:'2px 6px',borderRadius:4}}>.sevaforge/run-history.json</code>.
+            After 3+ consistent runs, choices become "stable" defaults that apply automatically.
+            You can always override any default — your overrides feed back into the learning loop.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
 function App() {
   const [view,    setView]    = useState('live');
   const [history, setHistory] = useState([]);
@@ -3197,28 +3987,32 @@ function App() {
   const showIdle = !pipelineActive;
 
   const breadcrumbs = {
-    live:'Run Pipeline', dashboard:'Dashboard', pipeline:'Pipeline Stages',
-    history:'History', health:'System Health', settings:'Settings',
+    live:'Run Pipeline', dashboard:'Dashboard', intelligence:'Intelligence Maturity',
+    pipeline:'Pipeline Stages', history:'History', health:'System Health', settings:'Settings', guide:'User Guide',
   };
 
   // Sub-nav items per view
   const subNavItems = {
-    live:      [{id:'overview',label:'Overview',icon:'◉'},{id:'stages',label:'Stage Detail',icon:'⬡'},{id:'logs',label:'Activity Log',icon:'≡'},{id:'options',label:'Run Options',icon:'⚙'}],
-    dashboard: [{id:'overview',label:'Overview',icon:'◉'},{id:'recent',label:'Recent Runs',icon:'⊙'},{id:'system',label:'System Health',icon:'♡'}],
-    pipeline:  [{id:'overview',label:'All Stages',icon:'◉'},{id:'docs',label:'Documentation',icon:'≡'}],
-    history:   [{id:'overview',label:'Run History',icon:'⊙'},{id:'stats',label:'Statistics',icon:'◈'}],
-    health:    [{id:'overview',label:'Health Check',icon:'♡'},{id:'agents',label:'Agent Status',icon:'⬡'}],
-    settings:  [{id:'overview',label:'Configuration',icon:'⚙'},{id:'about',label:'About',icon:'◉'}],
+    live:         [{id:'overview',label:'Overview',icon:'◉'},{id:'stages',label:'Stage Detail',icon:'⬡'},{id:'logs',label:'Activity Log',icon:'≡'},{id:'options',label:'Run Options',icon:'⚙'}],
+    dashboard:    [{id:'overview',label:'Overview',icon:'◉'},{id:'recent',label:'Recent Runs',icon:'⊙'},{id:'system',label:'System Health',icon:'♡'}],
+    intelligence: [{id:'overview',label:'Overview',icon:'◉'},{id:'evolution',label:'Evolution',icon:'△'},{id:'personas',label:'Personas',icon:'🎭'}],
+    pipeline:     [{id:'overview',label:'All Stages',icon:'◉'},{id:'docs',label:'Documentation',icon:'≡'}],
+    history:      [{id:'overview',label:'Run History',icon:'⊙'},{id:'stats',label:'Statistics',icon:'◈'}],
+    health:       [{id:'overview',label:'Health Check',icon:'♡'},{id:'agents',label:'Agent Status',icon:'⬡'}],
+    settings:     [{id:'overview',label:'Configuration',icon:'⚙'},{id:'about',label:'About',icon:'◉'}],
+    guide:        [{id:'overview',label:'Quick Start',icon:'▶'},{id:'pipeline',label:'Pipeline Guide',icon:'⬡'},{id:'agents',label:'AI Agents',icon:'🤖'},{id:'maturity',label:'Intelligence',icon:'🧠'}],
   };
   const [subView, setSubView] = React.useState('overview');
 
   const iconNav = [
-    {id:'live',      symbol:'▶', label:'Pipeline'},
-    {id:'dashboard', symbol:'◈', label:'Dashboard'},
-    {id:'pipeline',  symbol:'⬡', label:'Stages'},
-    {id:'history',   symbol:'⊙', label:'History'},
-    {id:'health',    symbol:'♡', label:'Health'},
-    {id:'settings',  symbol:'⚙', label:'Settings'},
+    {id:'live',         symbol:'▶', label:'Pipeline'},
+    {id:'dashboard',    symbol:'◈', label:'Dashboard'},
+    {id:'intelligence', symbol:'🧠', label:'Intel'},
+    {id:'pipeline',     symbol:'⬡', label:'Stages'},
+    {id:'history',      symbol:'⊙', label:'History'},
+    {id:'health',       symbol:'♡', label:'Health'},
+    {id:'settings',     symbol:'⚙', label:'Settings'},
+    {id:'guide',         symbol:'📖', label:'Guide'},
   ];
 
   const _appRawFolder = liveState.pipelinePath
@@ -3391,7 +4185,7 @@ function App() {
         {(!pipelineActive || view!=='live') && (
           <div className="sf-topbar">
             <div className="sf-breadcrumb">
-              <span style={{opacity:.6}}>Sevaforge</span>
+              <span style={{opacity:.6}}>SevaForge</span>
               <span style={{color:'var(--border)',fontSize:'18px',fontWeight:300}}>›</span>
               <span className="current">{breadcrumbs[view]||view}</span>
             </div>
@@ -3402,7 +4196,7 @@ function App() {
                   {done?'← View Results':'↗ View Live Run'}
                 </button>
               )}
-              <span className="sf-version-chip">v2.1.0</span>
+              <span className="sf-version-chip">v2.2.0</span>
             </div>
           </div>
         )}
@@ -3414,14 +4208,16 @@ function App() {
               ? <IdleScreen connected={connected} onLaunch={()=>setView('live')} />
               : <RunningView liveState={liveState} logs={logs} onReset={handleReset} />
           )}
-          {view==='dashboard' && <DashboardView history={history} connected={connected} onNavigate={setView} />}
-          {view==='pipeline'  && <StagesView />}
-          {view==='history'   && <HistoryView history={history} onClear={()=>{
+          {view==='dashboard'    && <DashboardView history={history} connected={connected} onNavigate={setView} subView={subView} />}
+          {view==='intelligence' && <IntelligenceView subView={subView} />}
+          {view==='pipeline'     && <StagesView subView={subView} />}
+          {view==='history'      && <HistoryView history={history} subView={subView} onClear={()=>{
             fetch('/api/history/clear',{method:'POST'}).catch(()=>{});
             setHistory([]);
           }} />}
-          {view==='health'    && <HealthView connected={connected} liveState={liveState} />}
-          {view==='settings'  && <SettingsView />}
+          {view==='health'       && <HealthView connected={connected} liveState={liveState} subView={subView} />}
+          {view==='settings'     && <SettingsView subView={subView} />}
+          {view==='guide'        && <GuideView subView={subView} />}
         </div>
       </div>
 
