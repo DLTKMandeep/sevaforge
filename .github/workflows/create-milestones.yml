@@ -1,0 +1,103 @@
+name: Create Sprint Milestones
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-milestones:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create Milestones and Assign Issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const milestones = [
+              {
+                title: 'Sprint 2 — Wire Smart Path + First 5 LLM Agents',
+                description: 'CLI --ai flag, execute_smart() wiring, confidence scoring, ModelRouter init, 5 agent LLM implementations.\nEpics: E1, E2, E3.',
+                due_on: '2026-07-10T07:00:00Z'
+              },
+              {
+                title: 'Sprint 3 — Data Layer & Persistence',
+                description: 'File ingestion pipeline, Git repo ingestion, ChromaDB persistent vector store, sentence-transformers embeddings, RAG CLI commands.\nEpics: E4, E5.',
+                due_on: '2026-07-24T07:00:00Z'
+              },
+              {
+                title: 'Sprint 4 — Feedback, Cost & Scale',
+                description: 'Feedback capture + auto-scoring, confidence calibration, cost tracking + budgets, cost-aware routing, 6+ LLM agent conversions, prompt library, E2E integration test.\nEpics: E6, E7, E8.',
+                due_on: '2026-08-07T07:00:00Z'
+              }
+            ];
+
+            const milestoneNumbers = {};
+            for (const m of milestones) {
+              try {
+                const result = await github.rest.issues.createMilestone({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: m.title,
+                  description: m.description,
+                  due_on: m.due_on
+                });
+                milestoneNumbers[m.title] = result.data.number;
+                core.info(`Created milestone: ${m.title} (#${result.data.number})`);
+              } catch (err) {
+                if (err.status === 422) {
+                  const existing = await github.rest.issues.listMilestones({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    state: 'open'
+                  });
+                  const found = existing.data.find(ms => ms.title === m.title);
+                  if (found) {
+                    milestoneNumbers[m.title] = found.number;
+                    core.info(`Milestone already exists: ${m.title} (#${found.number})`);
+                  }
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            const sprintMap = {
+              'sprint-2': milestoneNumbers['Sprint 2 — Wire Smart Path + First 5 LLM Agents'],
+              'sprint-3': milestoneNumbers['Sprint 3 — Data Layer & Persistence'],
+              'sprint-4': milestoneNumbers['Sprint 4 — Feedback, Cost & Scale']
+            };
+
+            core.info(`Sprint map: ${JSON.stringify(sprintMap)}`);
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            core.info(`Found ${issues.length} open issues`);
+
+            let assigned = 0;
+            for (const issue of issues) {
+              if (issue.pull_request) continue;
+              const labels = issue.labels.map(l => l.name);
+              let milestone = null;
+
+              if (labels.includes('sprint-2')) milestone = sprintMap['sprint-2'];
+              else if (labels.includes('sprint-3')) milestone = sprintMap['sprint-3'];
+              else if (labels.includes('sprint-4')) milestone = sprintMap['sprint-4'];
+
+              if (milestone && (!issue.milestone || issue.milestone.number !== milestone)) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  milestone: milestone
+                });
+                assigned++;
+                core.info(`Assigned #${issue.number} (${issue.title}) -> milestone ${milestone}`);
+              }
+            }
+
+            core.info(`Done! Assigned ${assigned} issues to milestones.`);
