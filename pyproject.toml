@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "sevaforge"
@@ -47,8 +47,8 @@ all = ["sevaforge[ai,cache,observability,dev]"]
 [project.scripts]
 sevaforge = "sevaforge.__main__:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/sevaforge"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["src/sevaforge/tests"]
