@@ -48,9 +48,29 @@ class Settings(BaseSettings):
     cache_similarity_threshold: float = 0.95
     schema_gate_max_retries: int = 3
 
-    # ── Database (for future use) ──────────────────────────────────────
+    # ── Database ──────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///./sevaforge.db"
+    db_pool_min: int = 2
+    db_pool_max: int = 20
+
+    # ── Redis ─────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"
+    redis_session_ttl: int = 3600
+    redis_rate_limit_max: int = 100
+    redis_rate_limit_refill: float = 10.0
+
+    # ── Knowledge Layer ───────────────────────────────────────────────
+    search_rrf_k: int = 60
+    search_default_top_k: int = 10
+    search_vector_weight: float = 0.5
+    search_bm25_weight: float = 0.5
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-12-v2"
+    reranker_top_k: int = 10
+
+    # ── Orchestration ─────────────────────────────────────────────────
+    context_max_sessions: int = 10000
+    context_max_history: int = 200
+    a2a_max_history: int = 10000
 
     # ── Observability ──────────────────────────────────────────────────
     otel_enabled: bool = False
