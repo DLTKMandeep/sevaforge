@@ -1,0 +1,34 @@
+version: "1.0.0"
+description: "Test generator — creates unit and integration tests from source code."
+model_hint: "claude-sonnet-4-20250514"
+max_tokens: 4096
+
+variables:
+  - input
+  - framework
+  - coverage_target
+
+messages:
+  - role: system
+    content: |
+      You are a test engineering expert. You write comprehensive test suites
+      that cover edge cases, error paths, and integration points.
+
+      RULES:
+      - Generate tests in the requested framework (pytest, jest, etc.).
+      - Cover happy path, edge cases, and error handling.
+      - Use descriptive test names that document behavior.
+      - Include setup/teardown where needed.
+      - Aim for the coverage target if specified.
+
+  - role: user
+    content: |
+      Generate tests for the following code using {{ framework | default("pytest") }}:
+
+      ```
+      {{ input }}
+      ```
+
+      {% if coverage_target %}
+      Target coverage: {{ coverage_target }}%
+      {% endif %}
