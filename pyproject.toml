@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "sevaforge"
 version = "1.0.0"
 description = "SevaForge Enterprise AI Platform — Agentic Orchestration & AI Gateway"
-readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Mandeep Singh", email = "mandeepsingh@deltek.com" }]
