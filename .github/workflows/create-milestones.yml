@@ -2,6 +2,9 @@ name: Create Sprint Milestones
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/create-milestones.yml'
 
 jobs:
   setup-milestones:
@@ -13,26 +16,59 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // ── Define all milestones ──────────────────────────────────
             const milestones = [
+              // Original RAG-evolution sprints
               {
                 title: 'Sprint 2 — Wire Smart Path + First 5 LLM Agents',
                 description: 'CLI --ai flag, execute_smart() wiring, confidence scoring, ModelRouter init, 5 agent LLM implementations.\nEpics: E1, E2, E3.',
-                due_on: '2026-07-10T07:00:00Z'
+                due_on: '2026-07-10T07:00:00Z',
+                labels: ['sprint-2']
               },
               {
                 title: 'Sprint 3 — Data Layer & Persistence',
                 description: 'File ingestion pipeline, Git repo ingestion, ChromaDB persistent vector store, sentence-transformers embeddings, RAG CLI commands.\nEpics: E4, E5.',
-                due_on: '2026-07-24T07:00:00Z'
+                due_on: '2026-07-24T07:00:00Z',
+                labels: ['sprint-3']
               },
               {
                 title: 'Sprint 4 — Feedback, Cost & Scale',
                 description: 'Feedback capture + auto-scoring, confidence calibration, cost tracking + budgets, cost-aware routing, 6+ LLM agent conversions, prompt library, E2E integration test.\nEpics: E6, E7, E8.',
-                due_on: '2026-08-07T07:00:00Z'
+                due_on: '2026-08-07T07:00:00Z',
+                labels: ['sprint-4']
+              },
+              // Enterprise AI Platform weekly milestones
+              {
+                title: 'Week 1 — Foundation + AI Gateway',
+                description: 'FastAPI REST API, React Web Dashboard, SSE Streaming, Prompt Assembly Engine, Semantic Cache, Schema Gate.\nEpics: E9 (Experience Layer), E13 (AI Gateway).',
+                due_on: '2026-06-05T07:00:00Z',
+                labels: ['week-1']
+              },
+              {
+                title: 'Week 2 — Orchestration + Data + Knowledge',
+                description: 'A2A Protocol, Workflow Engine (DAG), Context Memory, Hybrid Search, Knowledge Graph, Cross-Encoder Reranking, PostgreSQL Data Layer, Redis Cache & Events.\nEpics: E11 (Orchestration), E14 (Knowledge), E15 (Data & Memory).',
+                due_on: '2026-06-12T07:00:00Z',
+                labels: ['week-2']
+              },
+              {
+                title: 'Week 3 — Edge + Trust + FinOps + Tools',
+                description: 'JWT Auth & RBAC, Rate Limiting, Semantic Tool Discovery, External API Connectors, AI Guardrails, OpenTelemetry, Audit Trail, Cost Attribution, Budget Quotas.\nEpics: E10 (API Gateway), E12 (Tools), E17 (Trust), E18 (FinOps).',
+                due_on: '2026-06-19T07:00:00Z',
+                labels: ['week-3']
+              },
+              {
+                title: 'Week 4 — Infrastructure + Learning Loop',
+                description: 'Kubernetes Deployment, GitOps CI/CD, Eval Pipeline, A/B Testing, Automated Re-indexing.\nEpics: E16 (Infrastructure), E19 (Continuous Learning).',
+                due_on: '2026-06-26T07:00:00Z',
+                labels: ['week-4']
               }
             ];
 
-            const milestoneNumbers = {};
+            // ── Create milestones ──────────────────────────────────────
+            const labelToMilestone = {};
+
             for (const m of milestones) {
+              let msNumber;
               try {
                 const result = await github.rest.issues.createMilestone({
                   owner: context.repo.owner,
@@ -41,34 +77,36 @@ jobs:
                   description: m.description,
                   due_on: m.due_on
                 });
-                milestoneNumbers[m.title] = result.data.number;
-                core.info(`Created milestone: ${m.title} (#${result.data.number})`);
+                msNumber = result.data.number;
+                core.info(`✅ Created milestone: "${m.title}" (#${msNumber})`);
               } catch (err) {
                 if (err.status === 422) {
                   const existing = await github.rest.issues.listMilestones({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    state: 'open'
+                    state: 'open',
+                    per_page: 100
                   });
                   const found = existing.data.find(ms => ms.title === m.title);
                   if (found) {
-                    milestoneNumbers[m.title] = found.number;
-                    core.info(`Milestone already exists: ${m.title} (#${found.number})`);
+                    msNumber = found.number;
+                    core.info(`✅ Milestone already exists: "${m.title}" (#${msNumber})`);
+                  } else {
+                    core.error(`❌ Could not create or find milestone: ${m.title}`);
+                    continue;
                   }
                 } else {
                   throw err;
                 }
               }
+              for (const label of m.labels) {
+                labelToMilestone[label] = msNumber;
+              }
             }
 
-            const sprintMap = {
-              'sprint-2': milestoneNumbers['Sprint 2 — Wire Smart Path + First 5 LLM Agents'],
-              'sprint-3': milestoneNumbers['Sprint 3 — Data Layer & Persistence'],
-              'sprint-4': milestoneNumbers['Sprint 4 — Feedback, Cost & Scale']
-            };
+            core.info(`\nLabel → Milestone map: ${JSON.stringify(labelToMilestone)}`);
 
-            core.info(`Sprint map: ${JSON.stringify(sprintMap)}`);
-
+            // ── Fetch all open issues ──────────────────────────────────
             const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -76,28 +114,34 @@ jobs:
               per_page: 100
             });
 
-            core.info(`Found ${issues.length} open issues`);
+            core.info(`\nFound ${issues.length} open items (issues + PRs)`);
 
+            // ── Assign issues to milestones based on labels ───────────
             let assigned = 0;
             for (const issue of issues) {
               if (issue.pull_request) continue;
               const labels = issue.labels.map(l => l.name);
-              let milestone = null;
+              let milestoneNum = null;
 
-              if (labels.includes('sprint-2')) milestone = sprintMap['sprint-2'];
-              else if (labels.includes('sprint-3')) milestone = sprintMap['sprint-3'];
-              else if (labels.includes('sprint-4')) milestone = sprintMap['sprint-4'];
+              // Check all known sprint/week labels
+              for (const label of labels) {
+                if (labelToMilestone[label]) {
+                  milestoneNum = labelToMilestone[label];
+                  break;
+                }
+              }
 
-              if (milestone && (!issue.milestone || issue.milestone.number !== milestone)) {
+              if (milestoneNum && (!issue.milestone || issue.milestone.number !== milestoneNum)) {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issue.number,
-                  milestone: milestone
+                  milestone: milestoneNum
                 });
                 assigned++;
-                core.info(`Assigned #${issue.number} (${issue.title}) -> milestone ${milestone}`);
+                const matchedLabel = labels.find(l => labelToMilestone[l]);
+                core.info(`  ✅ #${issue.number} ${issue.title} → ${matchedLabel}`);
               }
             }
 
-            core.info(`Done! Assigned ${assigned} issues to milestones.`);
+            core.info(`\n🎉 Done! Created 7 milestones, assigned ${assigned} issues.`);
