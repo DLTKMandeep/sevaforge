@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SevaForge Admin Dashboard</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  .sidebar-item { transition: all 0.15s ease; }
+  .sidebar-item:hover { background: rgba(255,255,255,0.08); }
+  .card-hover { transition: all 0.2s ease; }
+  .card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+  .fade-in { animation: fadeIn 0.3s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .pulse-dot { animation: pulse-dot 2s infinite; }
+  .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #2563eb; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+    }
+  }
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ── API Layer ──────────────────────────────────────────────────────────
+const API = 'http://localhost:8000/api/v1';
+
+async function fetchAPI(path, options = {}) {
+  try {
+    const res = await fetch(`${API}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.error(`API error: ${path}`, e);
+    return null;
+  }
+}
+
+// ── Fallback / Mock Data ───────────────────────────────────────────────
+const MOCK = {
+  health: { status: 'healthy', layers: { core: 'operational', ai_gateway: 'operational', trust_safety: 'operational', finops: 'operational', orchestration: 'operational', knowledge: 'operational', tools: 'operational' }, timestamp: new Date().toISOString() },
+  agents: [
+    { id: 'agent-001', name: 'code-review', type: 'CodeReview', status: 'idle', capabilities: ['code_analysis', 'pr_review', 'security_audit'], last_active: '2026-05-31T22:14:00Z', tasks_completed: 142 },
+    { id: 'agent-002', name: 'doc-writer', type: 'Documentation', status: 'running', capabilities: ['markdown', 'api_docs', 'tutorials'], last_active: '2026-06-01T01:30:00Z', tasks_completed: 89 },
+    { id: 'agent-003', name: 'security-scan', type: 'Security', status: 'idle', capabilities: ['vuln_scan', 'dependency_check', 'sast'], last_active: '2026-05-31T20:00:00Z', tasks_completed: 213 },
+    { id: 'agent-004', name: 'data-analyzer', type: 'Analytics', status: 'error', capabilities: ['sql', 'visualization', 'statistics'], last_active: '2026-05-31T18:45:00Z', tasks_completed: 67 },
+    { id: 'agent-005', name: 'chat-assistant', type: 'Conversational', status: 'running', capabilities: ['chat', 'summarization', 'translation'], last_active: '2026-06-01T02:00:00Z', tasks_completed: 1024 },
+  ],
+  finopsStats: { total_cost: 47.52, total_requests: 1893, avg_cost_per_request: 0.0251, budget_utilization: 0.63, period: 'last_30_days' },
+  auditStats: { total_events: 3847, events_today: 142, top_actors: ['agent-001', 'agent-005', 'admin'], violation_count: 23 },
+  gatewayInfo: { models: ['claude-sonnet-4-20250514', 'gpt-4o', 'claude-3-haiku', 'gpt-4o-mini'], cache_enabled: true, rate_limit: '100/min', version: '2.1.0' },
+  cacheStats: { hit_rate: 0.342, total_entries: 1247, total_hits: 4521, total_misses: 8702, estimated_savings: 12.84, cache_size_mb: 48.2 },
+  templates: [
+    { id: 'tpl-001', name: 'code-review-prompt', model: 'claude-sonnet-4-20250514', tokens: 450, category: 'engineering' },
+    { id: 'tpl-002', name: 'doc-generation', model: 'gpt-4o', tokens: 800, category: 'documentation' },
+    { id: 'tpl-003', name: 'security-analysis', model: 'claude-sonnet-4-20250514', tokens: 600, category: 'security' },
+    { id: 'tpl-004', name: 'data-summary', model: 'gpt-4o-mini', tokens: 350, category: 'analytics' },
+  ],
+  guardrailStats: { total_checks: 5621, passed: 5412, failed: 209, violation_types: { pii_detected: 87, toxic_content: 42, prompt_injection: 31, off_topic: 49 } },
+  auditEntries: [
+    { id: 1, actor: 'agent-001', action: 'code_review', resource: 'PR #482', timestamp: '2026-06-01T01:45:00Z', status: 'success' },
+    { id: 2, actor: 'admin', action: 'config_update', resource: 'guardrails/pii', timestamp: '2026-06-01T01:30:00Z', status: 'success' },
+    { id: 3, actor: 'agent-005', action: 'chat_completion', resource: 'session-8827', timestamp: '2026-06-01T01:28:00Z', status: 'success' },
+    { id: 4, actor: 'agent-003', action: 'security_scan', resource: 'repo/main', timestamp: '2026-06-01T01:15:00Z', status: 'warning' },
+    { id: 5, actor: 'agent-002', action: 'doc_generate', resource: 'api-reference', timestamp: '2026-06-01T01:00:00Z', status: 'success' },
+    { id: 6, actor: 'system', action: 'budget_alert', resource: 'tenant-alpha', timestamp: '2026-06-01T00:45:00Z', status: 'warning' },
+    { id: 7, actor: 'agent-004', action: 'query_execute', resource: 'analytics-db', timestamp: '2026-06-01T00:30:00Z', status: 'error' },
+    { id: 8, actor: 'agent-001', action: 'code_review', resource: 'PR #481', timestamp: '2026-05-31T23:55:00Z', status: 'success' },
+  ],
+  usageSummary: { by_model: { 'claude-sonnet-4-20250514': { cost: 18.42, requests: 623 }, 'gpt-4o': { cost: 15.80, requests: 412 }, 'claude-3-haiku': { cost: 3.21, requests: 534 }, 'gpt-4o-mini': { cost: 10.09, requests: 324 } }, total_tokens: 2847000 },
+  pricing: [
+    { model: 'claude-sonnet-4-20250514', input_per_1k: 0.003, output_per_1k: 0.015, provider: 'Anthropic' },
+    { model: 'gpt-4o', input_per_1k: 0.005, output_per_1k: 0.015, provider: 'OpenAI' },
+    { model: 'claude-3-haiku', input_per_1k: 0.00025, output_per_1k: 0.00125, provider: 'Anthropic' },
+    { model: 'gpt-4o-mini', input_per_1k: 0.00015, output_per_1k: 0.0006, provider: 'OpenAI' },
+  ],
+  budgetQuotas: { tenant: 'default', monthly_limit: 75.00, current_spend: 47.52, status: 'active', alert_threshold: 0.8, remaining: 27.48 },
+  workflows: [
+    { id: 'wf-001', name: 'PR Review Pipeline', status: 'active', steps: 4, last_run: '2026-06-01T01:00:00Z', runs: 87 },
+    { id: 'wf-002', name: 'Doc Generation Flow', status: 'active', steps: 3, last_run: '2026-05-31T22:00:00Z', runs: 45 },
+    { id: 'wf-003', name: 'Security Audit Chain', status: 'paused', steps: 5, last_run: '2026-05-31T18:00:00Z', runs: 23 },
+    { id: 'wf-004', name: 'Data Pipeline', status: 'error', steps: 6, last_run: '2026-05-31T16:00:00Z', runs: 12 },
+  ],
+  contextStats: { active_sessions: 34, total_turns: 12847, avg_turns_per_session: 8.2, memory_entries: 4521, storage_mb: 124.5 },
+  a2aAgents: [
+    { id: 'a2a-001', name: 'orchestrator', status: 'online', messages_sent: 342, messages_received: 298 },
+    { id: 'a2a-002', name: 'reviewer', status: 'online', messages_sent: 187, messages_received: 201 },
+    { id: 'a2a-003', name: 'executor', status: 'offline', messages_sent: 56, messages_received: 89 },
+  ],
+  searchStats: { total_queries: 2341, avg_latency_ms: 45, index_size: 15420, reranker_enabled: true },
+  graphEntities: [
+    { id: 'e-001', type: 'concept', name: 'API Security', connections: 14, last_updated: '2026-06-01T00:00:00Z' },
+    { id: 'e-002', type: 'concept', name: 'Cost Optimization', connections: 9, last_updated: '2026-05-31T20:00:00Z' },
+    { id: 'e-003', type: 'document', name: 'Architecture Guide', connections: 22, last_updated: '2026-05-31T18:00:00Z' },
+    { id: 'e-004', type: 'concept', name: 'Agent Orchestration', connections: 17, last_updated: '2026-05-31T15:00:00Z' },
+    { id: 'e-005', type: 'entity', name: 'Production Cluster', connections: 8, last_updated: '2026-05-31T12:00:00Z' },
+  ],
+  tools: [
+    { id: 'tool-001', name: 'web_search', description: 'Search the web for information', category: 'retrieval', status: 'active', calls: 892 },
+    { id: 'tool-002', name: 'code_executor', description: 'Execute code in sandboxed environment', category: 'compute', status: 'active', calls: 567 },
+    { id: 'tool-003', name: 'file_manager', description: 'Read, write, and manage files', category: 'storage', status: 'active', calls: 1243 },
+    { id: 'tool-004', name: 'db_query', description: 'Query databases with natural language', category: 'data', status: 'active', calls: 334 },
+    { id: 'tool-005', name: 'image_gen', description: 'Generate images from text descriptions', category: 'creative', status: 'maintenance', calls: 156 },
+  ],
+  connectors: [
+    { id: 'conn-001', name: 'GitHub', status: 'connected', last_sync: '2026-06-01T01:00:00Z', events: 423 },
+    { id: 'conn-002', name: 'Slack', status: 'connected', last_sync: '2026-06-01T01:30:00Z', events: 891 },
+    { id: 'conn-003', name: 'Jira', status: 'disconnected', last_sync: '2026-05-30T10:00:00Z', events: 67 },
+    { id: 'conn-004', name: 'PostgreSQL', status: 'connected', last_sync: '2026-06-01T02:00:00Z', events: 2341 },
+  ],
+  costTrend: [
+    { date: '2026-05-26', cost: 5.42 },
+    { date: '2026-05-27', cost: 7.81 },
+    { date: '2026-05-28', cost: 6.23 },
+    { date: '2026-05-29', cost: 8.94 },
+    { date: '2026-05-30', cost: 7.12 },
+    { date: '2026-05-31', cost: 6.48 },
+    { date: '2026-06-01', cost: 5.52 },
+  ],
+  recentActivity: [
+    { time: '2 min ago', icon: 'ti-code', text: 'code-review completed PR #482 analysis', color: 'text-blue-500' },
+    { time: '5 min ago', icon: 'ti-shield-check', text: 'Guardrail flagged PII in session-8831', color: 'text-amber-500' },
+    { time: '12 min ago', icon: 'ti-file-text', text: 'doc-writer generated API reference v2.4', color: 'text-emerald-500' },
+    { time: '18 min ago', icon: 'ti-currency-dollar', text: 'Budget alert: tenant-alpha at 80% usage', color: 'text-amber-500' },
+    { time: '25 min ago', icon: 'ti-robot', text: 'chat-assistant session-8827 completed (12 turns)', color: 'text-blue-500' },
+    { time: '31 min ago', icon: 'ti-alert-triangle', text: 'data-analyzer query timeout on analytics-db', color: 'text-red-500' },
+    { time: '45 min ago', icon: 'ti-bolt', text: 'Gateway cache pruned: 142 expired entries removed', color: 'text-slate-500' },
+  ],
+};
+
+// ── Utility Helpers ────────────────────────────────────────────────────
+function fmtTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function fmtCurrency(v) { return `$${Number(v).toFixed(2)}`; }
+function pct(v) { return `${(Number(v) * 100).toFixed(1)}%`; }
+
+// ── Shared Components ──────────────────────────────────────────────────
+function Spinner() {
+  return <div className="flex justify-center items-center py-12"><div className="spinner"></div></div>;
+}
+
+function StatCard({ icon, label, value, sub, color = 'blue' }) {
+  const colors = { blue: 'bg-blue-50 text-blue-600', emerald: 'bg-emerald-50 text-emerald-600', amber: 'bg-amber-50 text-amber-600', red: 'bg-red-50 text-red-600', purple: 'bg-purple-50 text-purple-600', slate: 'bg-slate-50 text-slate-600' };
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 card-hover">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
+          {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+        </div>
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colors[color] || colors.blue}`}>
+          <i className={`ti ${icon} text-lg`}></i>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    idle: 'bg-slate-100 text-slate-600',
+    running: 'bg-emerald-100 text-emerald-700',
+    active: 'bg-emerald-100 text-emerald-700',
+    operational: 'bg-emerald-100 text-emerald-700',
+    online: 'bg-emerald-100 text-emerald-700',
+    connected: 'bg-emerald-100 text-emerald-700',
+    success: 'bg-emerald-100 text-emerald-700',
+    healthy: 'bg-emerald-100 text-emerald-700',
+    error: 'bg-red-100 text-red-700',
+    disconnected: 'bg-red-100 text-red-700',
+    warning: 'bg-amber-100 text-amber-700',
+    paused: 'bg-amber-100 text-amber-700',
+    maintenance: 'bg-amber-100 text-amber-700',
+    offline: 'bg-slate-200 text-slate-500',
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-slate-100 text-slate-600'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${status === 'running' || status === 'active' || status === 'online' || status === 'connected' || status === 'operational' || status === 'healthy' ? 'bg-emerald-500 pulse-dot' : status === 'error' || status === 'disconnected' ? 'bg-red-500' : status === 'warning' || status === 'paused' || status === 'maintenance' ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
+      {status}
+    </span>
+  );
+}
+
+function SectionTitle({ icon, title, subtitle }) {
+  return (
+    <div className="mb-6">
+      <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+        {icon && <i className={`ti ${icon} text-blue-600`}></i>}
+        {title}
+      </h2>
+      {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+    </div>
+  );
+}
+
+function EmptyState({ icon, message }) {
+  return (
+    <div className="text-center py-12 text-slate-400">
+      <i className={`ti ${icon} text-4xl mb-2 block`}></i>
+      <p className="text-sm">{message}</p>
+    </div>
+  );
+}
+
+// ── PAGES ──────────────────────────────────────────────────────────────
+
+// 1. Overview Dashboard
+function OverviewPage() {
+  const [health, setHealth] = useState(null);
+  const [finops, setFinops] = useState(null);
+  const [auditStats, setAuditStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  useEffect(() => {
+    async function load() {
+      const [h, f, a] = await Promise.all([
+        fetchAPI('/health'),
+        fetchAPI('/finops/stats'),
+        fetchAPI('/trust/audit/stats'),
+      ]);
+      setHealth(h || MOCK.health);
+      setFinops(f || MOCK.finopsStats);
+      setAuditStats(a || MOCK.auditStats);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (loading || !chartRef.current) return;
+    if (chartInstance.current) chartInstance.current.destroy();
+    const ctx = chartRef.current.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(37,99,235,0.15)');
+    gradient.addColorStop(1, 'rgba(37,99,235,0)');
+    chartInstance.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: MOCK.costTrend.map(d => d.date.slice(5)),
+        datasets: [{
+          label: 'Daily Cost ($)',
+          data: MOCK.costTrend.map(d => d.cost),
+          borderColor: '#2563eb',
+          backgroundColor: gradient,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#2563eb',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 11 }, callback: v => '$' + v } }
+        }
+      }
+    });
+    return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+  }, [loading]);
+
+  if (loading) return <Spinner />;
+
+  const hp = health || MOCK.health;
+  const fp = finops || MOCK.finopsStats;
+  const as = auditStats || MOCK.auditStats;
+
+  return (
+    <div className="fade-in space-y-6">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-api" label="Total Endpoints" value="126" sub="Across 8 modules" color="blue" />
+        <StatCard icon="ti-checks" label="Tests Passing" value="284" sub="98.2% pass rate" color="emerald" />
+        <StatCard icon="ti-users" label="Active Sessions" value={MOCK.contextStats.active_sessions} sub={`${MOCK.contextStats.total_turns.toLocaleString()} total turns`} color="purple" />
+        <StatCard icon="ti-currency-dollar" label="Total Cost (30d)" value={fmtCurrency(fp.total_cost)} sub={`${fp.total_requests.toLocaleString()} requests`} color="amber" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* System Health */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-heartbeat text-red-500"></i> System Health
+          </h3>
+          <div className="space-y-3">
+            {Object.entries(hp.layers || {}).map(([layer, status]) => (
+              <div key={layer} className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 capitalize">{layer.replace(/_/g, ' ')}</span>
+                <StatusBadge status={status} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cost Trend Chart */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-chart-line text-blue-500"></i> Cost Trend (7 days)
+          </h3>
+          <div style={{ height: '200px' }}>
+            <canvas ref={chartRef}></canvas>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity + Audit Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-activity text-blue-500"></i> Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {MOCK.recentActivity.map((a, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <i className={`ti ${a.icon} mt-0.5 ${a.color}`}></i>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700 truncate">{a.text}</p>
+                  <p className="text-xs text-slate-400">{a.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-report-analytics text-purple-500"></i> Platform Summary
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-slate-900">{as.total_events?.toLocaleString()}</p>
+              <p className="text-xs text-slate-500 mt-1">Audit Events</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-slate-900">{as.events_today}</p>
+              <p className="text-xs text-slate-500 mt-1">Events Today</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-600">{MOCK.guardrailStats.passed.toLocaleString()}</p>
+              <p className="text-xs text-slate-500 mt-1">Checks Passed</p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-red-600">{as.violation_count}</p>
+              <p className="text-xs text-slate-500 mt-1">Violations</p>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Cache Hit Rate</span>
+              <span className="font-semibold text-slate-900">{pct(MOCK.cacheStats.hit_rate)}</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 mt-2">
+              <div className="bg-blue-600 h-2 rounded-full" style={{ width: pct(MOCK.cacheStats.hit_rate) }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 2. Agents View
+function AgentsPage() {
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ name: '', type: 'General', capabilities: '' });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const data = await fetchAPI('/agents');
+      setAgents(data && Array.isArray(data) ? data : MOCK.agents);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleRegister = async () => {
+    setSubmitting(true);
+    const payload = { name: formData.name, type: formData.type, capabilities: formData.capabilities.split(',').map(s => s.trim()).filter(Boolean) };
+    const result = await fetchAPI('/agents', { method: 'POST', body: JSON.stringify(payload) });
+    if (result) {
+      setAgents(prev => [...prev, result]);
+    } else {
+      const mock = { id: `agent-${Date.now()}`, name: payload.name, type: payload.type, status: 'idle', capabilities: payload.capabilities, last_active: new Date().toISOString(), tasks_completed: 0 };
+      setAgents(prev => [...prev, mock]);
+    }
+    setFormData({ name: '', type: 'General', capabilities: '' });
+    setShowForm(false);
+    setSubmitting(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="fade-in space-y-6">
+      <div className="flex items-center justify-between">
+        <SectionTitle icon="ti-robot" title="Agents" subtitle={`${agents.length} registered agents`} />
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2">
+          <i className="ti ti-plus"></i> Register Agent
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">Register New Agent</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Agent Name</label>
+              <input value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="my-agent" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
+              <select value={formData.type} onChange={e => setFormData(p => ({...p, type: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>General</option><option>CodeReview</option><option>Documentation</option><option>Security</option><option>Analytics</option><option>Conversational</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Capabilities (comma-separated)</label>
+              <input value={formData.capabilities} onChange={e => setFormData(p => ({...p, capabilities: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="chat, analysis" />
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={handleRegister} disabled={!formData.name || submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+              {submitting ? 'Registering...' : 'Register'}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className={`${selected ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Agent</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tasks</th>
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.map(agent => (
+                  <tr key={agent.id} onClick={() => setSelected(agent)} className={`border-b border-slate-100 cursor-pointer hover:bg-blue-50/50 transition ${selected?.id === agent.id ? 'bg-blue-50' : ''}`}>
+                    <td className="px-5 py-3 font-medium text-slate-900">{agent.name}</td>
+                    <td className="px-5 py-3 text-slate-600">{agent.type}</td>
+                    <td className="px-5 py-3"><StatusBadge status={agent.status} /></td>
+                    <td className="px-5 py-3 text-slate-600">{agent.tasks_completed}</td>
+                    <td className="px-5 py-3 text-slate-500 text-xs">{fmtTime(agent.last_active)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {selected && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-900">Agent Detail</h3>
+              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600"><i className="ti ti-x"></i></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-slate-500">Name</p>
+                <p className="text-sm font-semibold text-slate-900">{selected.name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">ID</p>
+                <p className="text-xs font-mono text-slate-600">{selected.id}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Type</p>
+                <p className="text-sm text-slate-700">{selected.type}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Status</p>
+                <StatusBadge status={selected.status} />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Capabilities</p>
+                <div className="flex flex-wrap gap-1">
+                  {(selected.capabilities || []).map((c, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{c}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Tasks Completed</p>
+                <p className="text-lg font-bold text-slate-900">{selected.tasks_completed}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 3. AI Gateway View
+function GatewayPage() {
+  const [info, setInfo] = useState(null);
+  const [cache, setCache] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [testInput, setTestInput] = useState('');
+  const [testModel, setTestModel] = useState('claude-sonnet-4-20250514');
+  const [testResult, setTestResult] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const [i, c, t] = await Promise.all([
+        fetchAPI('/gateway/info'),
+        fetchAPI('/gateway/cache/stats'),
+        fetchAPI('/gateway/templates'),
+      ]);
+      setInfo(i || MOCK.gatewayInfo);
+      setCache(c || MOCK.cacheStats);
+      setTemplates(t && Array.isArray(t) ? t : MOCK.templates);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleTest = async () => {
+    setTesting(true);
+    const start = Date.now();
+    const result = await fetchAPI('/gateway/execute', { method: 'POST', body: JSON.stringify({ prompt: testInput, model: testModel }) });
+    const latency = Date.now() - start;
+    setTestResult(result || { response: `[Mock] Processed "${testInput.slice(0, 50)}..." using ${testModel}. This is a simulated response demonstrating the gateway routing.`, cost: 0.0034, latency_ms: latency, tokens: { input: testInput.split(' ').length * 2, output: 42 }, cached: false });
+    setTesting(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="fade-in space-y-6">
+      <SectionTitle icon="ti-bolt" title="AI Gateway" subtitle="Model routing, caching, and prompt management" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-percentage" label="Cache Hit Rate" value={pct(cache.hit_rate)} sub={`${cache.total_hits.toLocaleString()} hits`} color="blue" />
+        <StatCard icon="ti-database" label="Cache Entries" value={cache.total_entries.toLocaleString()} sub={`${cache.cache_size_mb} MB`} color="purple" />
+        <StatCard icon="ti-coin" label="Cache Savings" value={fmtCurrency(cache.estimated_savings)} sub="Estimated savings" color="emerald" />
+        <StatCard icon="ti-activity" label="Rate Limit" value={info.rate_limit} sub={`${info.models?.length || 0} models available`} color="amber" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Test Gateway */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-send text-blue-500"></i> Test Gateway
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Model</label>
+              <select value={testModel} onChange={e => setTestModel(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {(info.models || MOCK.gatewayInfo.models).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Prompt</label>
+              <textarea value={testInput} onChange={e => setTestInput(e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Enter your prompt..." />
+            </div>
+            <button onClick={handleTest} disabled={!testInput || testing} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+              {testing ? 'Processing...' : 'Execute'}
+            </button>
+          </div>
+          {testResult && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+              <div className="flex items-center gap-4 mb-3 text-xs text-slate-500">
+                <span>Cost: <strong className="text-slate-700">{fmtCurrency(testResult.cost)}</strong></span>
+                <span>Latency: <strong className="text-slate-700">{testResult.latency_ms}ms</strong></span>
+                <span>Cached: <strong className={testResult.cached ? 'text-emerald-600' : 'text-slate-700'}>{testResult.cached ? 'Yes' : 'No'}</strong></span>
+              </div>
+              <p className="text-sm text-slate-700 bg-white p-3 rounded border border-slate-200">{testResult.response}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Prompt Templates */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-template text-purple-500"></i> Prompt Templates
+          </h3>
+          <div className="space-y-3">
+            {templates.map(t => (
+              <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{t.name}</p>
+                  <p className="text-xs text-slate-500">{t.model} &middot; {t.tokens} tokens</p>
+                </div>
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{t.category}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 4. Trust & Safety View
+function TrustPage() {
+  const [stats, setStats] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [scanText, setScanText] = useState('');
+  const [scanResult, setScanResult] = useState(null);
+  const [scanning, setScanning] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const [s, e, gs] = await Promise.all([
+        fetchAPI('/trust/audit/stats'),
+        fetchAPI('/trust/audit/query'),
+        fetchAPI('/trust/guardrails/stats'),
+      ]);
+      setStats(gs || MOCK.guardrailStats);
+      setEntries(e && Array.isArray(e) ? e : MOCK.auditEntries);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleScan = async () => {
+    setScanning(true);
+    const result = await fetchAPI('/trust/guardrails/check-input', { method: 'POST', body: JSON.stringify({ text: scanText }) });
+    const hasIssues = scanText.toLowerCase().includes('password') || scanText.toLowerCase().includes('ssn') || scanText.toLowerCase().includes('credit card') || scanText.match(/\b\d{3}-\d{2}-\d{4}\b/);
+    setScanResult(result || {
+      passed: !hasIssues,
+      violations: hasIssues ? [{ type: 'pii_detected', severity: 'high', detail: 'Potentially sensitive information detected in input' }] : [],
+      checked_at: new Date().toISOString(),
+    });
+    setScanning(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="fade-in space-y-6">
+      <SectionTitle icon="ti-shield-check" title="Trust & Safety" subtitle="Guardrails, compliance, and audit logging" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-checks" label="Checks Passed" value={stats.passed?.toLocaleString()} sub={`of ${stats.total_checks?.toLocaleString()} total`} color="emerald" />
+        <StatCard icon="ti-alert-triangle" label="Checks Failed" value={stats.failed?.toLocaleString()} sub={`${((stats.failed / stats.total_checks) * 100).toFixed(1)}% failure rate`} color="red" />
+        <StatCard icon="ti-eye" label="PII Detections" value={stats.violation_types?.pii_detected} color="amber" />
+        <StatCard icon="ti-shield" label="Prompt Injections" value={stats.violation_types?.prompt_injection} sub="Blocked attempts" color="red" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Guardrails Scanner */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-scan text-blue-500"></i> Guardrails Scanner
+          </h3>
+          <div className="space-y-3">
+            <textarea value={scanText} onChange={e => setScanText(e.target.value)} rows={4} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Enter text to scan for violations..." />
+            <button onClick={handleScan} disabled={!scanText || scanning} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+              {scanning ? 'Scanning...' : 'Scan Text'}
+            </button>
+          </div>
+          {scanResult && (
+            <div className={`mt-4 p-4 rounded-lg border ${scanResult.passed ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <i className={`ti ${scanResult.passed ? 'ti-circle-check text-emerald-600' : 'ti-alert-circle text-red-600'}`}></i>
+                <span className={`text-sm font-semibold ${scanResult.passed ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {scanResult.passed ? 'No violations detected' : `${scanResult.violations.length} violation(s) found`}
+                </span>
+              </div>
+              {scanResult.violations?.map((v, i) => (
+                <div key={i} className="ml-6 mt-2 text-sm text-red-600">
+                  <span className="font-medium">{v.type}</span>: {v.detail} <span className="text-xs text-red-400">({v.severity})</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Violation Breakdown */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-chart-pie text-amber-500"></i> Violation Breakdown
+          </h3>
+          <div className="space-y-3">
+            {Object.entries(stats.violation_types || {}).map(([type, count]) => {
+              const total = Object.values(stats.violation_types).reduce((a, b) => a + b, 0);
+              const pctVal = ((count / total) * 100).toFixed(0);
+              const colors = { pii_detected: 'bg-amber-500', toxic_content: 'bg-red-500', prompt_injection: 'bg-purple-500', off_topic: 'bg-slate-400' };
+              return (
+                <div key={type}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-slate-600 capitalize">{type.replace(/_/g, ' ')}</span>
+                    <span className="text-sm font-semibold text-slate-900">{count} <span className="text-xs text-slate-400">({pctVal}%)</span></span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2">
+                    <div className={`${colors[type] || 'bg-blue-500'} h-2 rounded-full transition-all`} style={{ width: `${pctVal}%` }}></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Audit Trail Table */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <i className="ti ti-list-details text-blue-500"></i> Recent Audit Trail
+          </h3>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actor</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Resource</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(e => (
+              <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                <td className="px-5 py-3 font-medium text-slate-900">{e.actor}</td>
+                <td className="px-5 py-3 text-slate-600 font-mono text-xs">{e.action}</td>
+                <td className="px-5 py-3 text-slate-600">{e.resource}</td>
+                <td className="px-5 py-3"><StatusBadge status={e.status} /></td>
+                <td className="px-5 py-3 text-slate-500 text-xs">{fmtTime(e.timestamp)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// 5. FinOps & Cost View
+function FinOpsPage() {
+  const [usage, setUsage] = useState(null);
+  const [pricing, setPricing] = useState([]);
+  const [budget, setBudget] = useState(null);
+  const [finStats, setFinStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({ tenant: '', monthly_limit: '', alert_threshold: '0.8' });
+  const doughnutRef = useRef(null);
+  const doughnutChart = useRef(null);
+  const barRef = useRef(null);
+  const barChart = useRef(null);
+
+  useEffect(() => {
+    async function load() {
+      const [u, p, b, s] = await Promise.all([
+        fetchAPI('/finops/usage/summary'),
+        fetchAPI('/finops/pricing'),
+        fetchAPI('/finops/budget/quotas/default'),
+        fetchAPI('/finops/stats'),
+      ]);
+      setUsage(u || MOCK.usageSummary);
+      setPricing(p && Array.isArray(p) ? p : MOCK.pricing);
+      setBudget(b || MOCK.budgetQuotas);
+      setFinStats(s || MOCK.finopsStats);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (loading || !usage) return;
+    // Doughnut chart
+    if (doughnutRef.current) {
+      if (doughnutChart.current) doughnutChart.current.destroy();
+      const models = Object.keys(usage.by_model || {});
+      const costs = models.map(m => usage.by_model[m].cost);
+      const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+      doughnutChart.current = new Chart(doughnutRef.current.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: models.map(m => m.length > 20 ? m.slice(0, 18) + '...' : m),
+          datasets: [{ data: costs, backgroundColor: colors.slice(0, models.length), borderWidth: 0, hoverOffset: 4 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, font: { size: 11 }, color: '#64748b' } },
+          }
+        }
+      });
+    }
+    // Bar chart
+    if (barRef.current) {
+      if (barChart.current) barChart.current.destroy();
+      const models = Object.keys(usage.by_model || {});
+      const requests = models.map(m => usage.by_model[m].requests);
+      barChart.current = new Chart(barRef.current.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: models.map(m => m.length > 15 ? m.slice(0, 13) + '...' : m),
+          datasets: [{ label: 'Requests', data: requests, backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444'], borderRadius: 6, barThickness: 32 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+            y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+    return () => {
+      if (doughnutChart.current) doughnutChart.current.destroy();
+      if (barChart.current) barChart.current.destroy();
+    };
+  }, [loading, usage]);
+
+  if (loading) return <Spinner />;
+
+  const bgt = budget || MOCK.budgetQuotas;
+  const utilizationPct = ((bgt.current_spend / bgt.monthly_limit) * 100).toFixed(0);
+
+  return (
+    <div className="fade-in space-y-6">
+      <div className="flex items-center justify-between">
+        <SectionTitle icon="ti-currency-dollar" title="FinOps & Cost Management" subtitle="Budget tracking, usage analytics, and pricing" />
+        <button onClick={() => setShowBudgetForm(!showBudgetForm)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2">
+          <i className="ti ti-plus"></i> Create Budget
+        </button>
+      </div>
+
+      {showBudgetForm && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">Create New Budget</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Tenant ID</label>
+              <input value={budgetForm.tenant} onChange={e => setBudgetForm(p => ({...p, tenant: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="tenant-name" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Monthly Limit ($)</label>
+              <input type="number" value={budgetForm.monthly_limit} onChange={e => setBudgetForm(p => ({...p, monthly_limit: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="100.00" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Alert Threshold</label>
+              <select value={budgetForm.alert_threshold} onChange={e => setBudgetForm(p => ({...p, alert_threshold: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="0.5">50%</option><option value="0.7">70%</option><option value="0.8">80%</option><option value="0.9">90%</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">Create</button>
+            <button onClick={() => setShowBudgetForm(false)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-wallet" label="Current Spend" value={fmtCurrency(bgt.current_spend)} sub={`of ${fmtCurrency(bgt.monthly_limit)} limit`} color="blue" />
+        <StatCard icon="ti-coin" label="Remaining" value={fmtCurrency(bgt.remaining)} sub={`${utilizationPct}% utilized`} color="emerald" />
+        <StatCard icon="ti-receipt" label="Total Requests" value={(finStats || MOCK.finopsStats).total_requests.toLocaleString()} sub="Last 30 days" color="purple" />
+        <StatCard icon="ti-calculator" label="Avg Cost/Request" value={fmtCurrency((finStats || MOCK.finopsStats).avg_cost_per_request)} color="amber" />
+      </div>
+
+      {/* Budget Utilization Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-slate-900">Budget Utilization</h3>
+          <StatusBadge status={bgt.status} />
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-4">
+          <div className={`h-4 rounded-full transition-all ${Number(utilizationPct) > 90 ? 'bg-red-500' : Number(utilizationPct) > 70 ? 'bg-amber-500' : 'bg-blue-600'}`} style={{ width: `${Math.min(utilizationPct, 100)}%` }}></div>
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-slate-500">
+          <span>{fmtCurrency(bgt.current_spend)} spent</span>
+          <span>Alert at {pct(bgt.alert_threshold)}</span>
+          <span>{fmtCurrency(bgt.monthly_limit)} limit</span>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-chart-donut-3 text-blue-500"></i> Cost Breakdown by Model
+          </h3>
+          <div style={{ height: '260px' }}><canvas ref={doughnutRef}></canvas></div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-chart-bar text-emerald-500"></i> Requests by Model
+          </h3>
+          <div style={{ height: '260px' }}><canvas ref={barRef}></canvas></div>
+        </div>
+      </div>
+
+      {/* Pricing Table */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <i className="ti ti-tag text-amber-500"></i> Model Pricing
+          </h3>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Model</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Provider</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Input / 1K tokens</th>
+              <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Output / 1K tokens</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pricing.map(p => (
+              <tr key={p.model} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                <td className="px-5 py-3 font-medium text-slate-900 font-mono text-xs">{p.model}</td>
+                <td className="px-5 py-3 text-slate-600">{p.provider}</td>
+                <td className="px-5 py-3 text-slate-700">{fmtCurrency(p.input_per_1k)}</td>
+                <td className="px-5 py-3 text-slate-700">{fmtCurrency(p.output_per_1k)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// 6. Orchestration View
+function OrchestrationPage() {
+  const [workflows, setWorkflows] = useState([]);
+  const [a2aAgents, setA2aAgents] = useState([]);
+  const [contextStats, setContextStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [msgTarget, setMsgTarget] = useState('');
+  const [msgContent, setMsgContent] = useState('');
+
+  useEffect(() => {
+    async function load() {
+      const [w, a, c] = await Promise.all([
+        fetchAPI('/workflows'),
+        fetchAPI('/a2a/agents'),
+        fetchAPI('/context/stats'),
+      ]);
+      setWorkflows(w && Array.isArray(w) ? w : MOCK.workflows);
+      setA2aAgents(a && Array.isArray(a) ? a : MOCK.a2aAgents);
+      setContextStats(c || MOCK.contextStats);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const cs = contextStats || MOCK.contextStats;
+
+  return (
+    <div className="fade-in space-y-6">
+      <SectionTitle icon="ti-arrows-shuffle" title="Orchestration" subtitle="Workflows, agent-to-agent messaging, and session management" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-git-merge" label="Active Workflows" value={workflows.filter(w => w.status === 'active').length} sub={`${workflows.length} total`} color="blue" />
+        <StatCard icon="ti-message-2" label="A2A Agents" value={a2aAgents.length} sub={`${a2aAgents.filter(a => a.status === 'online').length} online`} color="purple" />
+        <StatCard icon="ti-users" label="Active Sessions" value={cs.active_sessions} sub={`${cs.avg_turns_per_session} avg turns`} color="emerald" />
+        <StatCard icon="ti-brain" label="Memory Entries" value={cs.memory_entries?.toLocaleString()} sub={`${cs.storage_mb} MB`} color="amber" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Workflows */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-git-merge text-blue-500"></i> Workflows
+          </h3>
+          <div className="space-y-3">
+            {workflows.map(w => (
+              <div key={w.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900">{w.name}</p>
+                  <p className="text-xs text-slate-500">{w.steps} steps &middot; {w.runs} runs &middot; Last: {fmtTime(w.last_run)}</p>
+                </div>
+                <StatusBadge status={w.status} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* A2A Messaging */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-message-2 text-purple-500"></i> Agent-to-Agent Messaging
+          </h3>
+          <div className="space-y-3 mb-4">
+            {a2aAgents.map(a => (
+              <div key={a.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{a.name}</p>
+                  <p className="text-xs text-slate-500">Sent: {a.messages_sent} &middot; Recv: {a.messages_received}</p>
+                </div>
+                <StatusBadge status={a.status} />
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-slate-200 pt-4">
+            <p className="text-xs font-medium text-slate-500 mb-2">Send Message</p>
+            <div className="flex gap-2">
+              <select value={msgTarget} onChange={e => setMsgTarget(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Select agent...</option>
+                {a2aAgents.filter(a => a.status === 'online').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              <input value={msgContent} onChange={e => setMsgContent(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Message..." />
+              <button disabled={!msgTarget || !msgContent} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+                <i className="ti ti-send"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Context/Session Stats */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <i className="ti ti-brain text-emerald-500"></i> Context Memory
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <p className="text-xl font-bold text-slate-900">{cs.active_sessions}</p>
+            <p className="text-xs text-slate-500 mt-1">Active Sessions</p>
+          </div>
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <p className="text-xl font-bold text-slate-900">{cs.total_turns?.toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-1">Total Turns</p>
+          </div>
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <p className="text-xl font-bold text-slate-900">{cs.avg_turns_per_session}</p>
+            <p className="text-xs text-slate-500 mt-1">Avg Turns/Session</p>
+          </div>
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <p className="text-xl font-bold text-slate-900">{cs.memory_entries?.toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-1">Memory Entries</p>
+          </div>
+          <div className="text-center p-4 bg-slate-50 rounded-lg">
+            <p className="text-xl font-bold text-slate-900">{cs.storage_mb} MB</p>
+            <p className="text-xs text-slate-500 mt-1">Storage Used</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 7. Knowledge View
+function KnowledgePage() {
+  const [searchStats, setSearchStats] = useState(null);
+  const [entities, setEntities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [rerankerInput, setRerankerInput] = useState('');
+  const [rerankerResult, setRerankerResult] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const [s, e] = await Promise.all([
+        fetchAPI('/search/stats'),
+        fetchAPI('/graph/entities'),
+      ]);
+      setSearchStats(s || MOCK.searchStats);
+      setEntities(e && Array.isArray(e) ? e : MOCK.graphEntities);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleSearch = async () => {
+    setSearching(true);
+    const res = await fetchAPI('/search/query', { method: 'POST', body: JSON.stringify({ query, top_k: 5 }) });
+    setResults(res || {
+      results: [
+        { id: 'doc-001', title: 'API Security Best Practices', score: 0.94, snippet: `Comprehensive guide covering authentication, rate limiting, and input validation for ${query}...` },
+        { id: 'doc-002', title: 'Agent Architecture Overview', score: 0.87, snippet: `Overview of the multi-agent architecture and how it relates to ${query}...` },
+        { id: 'doc-003', title: 'Cost Optimization Strategies', score: 0.72, snippet: `Strategies for reducing AI inference costs through caching and model selection for ${query}...` },
+      ],
+      query,
+      latency_ms: 38,
+    });
+    setSearching(false);
+  };
+
+  const handleReranker = async () => {
+    const res = await fetchAPI('/search/rerank', { method: 'POST', body: JSON.stringify({ query: rerankerInput, documents: ['Doc A', 'Doc B', 'Doc C'] }) });
+    setRerankerResult(res || {
+      reranked: [
+        { document: 'Doc A', original_rank: 1, new_rank: 2, score: 0.78 },
+        { document: 'Doc B', original_rank: 2, new_rank: 1, score: 0.92 },
+        { document: 'Doc C', original_rank: 3, new_rank: 3, score: 0.45 },
+      ],
+      model: 'cross-encoder/ms-marco-MiniLM-L-6-v2',
+    });
+  };
+
+  if (loading) return <Spinner />;
+
+  const ss = searchStats || MOCK.searchStats;
+
+  return (
+    <div className="fade-in space-y-6">
+      <SectionTitle icon="ti-brain" title="Knowledge" subtitle="Semantic search, knowledge graph, and reranking" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-search" label="Total Queries" value={ss.total_queries?.toLocaleString()} color="blue" />
+        <StatCard icon="ti-clock" label="Avg Latency" value={`${ss.avg_latency_ms}ms`} color="emerald" />
+        <StatCard icon="ti-database" label="Index Size" value={ss.index_size?.toLocaleString()} sub="documents" color="purple" />
+        <StatCard icon="ti-arrows-sort" label="Reranker" value={ss.reranker_enabled ? 'Enabled' : 'Disabled'} color={ss.reranker_enabled ? 'emerald' : 'slate'} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Search */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-search text-blue-500"></i> Semantic Search
+          </h3>
+          <div className="flex gap-2 mb-4">
+            <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && query && handleSearch()} className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search knowledge base..." />
+            <button onClick={handleSearch} disabled={!query || searching} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
+              {searching ? '...' : 'Search'}
+            </button>
+          </div>
+          {results && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">Found {results.results?.length} results in {results.latency_ms}ms</p>
+              {results.results?.map((r, i) => (
+                <div key={r.id || i} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-medium text-slate-900">{r.title}</p>
+                    <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{(r.score * 100).toFixed(0)}%</span>
+                  </div>
+                  <p className="text-xs text-slate-600">{r.snippet}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {!results && <EmptyState icon="ti-search" message="Enter a query to search the knowledge base" />}
+        </div>
+
+        {/* Knowledge Graph Entities */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <i className="ti ti-hierarchy-2 text-purple-500"></i> Knowledge Graph Entities
+          </h3>
+          <div className="space-y-3">
+            {entities.map(e => (
+              <div key={e.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{e.name}</p>
+                  <p className="text-xs text-slate-500">{e.connections} connections &middot; Updated {fmtTime(e.last_updated)}</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${e.type === 'concept' ? 'bg-blue-50 text-blue-700' : e.type === 'document' ? 'bg-emerald-50 text-emerald-700' : 'bg-purple-50 text-purple-700'}`}>{e.type}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Reranker Test */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <i className="ti ti-arrows-sort text-amber-500"></i> Reranker Test
+        </h3>
+        <div className="flex gap-2 mb-4">
+          <input value={rerankerInput} onChange={e => setRerankerInput(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter query to test reranking..." />
+          <button onClick={handleReranker} disabled={!rerankerInput} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">Test Reranker</button>
+        </div>
+        {rerankerResult && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500">Document</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500">Original Rank</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500">New Rank</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rerankerResult.reranked?.map((r, i) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="px-4 py-2 text-slate-700">{r.document}</td>
+                    <td className="px-4 py-2 text-slate-500">#{r.original_rank}</td>
+                    <td className="px-4 py-2 font-semibold text-slate-900">#{r.new_rank}</td>
+                    <td className="px-4 py-2"><span className="font-mono text-blue-600">{r.score.toFixed(2)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-slate-400 mt-2">Model: {rerankerResult.model}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 8. Tools View
+function ToolsPage() {
+  const [tools, setTools] = useState([]);
+  const [connectors, setConnectors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      const [t, c] = await Promise.all([
+        fetchAPI('/tools/'),
+        fetchAPI('/tools/connectors/'),
+      ]);
+      setTools(t && Array.isArray(t) ? t : MOCK.tools);
+      setConnectors(c && Array.isArray(c) ? c : MOCK.connectors);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const handleSearch = async () => {
+    const res = await fetchAPI('/tools/search', { method: 'POST', body: JSON.stringify({ query: searchQuery }) });
+    const mockFiltered = MOCK.tools.filter(t => t.name.includes(searchQuery.toLowerCase()) || t.description.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.includes(searchQuery.toLowerCase()));
+    setSearchResults(res || (mockFiltered.length > 0 ? mockFiltered : MOCK.tools).map((t, i) => ({ ...t, relevance: (0.95 - i * 0.12).toFixed(2) })));
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="fade-in space-y-6">
+      <SectionTitle icon="ti-tool" title="Tools & Connectors" subtitle="Registered tools, search, and external connectors" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="ti-tool" label="Total Tools" value={tools.length} sub={`${tools.filter(t => t.status === 'active').length} active`} color="blue" />
+        <StatCard icon="ti-plug" label="Connectors" value={connectors.length} sub={`${connectors.filter(c => c.status === 'connected').length} connected`} color="emerald" />
+        <StatCard icon="ti-activity" label="Total Calls" value={tools.reduce((a, t) => a + (t.calls || 0), 0).toLocaleString()} color="purple" />
+        <StatCard icon="ti-category" label="Categories" value={[...new Set(tools.map(t => t.category))].length} color="amber" />
+      </div>
+
+      {/* Tool Search */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <i className="ti ti-search text-blue-500"></i> Tool Search
+        </h3>
+        <div className="flex gap-2 mb-4">
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchQuery && handleSearch()} className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search tools by name, description, or category..." />
+          <button onClick={handleSearch} disabled={!searchQuery} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">Search</button>
+        </div>
+        {searchResults && (
+          <div className="space-y-2">
+            {searchResults.map((t, i) => (
+              <div key={t.id || i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{t.name}</p>
+                  <p className="text-xs text-slate-500">{t.description}</p>
+                </div>
+                <span className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t.relevance}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Registered Tools */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <i className="ti ti-tool text-blue-500"></i> Registered Tools
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {tools.map(t => (
+              <div key={t.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-slate-900">{t.name}</p>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{t.category}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{t.description}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">{t.calls?.toLocaleString()} calls</span>
+                  <StatusBadge status={t.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Connectors */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <i className="ti ti-plug text-emerald-500"></i> Connectors
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {connectors.map(c => (
+              <div key={c.id} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{c.name}</p>
+                  <p className="text-xs text-slate-500">Last sync: {fmtTime(c.last_sync)} &middot; {c.events?.toLocaleString()} events</p>
+                </div>
+                <StatusBadge status={c.status} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────────
+function App() {
+  const [view, setView] = useState('overview');
+  const [apiOnline, setApiOnline] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    async function checkHealth() {
+      const h = await fetchAPI('/health');
+      setApiOnline(!!h);
+    }
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const navItems = [
+    { id: 'overview', label: 'Overview', icon: 'ti-dashboard' },
+    { id: 'agents', label: 'Agents', icon: 'ti-robot' },
+    { id: 'gateway', label: 'AI Gateway', icon: 'ti-bolt' },
+    { id: 'trust', label: 'Trust & Safety', icon: 'ti-shield-check' },
+    { id: 'finops', label: 'FinOps', icon: 'ti-currency-dollar' },
+    { id: 'orchestration', label: 'Orchestration', icon: 'ti-arrows-shuffle' },
+    { id: 'knowledge', label: 'Knowledge', icon: 'ti-brain' },
+    { id: 'tools', label: 'Tools', icon: 'ti-tool' },
+  ];
+
+  const pages = { overview: OverviewPage, agents: AgentsPage, gateway: GatewayPage, trust: TrustPage, finops: FinOpsPage, orchestration: OrchestrationPage, knowledge: KnowledgePage, tools: ToolsPage };
+  const PageComponent = pages[view] || OverviewPage;
+
+  return (
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
+      {/* Mobile overlay */}
+      {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)}></div>}
+
+      {/* Sidebar */}
+      <aside className={`fixed lg:static z-50 h-full bg-slate-900 text-white flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'} ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        {/* Logo */}
+        <div className={`flex items-center gap-3 px-4 h-16 border-b border-slate-800 flex-shrink-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <i className="ti ti-flame text-white text-lg"></i>
+          </div>
+          {!sidebarCollapsed && <span className="text-lg font-bold tracking-tight">SevaForge</span>}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 py-4 overflow-y-auto">
+          <div className="space-y-1 px-3">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => { setView(item.id); setMobileMenuOpen(false); }}
+                className={`sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
+                  view === item.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                } ${sidebarCollapsed ? 'justify-center' : ''}`}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <i className={`ti ${item.icon} text-lg flex-shrink-0`}></i>
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* Bottom */}
+        <div className={`border-t border-slate-800 px-4 py-3 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          {!sidebarCollapsed && <span className="text-xs text-slate-500">v1.0.0</span>}
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-slate-500 hover:text-white transition hidden lg:block">
+            <i className={`ti ${sidebarCollapsed ? 'ti-chevron-right' : 'ti-chevron-left'}`}></i>
+          </button>
+          {!sidebarCollapsed && (
+            <button className="text-slate-500 hover:text-white transition">
+              <i className="ti ti-settings text-lg"></i>
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-slate-500 hover:text-slate-700">
+              <i className="ti ti-menu-2 text-xl"></i>
+            </button>
+            <h1 className="text-lg font-semibold text-slate-900 capitalize">{navItems.find(n => n.id === view)?.label || 'Overview'}</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* API Status */}
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${apiOnline === true ? 'bg-emerald-50 text-emerald-700' : apiOnline === false ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`w-2 h-2 rounded-full ${apiOnline === true ? 'bg-emerald-500 pulse-dot' : apiOnline === false ? 'bg-red-500' : 'bg-slate-400'}`}></span>
+              {apiOnline === true ? 'API Online' : apiOnline === false ? 'API Offline' : 'Checking...'}
+            </div>
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <i className="ti ti-user text-blue-600 text-sm"></i>
+            </div>
+          </div>
+        </header>
+
+        {/* API Offline Banner */}
+        {apiOnline === false && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2 flex-shrink-0">
+            <i className="ti ti-alert-triangle text-amber-600"></i>
+            <span className="text-sm text-amber-700">API is offline. Displaying fallback data. The dashboard will reconnect automatically.</span>
+          </div>
+        )}
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <PageComponent />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ── Render ──────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
