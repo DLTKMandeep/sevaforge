@@ -148,6 +148,8 @@ def create_app() -> FastAPI:
     from sevaforge.api.v1.routes_tools import router as tools_router
     from sevaforge.api.v1.routes_trust import router as trust_router
     from sevaforge.api.v1.routes_finops import router as finops_router
+    from sevaforge.api.v1.routes_agents_v2 import router as agents_v2_router
+    from sevaforge.api.v1.routes_mcp import router as mcp_router
 
     app.include_router(health_router, prefix=settings.api_prefix, tags=["Health"])
     app.include_router(agents_router, prefix=settings.api_prefix, tags=["Agents"])
@@ -159,6 +161,8 @@ def create_app() -> FastAPI:
     app.include_router(tools_router, prefix=f"{settings.api_prefix}/tools", tags=["Tools"])
     app.include_router(trust_router, prefix=f"{settings.api_prefix}/trust", tags=["Trust"])
     app.include_router(finops_router, prefix=f"{settings.api_prefix}/finops", tags=["FinOps"])
+    app.include_router(agents_v2_router, prefix=settings.api_prefix, tags=["Agents V2"])
+    app.include_router(mcp_router, prefix=settings.api_prefix, tags=["MCP"])
 
     # ── Root redirect to docs ─────────────────────────────────────────
     @app.get("/", include_in_schema=False)
