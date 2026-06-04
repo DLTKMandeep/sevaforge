@@ -1,0 +1,311 @@
+<svg viewBox="0 0 1400 1220" xmlns="http://www.w3.org/2000/svg" role="img" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <title>SevaForge v3.0 — Layered Architecture &amp; Request Flow</title>
+  <desc>A nine-layer architecture showing how developers interact with the SevaForge platform engineering CLI through the ForgeFlow orchestrator, MCP servers, RAG pipeline, AI model router, and deployment infrastructure.</desc>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arr-ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a855f7"/>
+    </marker>
+    <marker id="arr-data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0ea5e9"/>
+    </marker>
+    <marker id="arr-feed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f97316"/>
+    </marker>
+  </defs>
+
+  <!-- Header -->
+  <text x="40" y="34" fill="#0f172a" font-size="18" font-weight="700">SEVAFORGE v3.0 — AI-Augmented Platform Engineering CLI · Architecture &amp; Request Flow</text>
+  <text x="40" y="54" fill="#475569" font-size="12">Source: sevaforge_unified/forgeflow/  (core/mission_control.py, core/model_router.py, core/rag_pipeline.py, agents/*, mcp_servers/*)</text>
+
+  <!-- ============== LAYER 1: USER / CLIENT ============== -->
+  <rect x="40" y="80" width="960" height="90" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="56" y="100" fill="#0f172a" font-size="13" font-weight="700">1 · USER INTERFACE LAYER</text>
+  <text x="56" y="115" fill="#64748b" font-size="10">Developer entry points · CLI commands · CI/CD hooks · IDE extensions</text>
+
+  <g>
+    <rect x="60" y="125" width="180" height="36" rx="6" fill="#ffffff" stroke="#60a5fa"/>
+    <text x="150" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">forgeflow run-all</text>
+    <text x="150" y="155" text-anchor="middle" fill="#475569" font-size="10">Full pipeline (CLI)</text>
+
+    <rect x="250" y="125" width="180" height="36" rx="6" fill="#ffffff" stroke="#60a5fa"/>
+    <text x="340" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">forgeflow run &lt;stage&gt;</text>
+    <text x="340" y="155" text-anchor="middle" fill="#475569" font-size="10">Single stage (CLI)</text>
+
+    <rect x="440" y="125" width="180" height="36" rx="6" fill="#ffffff" stroke="#60a5fa"/>
+    <text x="530" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">GitHub Actions</text>
+    <text x="530" y="155" text-anchor="middle" fill="#475569" font-size="10">CI/CD Webhook</text>
+
+    <rect x="630" y="125" width="180" height="36" rx="6" fill="#ffffff" stroke="#60a5fa"/>
+    <text x="720" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">VS Code Extension</text>
+    <text x="720" y="155" text-anchor="middle" fill="#475569" font-size="10">IDE Integration</text>
+
+    <rect x="820" y="125" width="170" height="36" rx="6" fill="#ffffff" stroke="#60a5fa"/>
+    <text x="905" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">--ai flag</text>
+    <text x="905" y="155" text-anchor="middle" fill="#475569" font-size="10">Enable LLM augmentation</text>
+  </g>
+
+  <!-- Dashboard (Web UI) -->
+  <rect x="1020" y="80" width="340" height="90" rx="10" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="1036" y="100" fill="#0f172a" font-size="13" font-weight="700">DASHBOARD (Web UI)</text>
+  <text x="1036" y="115" fill="#64748b" font-size="10">Rich CLI output · HTML reports · sevaforge.io</text>
+  <rect x="1036" y="125" width="308" height="36" rx="6" fill="#ffffff" stroke="#fb923c"/>
+  <text x="1190" y="142" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Pipeline status · Reports · Diagrams</text>
+  <text x="1190" y="155" text-anchor="middle" fill="#475569" font-size="10">Rich terminal · HTML artifacts · SVG architecture</text>
+
+  <!-- ============== LAYER 2: CLI ROUTER ============== -->
+  <rect x="40" y="195" width="1320" height="80" rx="10" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="56" y="215" fill="#0f172a" font-size="13" font-weight="700">2 · CLI ROUTER  (Click framework · forgeflow CLI)</text>
+  <text x="56" y="230" fill="#64748b" font-size="10">Command parsing · --mode local|cloud · --ai flag · Stage sequencing · Approval gates (bridge) · Pre-push deploy pipeline</text>
+  <rect x="56" y="240" width="1288" height="26" rx="6" fill="#ffffff" stroke="#22c55e"/>
+  <text x="700" y="257" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">discover → normalize → docs → iac → cd → ci → e2e → review → test → scan  │  deploy-intent → deploy-design → deploy-validate</text>
+
+  <!-- ============== LAYER 3: ORCHESTRATION ============== -->
+  <rect x="40" y="295" width="1320" height="130" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="56" y="315" fill="#0f172a" font-size="13" font-weight="700">3 · ORCHESTRATION  /  MISSION CONTROL</text>
+  <text x="56" y="330" fill="#64748b" font-size="10">Python 3.9+ · MissionControl class · MCPOrchestrator · Intelligence Maturity engine · TrustScore routing</text>
+
+  <rect x="60" y="345" width="260" height="70" rx="8" fill="#ffffff" stroke="#6366f1"/>
+  <text x="190" y="365" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">MissionControl (Brain)</text>
+  <text x="190" y="381" text-anchor="middle" fill="#475569" font-size="10">Pipeline sequencer · Stage executor</text>
+  <text x="190" y="396" text-anchor="middle" fill="#475569" font-size="10">execute_smart() auto-routing</text>
+  <text x="190" y="410" text-anchor="middle" fill="#475569" font-size="10">AI init · trust scoring</text>
+
+  <rect x="330" y="345" width="240" height="70" rx="8" fill="#ffffff" stroke="#3b82f6"/>
+  <text x="450" y="365" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">MCPOrchestrator</text>
+  <text x="450" y="381" text-anchor="middle" fill="#475569" font-size="10">MCP server lifecycle manager</text>
+  <text x="450" y="396" text-anchor="middle" fill="#475569" font-size="10">Local subprocess / cloud endpoint</text>
+  <text x="450" y="410" text-anchor="middle" fill="#475569" font-size="10">Config from forgeflow-config.yaml</text>
+
+  <rect x="580" y="345" width="220" height="70" rx="8" fill="#ffffff" stroke="#6366f1"/>
+  <text x="690" y="365" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">TrustScore Engine</text>
+  <text x="690" y="381" text-anchor="middle" fill="#475569" font-size="10">Composite 0–100 score</text>
+  <text x="690" y="396" text-anchor="middle" fill="#475569" font-size="10">40% reliable + 25% accept + 20% streak</text>
+  <text x="690" y="410" text-anchor="middle" fill="#475569" font-size="10">≥80 → LLM path · &lt;80 → deterministic</text>
+
+  <rect x="810" y="345" width="220" height="70" rx="8" fill="#ffffff" stroke="#6366f1"/>
+  <text x="920" y="365" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">ModelRouter</text>
+  <text x="920" y="381" text-anchor="middle" fill="#475569" font-size="10">Task → optimal LLM provider</text>
+  <text x="920" y="396" text-anchor="middle" fill="#475569" font-size="10">Cost &amp; latency aware routing</text>
+  <text x="920" y="410" text-anchor="middle" fill="#475569" font-size="10">Health tracking · fallback chain</text>
+
+  <rect x="1040" y="345" width="310" height="70" rx="8" fill="#ffffff" stroke="#6366f1"/>
+  <text x="1195" y="365" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Intelligence Maturity Phases</text>
+  <text x="1195" y="381" text-anchor="middle" fill="#475569" font-size="10">Phase 1: Assisted (deterministic only)</text>
+  <text x="1195" y="396" text-anchor="middle" fill="#475569" font-size="10">Phase 2: Automated → Phase 3: Augmented</text>
+  <text x="1195" y="410" text-anchor="middle" fill="#475569" font-size="10">Phase 4: Agentic (full LLM autonomy)</text>
+
+  <!-- ============== LAYER 4: AGENTS ============== -->
+  <rect x="40" y="445" width="1320" height="130" rx="10" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="56" y="465" fill="#0f172a" font-size="13" font-weight="700">4 · PIPELINE AGENTS  (BaseAgent subclasses · execute() + execute_with_llm())</text>
+  <text x="56" y="480" fill="#64748b" font-size="10">Each agent: deterministic execute() ALWAYS works · LLM execute_with_llm() is optional upgrade · Persona agents for deploy design</text>
+
+  <g>
+    <rect x="60" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="127" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">DiscoveryAgent</text>
+    <text x="127" y="529" text-anchor="middle" fill="#475569" font-size="9">Scan repo structure</text>
+    <text x="127" y="543" text-anchor="middle" fill="#475569" font-size="9">Language detection</text>
+    <text x="127" y="557" text-anchor="middle" fill="#475569" font-size="9">Dependency mapping</text>
+
+    <rect x="205" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="272" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">DocsAgent</text>
+    <text x="272" y="529" text-anchor="middle" fill="#475569" font-size="9">README · API docs</text>
+    <text x="272" y="543" text-anchor="middle" fill="#475569" font-size="9">Architecture diagrams</text>
+    <text x="272" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: smarter summaries</text>
+
+    <rect x="350" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="417" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">IaCAgent</text>
+    <text x="417" y="529" text-anchor="middle" fill="#475569" font-size="9">Terraform · Docker</text>
+    <text x="417" y="543" text-anchor="middle" fill="#475569" font-size="9">RAG: terraform_modules</text>
+    <text x="417" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: Gemini code gen</text>
+
+    <rect x="495" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="562" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">SecurityAgent</text>
+    <text x="562" y="529" text-anchor="middle" fill="#475569" font-size="9">Bandit · pip-audit</text>
+    <text x="562" y="543" text-anchor="middle" fill="#475569" font-size="9">RAG: security_policies</text>
+    <text x="562" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: Claude triage</text>
+
+    <rect x="640" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="707" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">ReviewAgent</text>
+    <text x="707" y="529" text-anchor="middle" fill="#475569" font-size="9">Code quality · Radon</text>
+    <text x="707" y="543" text-anchor="middle" fill="#475569" font-size="9">Complexity scoring</text>
+    <text x="707" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: Claude review</text>
+
+    <rect x="785" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="852" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">CICDAgent</text>
+    <text x="852" y="529" text-anchor="middle" fill="#475569" font-size="9">GitHub Actions</text>
+    <text x="852" y="543" text-anchor="middle" fill="#475569" font-size="9">GitLab CI pipelines</text>
+    <text x="852" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: workflow gen</text>
+
+    <rect x="930" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="997" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">E2EAgent</text>
+    <text x="997" y="529" text-anchor="middle" fill="#475569" font-size="9">Playwright · Cypress</text>
+    <text x="997" y="543" text-anchor="middle" fill="#475569" font-size="9">Test generation</text>
+    <text x="997" y="557" text-anchor="middle" fill="#475569" font-size="9">LLM: smart fixtures</text>
+
+    <rect x="1075" y="495" width="135" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="1142" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">7 Persona Agents</text>
+    <text x="1142" y="529" text-anchor="middle" fill="#475569" font-size="9">deploy-design fan-out</text>
+    <text x="1142" y="543" text-anchor="middle" fill="#475569" font-size="9">Terraform · Docker · K8s</text>
+    <text x="1142" y="557" text-anchor="middle" fill="#475569" font-size="9">ArgoCD · CI · E2E · Docs</text>
+
+    <rect x="1220" y="495" width="130" height="70" rx="8" fill="#ffffff" stroke="#8b5cf6"/>
+    <text x="1285" y="514" text-anchor="middle" fill="#0f172a" font-size="11.5" font-weight="600">DeployAgent</text>
+    <text x="1285" y="529" text-anchor="middle" fill="#475569" font-size="9">Git bridge · push</text>
+    <text x="1285" y="543" text-anchor="middle" fill="#475569" font-size="9">Approval gates</text>
+    <text x="1285" y="557" text-anchor="middle" fill="#475569" font-size="9">Monitor post-merge</text>
+  </g>
+
+  <!-- ============== LAYER 5: AI GATEWAY ============== -->
+  <rect x="40" y="595" width="1320" height="120" rx="10" fill="#faf5ff" stroke="#e9d5ff"/>
+  <text x="56" y="615" fill="#0f172a" font-size="13" font-weight="700">5 · AI GATEWAY  —  ModelRouter + RAG Pipeline  (core/model_router.py · core/rag_pipeline.py)</text>
+  <text x="56" y="631" fill="#64748b" font-size="10">Single chokepoint for all LLM traffic · model abstraction · cost controls ($0.10/call, $5/run cap) · hybrid search · trust-gated activation</text>
+
+  <rect x="60" y="645" width="270" height="58" rx="8" fill="#ffffff" stroke="#a855f7"/>
+  <text x="195" y="664" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Claude Sonnet 4 (Reasoning)</text>
+  <text x="195" y="680" text-anchor="middle" fill="#475569" font-size="10">$3/$15 per 1M tokens</text>
+  <text x="195" y="694" text-anchor="middle" fill="#475569" font-size="10">Code review · security triage · trade-offs</text>
+
+  <rect x="340" y="645" width="270" height="58" rx="8" fill="#ffffff" stroke="#a855f7"/>
+  <text x="475" y="664" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Gemini 2.0 Flash (Fast/Cheap)</text>
+  <text x="475" y="680" text-anchor="middle" fill="#475569" font-size="10">$0.10/$0.40 per 1M tokens</text>
+  <text x="475" y="694" text-anchor="middle" fill="#475569" font-size="10">Code gen · summarize · classify · templates</text>
+
+  <rect x="620" y="645" width="230" height="58" rx="8" fill="#ffffff" stroke="#a855f7"/>
+  <text x="735" y="664" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">CodeLlama 70B (Local)</text>
+  <text x="735" y="680" text-anchor="middle" fill="#475569" font-size="10">Ollama / vLLM self-hosted</text>
+  <text x="735" y="694" text-anchor="middle" fill="#475569" font-size="10">Code gen fallback · air-gapped</text>
+
+  <rect x="860" y="645" width="240" height="58" rx="8" fill="#ffffff" stroke="#a855f7"/>
+  <text x="980" y="664" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">RAG Pipeline (Hybrid Search)</text>
+  <text x="980" y="680" text-anchor="middle" fill="#475569" font-size="10">Semantic 70% + BM25 30% · MMR rerank</text>
+  <text x="980" y="694" text-anchor="middle" fill="#475569" font-size="10">512-token chunks · 50 overlap</text>
+
+  <rect x="1110" y="645" width="240" height="58" rx="8" fill="#ffffff" stroke="#a855f7"/>
+  <text x="1230" y="664" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Embedding Engine</text>
+  <text x="1230" y="680" text-anchor="middle" fill="#475569" font-size="10">Local: all-MiniLM-L6-v2 (384d)</text>
+  <text x="1230" y="694" text-anchor="middle" fill="#475569" font-size="10">Cloud: Vertex AI text-embedding-005</text>
+
+  <!-- ============== LAYER 6: EXTERNAL AI PROVIDERS ============== -->
+  <rect x="40" y="735" width="660" height="90" rx="10" fill="#fdf4ff" stroke="#f5d0fe"/>
+  <text x="56" y="755" fill="#0f172a" font-size="13" font-weight="700">6 · EXTERNAL AI PROVIDERS</text>
+  <text x="56" y="770" fill="#64748b" font-size="10">Reached only through AI Gateway (Layer 5) · cost-capped · retry with backoff</text>
+
+  <rect x="56" y="780" width="310" height="38" rx="6" fill="#ffffff" stroke="#c026d3"/>
+  <text x="211" y="797" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Anthropic Claude API</text>
+  <text x="211" y="811" text-anchor="middle" fill="#475569" font-size="10">api.anthropic.com · claude-sonnet-4-20250514</text>
+
+  <rect x="376" y="780" width="310" height="38" rx="6" fill="#ffffff" stroke="#c026d3"/>
+  <text x="531" y="797" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Google Gemini / Vertex AI</text>
+  <text x="531" y="811" text-anchor="middle" fill="#475569" font-size="10">gemini-2.0-flash · text-embedding-005 · AlloyDB</text>
+
+  <!-- ============== LAYER 7: MCP SERVERS ============== -->
+  <rect x="720" y="735" width="640" height="90" rx="10" fill="#ecfeff" stroke="#a5f3fc"/>
+  <text x="736" y="755" fill="#0f172a" font-size="13" font-weight="700">7 · MCP SERVERS  (14+ local Python subprocesses)</text>
+  <text x="736" y="770" fill="#64748b" font-size="10">JSON-RPC 2.0 protocol · Local subprocess per server · Cloud fallback via forgeflow-config.yaml</text>
+
+  <rect x="736" y="780" width="145" height="38" rx="6" fill="#ffffff" stroke="#06b6d4"/>
+  <text x="808" y="797" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="600">discovery-mcp</text>
+  <text x="808" y="811" text-anchor="middle" fill="#475569" font-size="9">Repo scanner</text>
+
+  <rect x="887" y="780" width="145" height="38" rx="6" fill="#ffffff" stroke="#06b6d4"/>
+  <text x="959" y="797" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="600">security-mcp</text>
+  <text x="959" y="811" text-anchor="middle" fill="#475569" font-size="9">Bandit · pip-audit</text>
+
+  <rect x="1038" y="780" width="145" height="38" rx="6" fill="#ffffff" stroke="#06b6d4"/>
+  <text x="1110" y="797" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="600">iac-mcp · cd-mcp</text>
+  <text x="1110" y="811" text-anchor="middle" fill="#475569" font-size="9">Terraform · ArgoCD</text>
+
+  <rect x="1189" y="780" width="165" height="38" rx="6" fill="#ffffff" stroke="#06b6d4"/>
+  <text x="1271" y="797" text-anchor="middle" fill="#0f172a" font-size="11" font-weight="600">vertex-ai · vector-store</text>
+  <text x="1271" y="811" text-anchor="middle" fill="#475569" font-size="9">AI MCP servers (v3.0)</text>
+
+  <!-- ============== LAYER 8: DATA & VECTORS ============== -->
+  <rect x="40" y="845" width="1320" height="110" rx="10" fill="#ecfdf5" stroke="#bbf7d0"/>
+  <text x="56" y="865" fill="#0f172a" font-size="13" font-weight="700">8 · DATA &amp; VECTOR STORES</text>
+  <text x="56" y="880" fill="#64748b" font-size="10">Stateful tier — RAG collections, feedback signals, run history, deployment artifacts</text>
+
+  <rect x="60" y="890" width="280" height="58" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="200" y="909" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">AlloyDB pgvector (Production)</text>
+  <text x="200" y="924" text-anchor="middle" fill="#475569" font-size="10">384d / 768d vectors · Cosine similarity</text>
+  <text x="200" y="938" text-anchor="middle" fill="#475569" font-size="10">HNSW index · 6 RAG collections</text>
+
+  <rect x="350" y="890" width="240" height="58" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="470" y="909" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">In-Memory / SQLite (Dev)</text>
+  <text x="470" y="924" text-anchor="middle" fill="#475569" font-size="10">InMemoryVectorStore (testing)</text>
+  <text x="470" y="938" text-anchor="middle" fill="#475569" font-size="10">.sevaforge/vectors.db (local)</text>
+
+  <rect x="600" y="890" width="280" height="58" rx="8" fill="#ffffff" stroke="#f59e0b"/>
+  <text x="740" y="909" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">6 RAG Collections</text>
+  <text x="740" y="924" text-anchor="middle" fill="#475569" font-size="10">deployment_outcomes · runbooks · terraform_modules</text>
+  <text x="740" y="938" text-anchor="middle" fill="#475569" font-size="10">security_policies · team_configs · intent_history</text>
+
+  <rect x="890" y="890" width="220" height="58" rx="8" fill="#ffffff" stroke="#ef4444"/>
+  <text x="1000" y="909" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Feedback Store</text>
+  <text x="1000" y="924" text-anchor="middle" fill="#475569" font-size="10">accept / reject / edit signals</text>
+  <text x="1000" y="938" text-anchor="middle" fill="#475569" font-size="10">JSON (local) or BigQuery (prod)</text>
+
+  <rect x="1120" y="890" width="230" height="58" rx="8" fill="#ffffff" stroke="#f59e0b"/>
+  <text x="1235" y="909" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Run History</text>
+  <text x="1235" y="924" text-anchor="middle" fill="#475569" font-size="10">.sevaforge/run_history.json</text>
+  <text x="1235" y="938" text-anchor="middle" fill="#475569" font-size="10">Trust score input · streak tracking</text>
+
+  <!-- ============== LAYER 9: INFRASTRUCTURE ============== -->
+  <rect x="40" y="975" width="1320" height="80" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="56" y="995" fill="#0f172a" font-size="13" font-weight="700">9 · INFRASTRUCTURE &amp; DEPLOYMENT</text>
+  <text x="56" y="1010" fill="#64748b" font-size="10">Local: Python subprocess · Cloud: GKE / Docker · IaC: Terraform · CI/CD: GitHub Actions · Monitoring: Prometheus + Grafana</text>
+  <rect x="60" y="1018" width="260" height="30" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="190" y="1037" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">GKE · Docker · Terraform</text>
+  <rect x="330" y="1018" width="240" height="30" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="450" y="1037" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">GitHub Actions · ArgoCD</text>
+  <rect x="580" y="1018" width="240" height="30" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="700" y="1037" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Prometheus · Grafana · OTel</text>
+  <rect x="830" y="1018" width="240" height="30" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="950" y="1037" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Kustomize · Helm · Secrets</text>
+  <rect x="1080" y="1018" width="270" height="30" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="1215" y="1037" text-anchor="middle" fill="#0f172a" font-size="12.5" font-weight="600">Ollama · vLLM (self-hosted LLM)</text>
+
+  <!-- ============== FLOW ARROWS ============== -->
+  <line x1="480" y1="162" x2="480" y2="195" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="1190" y1="170" x2="1190" y2="195" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="700" y1="266" x2="700" y2="295" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="450" y1="415" x2="450" y2="445" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="272" y1="565" x2="272" y2="595" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="417" y1="565" x2="417" y2="595" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="562" y1="565" x2="562" y2="595" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="707" y1="565" x2="707" y2="595" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="195" y1="703" x2="211" y2="780" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="475" y1="703" x2="531" y2="780" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+  <line x1="900" y1="266" x2="900" y2="735" stroke="#06b6d4" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="908" y="500" fill="#0e7490" font-size="10">MCPOrchestrator → local subprocess</text>
+  <line x1="959" y1="818" x2="740" y2="890" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#arr-data)"/>
+  <line x1="417" y1="565" x2="200" y2="890" stroke="#0ea5e9" stroke-width="1.2" marker-end="url(#arr-data)" opacity="0.55"/>
+  <line x1="562" y1="565" x2="470" y2="890" stroke="#0ea5e9" stroke-width="1.2" marker-end="url(#arr-data)" opacity="0.55"/>
+  <line x1="980" y1="703" x2="740" y2="890" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+  <path d="M 1000 890 C 1300 800, 1370 500, 1195 415" fill="none" stroke="#f97316" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arr-feed)"/>
+  <text x="1310" y="650" fill="#c2410c" font-size="10">feedback → trust</text>
+
+  <!-- ============== LEGEND ============== -->
+  <g transform="translate(40, 1075)">
+    <rect x="0" y="0" width="1320" height="130" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="16" y="22" fill="#0f172a" font-size="13" font-weight="700">Legend  /  edge colors</text>
+    <line x1="16" y1="42" x2="60" y2="42" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+    <text x="68" y="46" fill="#334155" font-size="11">CLI / pipeline call</text>
+    <line x1="240" y1="42" x2="284" y2="42" stroke="#a855f7" stroke-width="2" marker-end="url(#arr-ai)"/>
+    <text x="292" y="46" fill="#334155" font-size="11">AI traffic (must traverse AI Gateway)</text>
+    <line x1="560" y1="42" x2="604" y2="42" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arr-data)"/>
+    <text x="612" y="46" fill="#334155" font-size="11">Vector store / DB read-write</text>
+    <line x1="800" y1="42" x2="844" y2="42" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <text x="852" y="46" fill="#334155" font-size="11">RAG search / cache</text>
+    <line x1="1020" y1="42" x2="1064" y2="42" stroke="#f97316" stroke-width="1.8" stroke-dasharray="5 4"/>
+    <text x="1072" y="46" fill="#334155" font-size="11">Feedback loop</text>
+
+    <text x="16" y="72" fill="#334155" font-size="11"><tspan font-weight="700">Nexus → SevaForge mapping:</tspan>  Nexus is a cloud AI-PaaS serving Deltek product chatbots. SevaForge is a CLI-first platform engineering tool that developers run locally.</text>
+    <text x="16" y="89" fill="#334155" font-size="11">Both share: <tspan font-weight="600">layered architecture</tspan> (gateway → orchestrator → agents → AI → data), <tspan font-weight="600">MCP protocol</tspan> (JSON-RPC 2.0), <tspan font-weight="600">model routing</tspan> (Claude + cost-aware fallbacks),</text>
+    <text x="16" y="106" fill="#334155" font-size="11"><tspan font-weight="600">hybrid vector search</tspan> (pgvector + keyword), <tspan font-weight="600">trust-gated AI</tspan> (Nexus: agent catalog + DELA brain / SevaForge: TrustScore ≥80 → LLM path).</text>
+    <text x="16" y="122" fill="#334155" font-size="11"><tspan font-weight="700">Key difference:</tspan> Nexus routes product chatbot requests through Traefik → DELA → MCPs.  SevaForge routes developer CLI commands through Click → MissionControl → 14 pipeline agents → MCP servers.</text>
+  </g>
+</svg>
