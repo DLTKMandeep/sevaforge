@@ -1,0 +1,322 @@
+# SevaForge v3.0 — Local Development Architecture
+# Render: d2 sevaforge-architecture-local.d2 sevaforge-architecture-local.svg
+
+title: |md
+  # SevaForge v3.0 — Local Development Architecture
+|
+
+direction: down
+
+# ════════════════════════════════════════════════════════
+# LAYER 1 — Client / Developer Interface
+# ════════════════════════════════════════════════════════
+L1: "LAYER 1 — Client / Developer Interface" {
+  style: {
+    fill: "#E3F2FD"
+    stroke: "#1565C0"
+    border-radius: 12
+  }
+
+  cli: "forgeflow CLI\n(Click + Rich)" {
+    style.fill: "#BBDEFB"
+    style.border-radius: 8
+  }
+  ide: "VS Code\nTerminal Integration" {
+    style.fill: "#BBDEFB"
+    style.border-radius: 8
+  }
+  cicd: "CI/CD Triggers\nGitHub Actions / GitLab" {
+    style.fill: "#BBDEFB"
+    style.border-radius: 8
+  }
+  api: "REST API Clients\nPostman / curl" {
+    style.fill: "#BBDEFB"
+    style.border-radius: 8
+  }
+  chat: "Slack / ChatOps\nWebhook Integration" {
+    style.fill: "#BBDEFB"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 2 — CLI Routing / Command Parser
+# ════════════════════════════════════════════════════════
+L2: "LAYER 2 — CLI Routing / Command Parser" {
+  style: {
+    fill: "#E8F5E9"
+    stroke: "#2E7D32"
+    border-radius: 12
+  }
+
+  click: "Click Command Groups\nscan | docker | terraform\nhelm | deploy | cost" {
+    style.fill: "#C8E6C9"
+    style.border-radius: 8
+  }
+  rich: "Rich Console\nProgress bars + Tables" {
+    style.fill: "#C8E6C9"
+    style.border-radius: 8
+  }
+  config: "Config Loader\nforgeflow-config.yaml" {
+    style.fill: "#C8E6C9"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 3 — Orchestration
+# ════════════════════════════════════════════════════════
+L3: "LAYER 3 — Orchestration" {
+  style: {
+    fill: "#FFF3E0"
+    stroke: "#E65100"
+    border-radius: 12
+  }
+
+  mc: "MissionControl\nPipeline Orchestrator\n(sequential + parallel)" {
+    style.fill: "#FFE0B2"
+    style.border-radius: 8
+  }
+  mr: "ModelRouter\nLLM Traffic Manager\n(cost + latency routing)" {
+    style.fill: "#FFE0B2"
+    style.border-radius: 8
+  }
+  rag: "RAGPipeline\nVector Search + Hybrid\n(InMemory / pgvector)" {
+    style.fill: "#FFE0B2"
+    style.border-radius: 8
+  }
+  intent: "Config / Intent Store\ndeployment-intent.yaml\n(.sevaforge/ directory)" {
+    style.fill: "#FFE0B2"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 4 — Pipeline Agents
+# ════════════════════════════════════════════════════════
+L4: "LAYER 4 — Pipeline Agents (14 Specialized)" {
+  style: {
+    fill: "#F3E5F5"
+    stroke: "#6A1B9A"
+    border-radius: 12
+  }
+
+  ps: "ProjectScanner\nLanguage detect\n+ LLM classify" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  da: "DockerAgent\nDockerfile gen\n+ LLM optimize" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  ta: "TerraformAgent\nIaC generation\n+ LLM modules" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  ha: "HelmAgent\nK8s manifests\n+ LLM values" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  ce: "CostEstimator\nPricing calc\n+ LLM budget" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  ss: "SecurityScanner\nTrivy + Checkov\n+ LLM triage" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  rb: "RunbookAgent\nOps docs gen\n+ LLM author" {
+    style.fill: "#E1BEE7"
+    style.border-radius: 8
+  }
+  more: "+ 7 More Agents\nMonitoring, CI/CD\nCompliance, Network..." {
+    style.fill: "#CE93D8"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 5 — AI Gateway
+# ════════════════════════════════════════════════════════
+L5: "LAYER 5 — AI Gateway (ModelRouter)" {
+  style: {
+    fill: "#FCE4EC"
+    stroke: "#C62828"
+    border-radius: 12
+  }
+
+  mr_svc: "ModelRouter Service\nCost-aware routing\nTrustScore gating" {
+    style.fill: "#F8BBD0"
+    style.border-radius: 8
+  }
+  guard: "Guardrails\nToken budget\nSafety + grounding" {
+    style.fill: "#F8BBD0"
+    style.border-radius: 8
+  }
+  cache: "Response Cache\nLLM dedup\nEmbedding cache" {
+    style.fill: "#F8BBD0"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 6 — External AI Providers
+# ════════════════════════════════════════════════════════
+L6: "LAYER 6 — External AI Providers" {
+  style: {
+    fill: "#E0F7FA"
+    stroke: "#00838F"
+    border-radius: 12
+  }
+
+  claude: "Claude 3.5 Sonnet\nReasoning + Code Gen\n(Anthropic API)" {
+    style.fill: "#B2EBF2"
+    style.border-radius: 8
+  }
+  gemini: "Gemini 2.0 Pro\nLong-context analysis\n(Google AI)" {
+    style.fill: "#B2EBF2"
+    style.border-radius: 8
+  }
+  flash: "Gemini 2.0 Flash\nFast classify\n(Google AI)" {
+    style.fill: "#B2EBF2"
+    style.border-radius: 8
+  }
+  embed: "Embedding Models\ntext-embedding-004\n(768-dim vectors)" {
+    style.fill: "#B2EBF2"
+    style.border-radius: 8
+  }
+  local: "CodeLlama / Ollama\nLocal inference\n(air-gapped)" {
+    style.fill: "#80DEEA"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 7 — MCP Servers
+# ════════════════════════════════════════════════════════
+L7: "LAYER 7 — MCP Servers (stdio/SSE)" {
+  style: {
+    fill: "#FFF8E1"
+    stroke: "#F9A825"
+    border-radius: 12
+  }
+
+  fs: "filesystem-mcp\nLocal file I/O" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  docker: "docker-mcp\nDocker Engine API" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  tf: "terraform-mcp\nTF CLI wrapper" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  vs: "vector-store-mcp\nRAG operations" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  em: "embedding-mcp\nText vectorization" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  vx: "vertex-ai-mcp\nLLM orchestration" {
+    style.fill: "#FFF9C4"
+    style.border-radius: 8
+  }
+  more_mcp: "+ 3 MCPs\ngit, helm, secrets" {
+    style.fill: "#FFEE58"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 8 — Data & Vector Storage
+# ════════════════════════════════════════════════════════
+L8: "LAYER 8 — Data & Vector Storage" {
+  style: {
+    fill: "#E8EAF6"
+    stroke: "#283593"
+    border-radius: 12
+  }
+
+  pg: "PostgreSQL + pgvector\n(or InMemoryVectorStore)\nEmbeddings + metadata" {
+    style.fill: "#C5CAE9"
+    style.border-radius: 8
+  }
+  redis: "Redis / In-Memory\nSession cache\nLLM response cache" {
+    style.fill: "#C5CAE9"
+    style.border-radius: 8
+  }
+  fs_data: "Local Filesystem\n.sevaforge/ directory\nArtifacts + templates" {
+    style.fill: "#C5CAE9"
+    style.border-radius: 8
+  }
+  json: "JSON Files\nPipeline results\nCost tracking" {
+    style.fill: "#C5CAE9"
+    style.border-radius: 8
+  }
+  dotenv: "dotenv / .env\nAPI keys\nLocal secrets" {
+    style.fill: "#C5CAE9"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# LAYER 9 — Infrastructure
+# ════════════════════════════════════════════════════════
+L9: "LAYER 9 — Infrastructure (Local Dev)" {
+  style: {
+    fill: "#ECEFF1"
+    stroke: "#37474F"
+    border-radius: 12
+  }
+
+  python: "Python 3.11+\nvenv / Poetry" {
+    style.fill: "#CFD8DC"
+    style.border-radius: 8
+  }
+  docker_e: "Docker Engine\nBuildKit" {
+    style.fill: "#CFD8DC"
+    style.border-radius: 8
+  }
+  tf_cli: "Terraform CLI\nProvider plugins" {
+    style.fill: "#CFD8DC"
+    style.border-radius: 8
+  }
+  git: "Git\nPre-commit hooks" {
+    style.fill: "#CFD8DC"
+    style.border-radius: 8
+  }
+  node: "Node.js (optional)\nMCP runtime" {
+    style.fill: "#CFD8DC"
+    style.border-radius: 8
+  }
+}
+
+# ════════════════════════════════════════════════════════
+# CONNECTIONS — Main data flow (top to bottom)
+# ════════════════════════════════════════════════════════
+L1 -> L2: "commands" {style.stroke: "#1565C0"}
+L2 -> L3: "parsed intent" {style.stroke: "#2E7D32"}
+L3 -> L4: "agent dispatch" {style.stroke: "#E65100"}
+L4 -> L5: "LLM requests" {style.stroke: "#C62828"}
+L5 -> L6: "API calls" {style.stroke: "#00838F"}
+L4 -> L7: "tool calls" {style.stroke: "#F9A825"}
+L7 -> L8: "read/write" {style.stroke: "#283593"}
+L8 -> L9: "runtime" {style.stroke: "#37474F"}
+
+# Cross-layer feedback
+L3 -> L8: "RAG context" {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 5
+}
+L5 -> L8: "cached responses" {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 5
+}
+L7 -> L4: "tool results" {
+  style.stroke: "#9E9E9E"
+  style.stroke-dash: 5
+}

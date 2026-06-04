@@ -1,0 +1,157 @@
+---
+title: "SevaForge v3.0 — Cloud Architecture (AWS)"
+---
+graph TB
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 1 — Client / Developer Interface
+  %% ════════════════════════════════════════════════════════
+  subgraph L1["🖥️ LAYER 1 — Client / Developer Interface"]
+    direction LR
+    CLI["forgeflow CLI\n(Click + Rich)"]
+    SHELL["AWS CloudShell\nWeb Terminal"]
+    IDE["VS Code\n+ AWS Toolkit"]
+    CICD_T["CodePipeline\n+ ArgoCD"]
+    API_C["REST API\nPostman / SDK"]
+    CHAT["Slack / ChatOps\nEventBridge"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 2 — Ingress / API Gateway
+  %% ════════════════════════════════════════════════════════
+  subgraph L2["🌐 LAYER 2 — Ingress / API Gateway"]
+    direction LR
+    ALB["Application LB\nHTTPS + SSL"]
+    WAF["AWS WAF + Shield\nDDoS + OWASP"]
+    COGNITO["Amazon Cognito\nOAuth 2.0 + MFA"]
+    APIGW["API Gateway REST\nRate limiting + keys"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 3 — Orchestration (EKS Fargate)
+  %% ════════════════════════════════════════════════════════
+  subgraph L3["🎯 LAYER 3 — Orchestration (EKS Fargate)"]
+    direction LR
+    MC["MissionControl\nPipeline Orchestrator\n(Fargate Task)"]
+    MR["ModelRouter\nLLM Traffic Manager\n(cost + latency)"]
+    RAG["RAGPipeline\nVector Search + Hybrid\n(Aurora pgvector)"]
+    INTENT["Config / Intent\ndeployment-intent.yaml\n(S3 + ConfigMap)"]
+    SQS["SQS + EventBridge\nAgent ↔ Agent\n(async stages)"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 4 — Pipeline Agents (EKS Fargate Pods)
+  %% ════════════════════════════════════════════════════════
+  subgraph L4["🤖 LAYER 4 — Pipeline Agents (EKS Fargate — HPA)"]
+    direction LR
+    PS["ProjectScanner\nLanguage detect\n+ LLM classify"]
+    DA["DockerAgent\nDockerfile gen\n+ LLM optimize"]
+    TA["TerraformAgent\nIaC generation\n+ LLM modules"]
+    HA["HelmAgent\nK8s manifests\n+ LLM values"]
+    CE["CostEstimator\nAWS Pricing API\n+ LLM budget"]
+    SS["SecurityScanner\nGuardDuty + Inspector\n+ LLM triage"]
+    RB["RunbookAgent\nOps docs gen\n+ LLM author"]
+    MORE["+ 7 More\nMonitoring, CI/CD\nCompliance, Net..."]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 5 — AI Gateway (Bedrock)
+  %% ════════════════════════════════════════════════════════
+  subgraph L5["🧠 LAYER 5 — AI Gateway (Amazon Bedrock)"]
+    direction LR
+    MR_SVC["ModelRouter Service\nCost-aware routing"]
+    BEDROCK["Bedrock Endpoints\nOn-demand + provisioned"]
+    GUARD["Guardrails for Bedrock\nContent filters"]
+    SAGE["SageMaker Pipelines\nML workflow orch."]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 6 — External AI (Bedrock Model Access)
+  %% ════════════════════════════════════════════════════════
+  subgraph L6["☁️ LAYER 6 — External AI (Bedrock Models)"]
+    direction LR
+    CLAUDE["Claude 3.5 Sonnet\nReasoning + Code Gen"]
+    NOVA_P["Amazon Nova Pro\nLong-context analysis"]
+    NOVA_L["Amazon Nova Lite\nFast classify"]
+    TITAN["Titan Embeddings G2\n1024-dim vectors"]
+    CW["CodeWhisperer\nCode-specific"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 7 — MCP Servers (EKS Sidecars)
+  %% ════════════════════════════════════════════════════════
+  subgraph L7["🔌 LAYER 7 — MCP Servers (EKS Sidecars)"]
+    direction LR
+    FS_MCP["filesystem-mcp\nS3 + EFS mount"]
+    DOCK_MCP["docker-mcp\nCodeBuild API\n+ ECR Registry"]
+    TF_MCP["terraform-mcp\nTF Cloud\nS3 remote state"]
+    VS_MCP["vector-store-mcp\nAurora pgvector"]
+    EM_MCP["embedding-mcp\nTitan Embeddings"]
+    BR_MCP["bedrock-mcp\nBedrock Runtime API"]
+    MORE_MCP["+ 3 MCPs\ngit, helm, secrets"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 8 — Data & Vector Storage
+  %% ════════════════════════════════════════════════════════
+  subgraph L8["💾 LAYER 8 — Data & Vector Storage (Managed)"]
+    direction LR
+    AURORA["Aurora PostgreSQL\npgvector extension\nEmbeddings + metadata"]
+    ELASTI["ElastiCache Redis\nSession + pipeline cache\nLLM response cache"]
+    S3["Amazon S3\nArtifacts + templates\nTerraform state"]
+    ATHENA["S3 + Athena\nPipeline analytics\nCost tracking"]
+    SECRETS["Secrets Manager\nAPI keys + creds\nAuto-rotation"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% LAYER 9 — Infrastructure (AWS Managed)
+  %% ════════════════════════════════════════════════════════
+  subgraph L9["⚙️ LAYER 9 — Infrastructure (AWS Managed)"]
+    direction LR
+    EKS["EKS Fargate\nServerless pods\nIRSA (IAM Roles)"]
+    CP["CodePipeline\nCI/CD pipelines\n+ ECR Registry"]
+    ARGO["ArgoCD\nGitOps delivery\nFlux alternative"]
+    CW_MON["CloudWatch + X-Ray\nMetrics + Logging\nDistributed tracing"]
+    VPC["VPC + PrivateLink\nNetwork isolation\nSecurity Groups"]
+    IAC["Terraform + CDK\nIaC provisioning\nS3 remote state"]
+  end
+
+  %% ════════════════════════════════════════════════════════
+  %% FLOW CONNECTIONS
+  %% ════════════════════════════════════════════════════════
+  L1 --> L2
+  L2 --> L3
+  L3 --> L4
+  L4 --> L5
+  L5 --> L6
+  L4 --> L7
+  L7 --> L8
+  L8 --> L9
+
+  %% Cross-layer
+  L3 -.->|"RAG context"| L8
+  L5 -.->|"cached responses"| L8
+  L7 -.->|"tool results"| L4
+  SQS -.->|"events"| L4
+
+  %% ════════════════════════════════════════════════════════
+  %% STYLING — AWS Orange/Dark theme
+  %% ════════════════════════════════════════════════════════
+  classDef layer1 fill:#FFF8E1,stroke:#FF8F00,stroke-width:2px,color:#E65100
+  classDef layer2 fill:#FFE0B2,stroke:#EF6C00,stroke-width:2px,color:#BF360C
+  classDef layer3 fill:#FFCC80,stroke:#E65100,stroke-width:2px,color:#BF360C
+  classDef layer4 fill:#FFB74D,stroke:#D84315,stroke-width:2px,color:#BF360C
+  classDef layer5 fill:#E8EAF6,stroke:#283593,stroke-width:2px,color:#1A237E
+  classDef layer6 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C
+  classDef layer7 fill:#E0F2F1,stroke:#00897B,stroke-width:2px,color:#004D40
+  classDef layer8 fill:#E1F5FE,stroke:#0288D1,stroke-width:2px,color:#01579B
+  classDef layer9 fill:#ECEFF1,stroke:#546E7A,stroke-width:2px,color:#263238
+
+  class CLI,SHELL,IDE,CICD_T,API_C,CHAT layer1
+  class ALB,WAF,COGNITO,APIGW layer2
+  class MC,MR,RAG,INTENT,SQS layer3
+  class PS,DA,TA,HA,CE,SS,RB,MORE layer4
+  class MR_SVC,BEDROCK,GUARD,SAGE layer5
+  class CLAUDE,NOVA_P,NOVA_L,TITAN,CW layer6
+  class FS_MCP,DOCK_MCP,TF_MCP,VS_MCP,EM_MCP,BR_MCP,MORE_MCP layer7
+  class AURORA,ELASTI,S3,ATHENA,SECRETS layer8
+  class EKS,CP,ARGO,CW_MON,VPC,IAC layer9
