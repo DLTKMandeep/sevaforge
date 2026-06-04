@@ -1,0 +1,311 @@
+<svg viewBox="0 0 1400 1420" xmlns="http://www.w3.org/2000/svg" role="img" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <title>SevaForge v3.0 — Cloud-Deployed Architecture (AWS)</title>
+  <defs>
+    <linearGradient id="awsHeader" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#232F3E"/><stop offset="100%" stop-color="#37475A"/></linearGradient>
+    <filter id="awsShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.10"/></filter>
+  </defs>
+
+  <rect width="1400" height="1420" rx="16" fill="#F5F7FA"/>
+
+  <rect x="0" y="0" width="1400" height="56" rx="16" fill="url(#awsHeader)"/>
+  <rect x="0" y="16" width="1400" height="40" fill="url(#awsHeader)"/>
+  <text x="40" y="36" fill="#FF9900" font-size="18" font-weight="700">SEVAFORGE v3.0 — Cloud-Deployed Architecture (AWS)</text>
+  <text x="1360" y="36" fill="#FF9900" font-size="12" text-anchor="end">Amazon Web Services</text>
+
+  <rect x="30" y="72" width="1340" height="100" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="72" width="1340" height="28" rx="12" fill="#FF9900"/>
+  <rect x="30" y="88" width="1340" height="12" fill="#FF9900"/>
+  <text x="50" y="91" fill="#fff" font-size="13" font-weight="700">LAYER 1 — Client / Developer Interface</text>
+
+  <rect x="60" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="150" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">forgeflow CLI</text>
+  <text x="150" y="146" text-anchor="middle" fill="#BF360C" font-size="10">(Click + Rich)</text>
+
+  <rect x="270" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="360" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">AWS CloudShell</text>
+  <text x="360" y="146" text-anchor="middle" fill="#BF360C" font-size="10">Web Terminal</text>
+
+  <rect x="480" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="570" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">VS Code + AWS Toolkit</text>
+  <text x="570" y="146" text-anchor="middle" fill="#BF360C" font-size="10">IDE Extension</text>
+
+  <rect x="690" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="780" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">CI/CD Triggers</text>
+  <text x="780" y="146" text-anchor="middle" fill="#BF360C" font-size="10">CodePipeline / ArgoCD</text>
+
+  <rect x="900" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="990" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">REST API Clients</text>
+  <text x="990" y="146" text-anchor="middle" fill="#BF360C" font-size="10">Postman / curl / SDK</text>
+
+  <rect x="1110" y="110" width="180" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="1200" y="130" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">Slack / Chat Ops</text>
+  <text x="1200" y="146" text-anchor="middle" fill="#BF360C" font-size="10">EventBridge Integration</text>
+
+  <rect x="30" y="186" width="1340" height="100" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="186" width="1340" height="28" rx="12" fill="#EC7211"/>
+  <rect x="30" y="202" width="1340" height="12" fill="#EC7211"/>
+  <text x="50" y="205" fill="#fff" font-size="13" font-weight="700">LAYER 2 — Ingress / API Gateway</text>
+
+  <rect x="60" y="224" width="250" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="185" y="244" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">ALB (Application LB)</text>
+  <text x="185" y="260" text-anchor="middle" fill="#BF360C" font-size="10">HTTPS + SSL termination</text>
+
+  <rect x="340" y="224" width="250" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="465" y="244" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">AWS WAF + Shield</text>
+  <text x="465" y="260" text-anchor="middle" fill="#BF360C" font-size="10">DDoS + OWASP rules</text>
+
+  <rect x="620" y="224" width="250" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="745" y="244" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">Amazon Cognito</text>
+  <text x="745" y="260" text-anchor="middle" fill="#BF360C" font-size="10">OAuth 2.0 + RBAC + MFA</text>
+
+  <rect x="900" y="224" width="250" height="48" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="1025" y="244" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">API Gateway (REST)</text>
+  <text x="1025" y="260" text-anchor="middle" fill="#BF360C" font-size="10">Rate limiting + API keys</text>
+
+  <rect x="30" y="300" width="1340" height="120" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="300" width="1340" height="28" rx="12" fill="#C9510C"/>
+  <rect x="30" y="316" width="1340" height="12" fill="#C9510C"/>
+  <text x="50" y="319" fill="#fff" font-size="13" font-weight="700">LAYER 3 — Orchestration (EKS Fargate)</text>
+
+  <rect x="60" y="340" width="200" height="64" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="160" y="360" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">MissionControl</text>
+  <text x="160" y="376" text-anchor="middle" fill="#BF360C" font-size="10">Pipeline Orchestrator</text>
+  <text x="160" y="392" text-anchor="middle" fill="#BF360C" font-size="10">(Fargate Task)</text>
+
+  <rect x="290" y="340" width="200" height="64" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="390" y="360" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">ModelRouter</text>
+  <text x="390" y="376" text-anchor="middle" fill="#BF360C" font-size="10">LLM Traffic Manager</text>
+  <text x="390" y="392" text-anchor="middle" fill="#BF360C" font-size="10">(cost + latency routing)</text>
+
+  <rect x="520" y="340" width="200" height="64" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="620" y="360" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">RAGPipeline</text>
+  <text x="620" y="376" text-anchor="middle" fill="#BF360C" font-size="10">Vector Search + Hybrid</text>
+  <text x="620" y="392" text-anchor="middle" fill="#BF360C" font-size="10">(Aurora pgvector)</text>
+
+  <rect x="750" y="340" width="200" height="64" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="850" y="360" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">Config / Intent Store</text>
+  <text x="850" y="376" text-anchor="middle" fill="#BF360C" font-size="10">deployment-intent.yaml</text>
+  <text x="850" y="392" text-anchor="middle" fill="#BF360C" font-size="10">(S3 + ConfigMap)</text>
+
+  <rect x="980" y="340" width="200" height="64" rx="8" fill="#FFF8E1" stroke="#FFE082"/>
+  <text x="1080" y="360" text-anchor="middle" fill="#E65100" font-size="11" font-weight="600">SQS + EventBridge</text>
+  <text x="1080" y="376" text-anchor="middle" fill="#BF360C" font-size="10">Agent ↔ Agent messaging</text>
+  <text x="1080" y="392" text-anchor="middle" fill="#BF360C" font-size="10">(async pipeline stages)</text>
+
+  <rect x="30" y="434" width="1340" height="120" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="434" width="1340" height="28" rx="12" fill="#232F3E"/>
+  <rect x="30" y="450" width="1340" height="12" fill="#232F3E"/>
+  <text x="50" y="453" fill="#FF9900" font-size="13" font-weight="700">LAYER 4 — Pipeline Agents (EKS Fargate Pods — HPA Autoscaled)</text>
+
+  <rect x="60" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="132" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">ProjectScanner</text>
+  <text x="132" y="504" text-anchor="middle" fill="#BF360C" font-size="9">Language detect</text>
+  <text x="132" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM classify</text>
+
+  <rect x="220" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="292" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">DockerAgent</text>
+  <text x="292" y="504" text-anchor="middle" fill="#BF360C" font-size="9">Dockerfile gen</text>
+  <text x="292" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM optimize</text>
+
+  <rect x="380" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="452" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">TerraformAgent</text>
+  <text x="452" y="504" text-anchor="middle" fill="#BF360C" font-size="9">IaC generation</text>
+  <text x="452" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM modules</text>
+
+  <rect x="540" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="612" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">HelmAgent</text>
+  <text x="612" y="504" text-anchor="middle" fill="#BF360C" font-size="9">K8s manifests</text>
+  <text x="612" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM values</text>
+
+  <rect x="700" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="772" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">CostEstimator</text>
+  <text x="772" y="504" text-anchor="middle" fill="#BF360C" font-size="9">AWS Pricing API</text>
+  <text x="772" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM budget</text>
+
+  <rect x="860" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="932" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">SecurityScanner</text>
+  <text x="932" y="504" text-anchor="middle" fill="#BF360C" font-size="9">GuardDuty + Inspector</text>
+  <text x="932" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM triage</text>
+
+  <rect x="1020" y="470" width="145" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="1092" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">RunbookAgent</text>
+  <text x="1092" y="504" text-anchor="middle" fill="#BF360C" font-size="9">Ops docs gen</text>
+  <text x="1092" y="518" text-anchor="middle" fill="#D84315" font-size="8">+ LLM author</text>
+
+  <rect x="1180" y="470" width="165" height="68" rx="8" fill="#FFE0B2" stroke="#FFB74D"/>
+  <text x="1262" y="490" text-anchor="middle" fill="#E65100" font-size="10" font-weight="600">+7 More Agents</text>
+  <text x="1262" y="504" text-anchor="middle" fill="#BF360C" font-size="9">Monitoring, CI/CD,</text>
+  <text x="1262" y="518" text-anchor="middle" fill="#D84315" font-size="8">Compliance, Network...</text>
+
+  <rect x="30" y="568" width="1340" height="100" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="568" width="1340" height="28" rx="12" fill="#1A237E"/>
+  <rect x="30" y="584" width="1340" height="12" fill="#1A237E"/>
+  <text x="50" y="587" fill="#fff" font-size="13" font-weight="700">LAYER 5 — AI Gateway (Amazon Bedrock)</text>
+
+  <rect x="60" y="600" width="250" height="52" rx="8" fill="#E8EAF6" stroke="#9FA8DA"/>
+  <text x="185" y="620" text-anchor="middle" fill="#1A237E" font-size="11" font-weight="600">ModelRouter Service</text>
+  <text x="185" y="636" text-anchor="middle" fill="#283593" font-size="10">Cost-aware LLM routing</text>
+
+  <rect x="340" y="600" width="250" height="52" rx="8" fill="#E8EAF6" stroke="#9FA8DA"/>
+  <text x="465" y="620" text-anchor="middle" fill="#1A237E" font-size="11" font-weight="600">Bedrock Endpoints</text>
+  <text x="465" y="636" text-anchor="middle" fill="#283593" font-size="10">On-demand + provisioned</text>
+
+  <rect x="620" y="600" width="250" height="52" rx="8" fill="#E8EAF6" stroke="#9FA8DA"/>
+  <text x="745" y="620" text-anchor="middle" fill="#1A237E" font-size="11" font-weight="600">Guardrails for Bedrock</text>
+  <text x="745" y="636" text-anchor="middle" fill="#283593" font-size="10">Content filters + grounding</text>
+
+  <rect x="900" y="600" width="250" height="52" rx="8" fill="#E8EAF6" stroke="#9FA8DA"/>
+  <text x="1025" y="620" text-anchor="middle" fill="#1A237E" font-size="11" font-weight="600">SageMaker Pipelines</text>
+  <text x="1025" y="636" text-anchor="middle" fill="#283593" font-size="10">ML workflow orchestration</text>
+
+  <rect x="30" y="682" width="1340" height="100" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="682" width="1340" height="28" rx="12" fill="#4A148C"/>
+  <rect x="30" y="698" width="1340" height="12" fill="#4A148C"/>
+  <text x="50" y="701" fill="#fff" font-size="13" font-weight="700">LAYER 6 — External AI Providers (via Bedrock Model Access)</text>
+
+  <rect x="60" y="716" width="200" height="52" rx="8" fill="#F3E5F5" stroke="#CE93D8"/>
+  <text x="160" y="736" text-anchor="middle" fill="#4A148C" font-size="11" font-weight="600">Claude 3.5 Sonnet</text>
+  <text x="160" y="752" text-anchor="middle" fill="#6A1B9A" font-size="10">Reasoning + Code Gen</text>
+
+  <rect x="290" y="716" width="200" height="52" rx="8" fill="#F3E5F5" stroke="#CE93D8"/>
+  <text x="390" y="736" text-anchor="middle" fill="#4A148C" font-size="11" font-weight="600">Amazon Nova Pro</text>
+  <text x="390" y="752" text-anchor="middle" fill="#6A1B9A" font-size="10">Long-context analysis</text>
+
+  <rect x="520" y="716" width="200" height="52" rx="8" fill="#F3E5F5" stroke="#CE93D8"/>
+  <text x="620" y="736" text-anchor="middle" fill="#4A148C" font-size="11" font-weight="600">Amazon Nova Lite</text>
+  <text x="620" y="752" text-anchor="middle" fill="#6A1B9A" font-size="10">Fast classify + summarize</text>
+
+  <rect x="750" y="716" width="200" height="52" rx="8" fill="#F3E5F5" stroke="#CE93D8"/>
+  <text x="850" y="736" text-anchor="middle" fill="#4A148C" font-size="11" font-weight="600">Titan Embeddings G2</text>
+  <text x="850" y="752" text-anchor="middle" fill="#6A1B9A" font-size="10">1024-dim embeddings</text>
+
+  <rect x="980" y="716" width="200" height="52" rx="8" fill="#F3E5F5" stroke="#CE93D8"/>
+  <text x="1080" y="736" text-anchor="middle" fill="#4A148C" font-size="11" font-weight="600">CodeWhisperer</text>
+  <text x="1080" y="752" text-anchor="middle" fill="#6A1B9A" font-size="10">Code-specific tasks</text>
+
+  <rect x="30" y="796" width="1340" height="120" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="796" width="1340" height="28" rx="12" fill="#004D40"/>
+  <rect x="30" y="812" width="1340" height="12" fill="#004D40"/>
+  <text x="50" y="815" fill="#fff" font-size="13" font-weight="700">LAYER 7 — MCP Servers (EKS Sidecar Containers)</text>
+
+  <rect x="60" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="147" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">filesystem-mcp</text>
+  <text x="147" y="872" text-anchor="middle" fill="#00695C" font-size="9">S3 + EFS mount</text>
+  <text x="147" y="886" text-anchor="middle" fill="#00897B" font-size="8">project artifacts</text>
+
+  <rect x="250" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="337" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">docker-mcp</text>
+  <text x="337" y="872" text-anchor="middle" fill="#00695C" font-size="9">CodeBuild API</text>
+  <text x="337" y="886" text-anchor="middle" fill="#00897B" font-size="8">+ ECR Registry</text>
+
+  <rect x="440" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="527" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">terraform-mcp</text>
+  <text x="527" y="872" text-anchor="middle" fill="#00695C" font-size="9">Terraform Cloud</text>
+  <text x="527" y="886" text-anchor="middle" fill="#00897B" font-size="8">remote state (S3)</text>
+
+  <rect x="630" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="717" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">vector-store-mcp</text>
+  <text x="717" y="872" text-anchor="middle" fill="#00695C" font-size="9">Aurora pgvector</text>
+  <text x="717" y="886" text-anchor="middle" fill="#00897B" font-size="8">semantic search</text>
+
+  <rect x="820" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="907" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">embedding-mcp</text>
+  <text x="907" y="872" text-anchor="middle" fill="#00695C" font-size="9">Titan Embeddings</text>
+  <text x="907" y="886" text-anchor="middle" fill="#00897B" font-size="8">text + code vectors</text>
+
+  <rect x="1010" y="836" width="175" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="1097" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">bedrock-mcp</text>
+  <text x="1097" y="872" text-anchor="middle" fill="#00695C" font-size="9">Bedrock Runtime API</text>
+  <text x="1097" y="886" text-anchor="middle" fill="#00897B" font-size="8">LLM orchestration</text>
+
+  <rect x="1200" y="836" width="145" height="64" rx="8" fill="#E0F2F1" stroke="#80CBC4"/>
+  <text x="1272" y="856" text-anchor="middle" fill="#004D40" font-size="10" font-weight="600">+3 MCPs</text>
+  <text x="1272" y="872" text-anchor="middle" fill="#00695C" font-size="9">git, helm,</text>
+  <text x="1272" y="886" text-anchor="middle" fill="#00897B" font-size="8">secrets-mcp</text>
+
+  <rect x="30" y="930" width="1340" height="120" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="930" width="1340" height="28" rx="12" fill="#01579B"/>
+  <rect x="30" y="946" width="1340" height="12" fill="#01579B"/>
+  <text x="50" y="949" fill="#fff" font-size="13" font-weight="700">LAYER 8 — Data &amp; Vector Storage (Managed Services)</text>
+
+  <rect x="60" y="968" width="200" height="68" rx="8" fill="#E1F5FE" stroke="#81D4FA"/>
+  <text x="160" y="988" text-anchor="middle" fill="#01579B" font-size="11" font-weight="600">Aurora PostgreSQL</text>
+  <text x="160" y="1004" text-anchor="middle" fill="#0277BD" font-size="10">pgvector extension</text>
+  <text x="160" y="1020" text-anchor="middle" fill="#0288D1" font-size="9">Embeddings + metadata</text>
+
+  <rect x="290" y="968" width="200" height="68" rx="8" fill="#E1F5FE" stroke="#81D4FA"/>
+  <text x="390" y="988" text-anchor="middle" fill="#01579B" font-size="11" font-weight="600">ElastiCache Redis</text>
+  <text x="390" y="1004" text-anchor="middle" fill="#0277BD" font-size="10">Session + pipeline cache</text>
+  <text x="390" y="1020" text-anchor="middle" fill="#0288D1" font-size="9">LLM response cache</text>
+
+  <rect x="520" y="968" width="200" height="68" rx="8" fill="#E1F5FE" stroke="#81D4FA"/>
+  <text x="620" y="988" text-anchor="middle" fill="#01579B" font-size="11" font-weight="600">Amazon S3</text>
+  <text x="620" y="1004" text-anchor="middle" fill="#0277BD" font-size="10">Artifacts + templates</text>
+  <text x="620" y="1020" text-anchor="middle" fill="#0288D1" font-size="9">Terraform state backend</text>
+
+  <rect x="750" y="968" width="200" height="68" rx="8" fill="#E1F5FE" stroke="#81D4FA"/>
+  <text x="850" y="988" text-anchor="middle" fill="#01579B" font-size="11" font-weight="600">S3 + Athena</text>
+  <text x="850" y="1004" text-anchor="middle" fill="#0277BD" font-size="10">Pipeline analytics</text>
+  <text x="850" y="1020" text-anchor="middle" fill="#0288D1" font-size="9">Cost tracking + audit</text>
+
+  <rect x="980" y="968" width="200" height="68" rx="8" fill="#E1F5FE" stroke="#81D4FA"/>
+  <text x="1080" y="988" text-anchor="middle" fill="#01579B" font-size="11" font-weight="600">Secrets Manager</text>
+  <text x="1080" y="1004" text-anchor="middle" fill="#0277BD" font-size="10">API keys + credentials</text>
+  <text x="1080" y="1020" text-anchor="middle" fill="#0288D1" font-size="9">Auto-rotation</text>
+
+  <rect x="30" y="1064" width="1340" height="120" rx="12" fill="#fff" stroke="#FF9900" stroke-width="1.5" filter="url(#awsShadow)"/>
+  <rect x="30" y="1064" width="1340" height="28" rx="12" fill="#263238"/>
+  <rect x="30" y="1080" width="1340" height="12" fill="#263238"/>
+  <text x="50" y="1083" fill="#fff" font-size="13" font-weight="700">LAYER 9 — Infrastructure (AWS Managed)</text>
+
+  <rect x="60" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="147" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">EKS Fargate</text>
+  <text x="147" y="1136" text-anchor="middle" fill="#455A64" font-size="9">Serverless pods</text>
+  <text x="147" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">IRSA (IAM Roles)</text>
+
+  <rect x="250" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="337" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">CodePipeline</text>
+  <text x="337" y="1136" text-anchor="middle" fill="#455A64" font-size="9">CI/CD pipelines</text>
+  <text x="337" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">+ ECR Registry</text>
+
+  <rect x="440" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="527" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">ArgoCD</text>
+  <text x="527" y="1136" text-anchor="middle" fill="#455A64" font-size="9">GitOps delivery</text>
+  <text x="527" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">Flux alternative</text>
+
+  <rect x="630" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="717" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">CloudWatch + X-Ray</text>
+  <text x="717" y="1136" text-anchor="middle" fill="#455A64" font-size="9">Metrics + Logging</text>
+  <text x="717" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">Distributed tracing</text>
+
+  <rect x="820" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="907" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">VPC + PrivateLink</text>
+  <text x="907" y="1136" text-anchor="middle" fill="#455A64" font-size="9">Network isolation</text>
+  <text x="907" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">Security Groups</text>
+
+  <rect x="1010" y="1100" width="175" height="68" rx="8" fill="#ECEFF1" stroke="#B0BEC5"/>
+  <text x="1097" y="1120" text-anchor="middle" fill="#263238" font-size="10" font-weight="600">Terraform + CDK</text>
+  <text x="1097" y="1136" text-anchor="middle" fill="#455A64" font-size="9">IaC provisioning</text>
+  <text x="1097" y="1150" text-anchor="middle" fill="#607D8B" font-size="8">S3 remote state</text>
+
+  <defs><marker id="awsArrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#FF9900"/></marker></defs>
+  <line x1="700" y1="172" x2="700" y2="186" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="286" x2="700" y2="300" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="420" x2="700" y2="434" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="554" x2="700" y2="568" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="668" x2="700" y2="682" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="782" x2="700" y2="796" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="916" x2="700" y2="930" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+  <line x1="700" y1="1050" x2="700" y2="1064" stroke="#FF9900" stroke-width="2" marker-end="url(#awsArrow)"/>
+
+  <text x="40" y="1210" fill="#232F3E" font-size="12" font-weight="700">Data Flow:</text>
+  <text x="140" y="1210" fill="#455A64" font-size="11">CLI/API → ALB → WAF + Cognito → EKS Fargate (MissionControl) → Agent Pods → Bedrock → Aurora/S3 → Response</text>
+
+  <text x="40" y="1235" fill="#232F3E" font-size="12" font-weight="700">Key Patterns:</text>
+  <text x="155" y="1235" fill="#455A64" font-size="11">SQS async pipeline • Aurora pgvector for RAG • IRSA (no static credentials) • WAF + Shield DDoS protection</text>
+
+  <text x="40" y="1260" fill="#232F3E" font-size="12" font-weight="700">Scaling:</text>
+  <text x="120" y="1260" fill="#455A64" font-size="11">Fargate serverless pods • HPA per agent type • SQS handles backpressure • ElastiCache caches LLM responses</text>
+
+  <text x="1360" y="1400" text-anchor="end" fill="#9E9E9E" font-size="10">SevaForge v3.0 • AWS Cloud Architecture • 2026</text>
+</svg>
