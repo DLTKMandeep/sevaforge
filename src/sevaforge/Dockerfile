@@ -1,4 +1,4 @@
-# ── SevaForge Enterprise AI Platform ────────────────────────────────────────────
+# ── SevaForge Enterprise AI Platform ──────────────────────────────────
 # Multi-stage build: slim Python 3.11 image
 
 FROM python:3.11-slim AS base
@@ -13,14 +13,14 @@ RUN groupadd -r sevaforge && useradd -r -g sevaforge -d /app -s /sbin/nologin se
 
 WORKDIR /app
 
-# ── Dependencies ────────────────────────────────────────────────────────
+# ── Dependencies ──────────────────────────────────────────────────────
 FROM base AS deps
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir ".[all]"
 
-# ── Application ─────────────────────────────────────────────────────────
+# ── Application ───────────────────────────────────────────────────────
 FROM deps AS app
 
 COPY src/ src/
