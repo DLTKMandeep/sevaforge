@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sevaforge
+  labels:
+    app.kubernetes.io/name: sevaforge
+    app.kubernetes.io/part-of: sevaforge
+    app.kubernetes.io/managed-by: kubectl
+    environment: production

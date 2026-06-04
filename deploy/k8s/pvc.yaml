@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: worker-scratch
+  namespace: sevaforge
+  labels:
+    app.kubernetes.io/name: sevaforge-worker
+    app.kubernetes.io/component: pipeline-worker
+    app.kubernetes.io/part-of: sevaforge
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: premium-rwo
+  resources:
+    requests:
+      storage: 100Gi

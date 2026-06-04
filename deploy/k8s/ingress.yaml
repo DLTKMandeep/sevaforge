@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sevaforge-ingress
+  namespace: sevaforge
+  labels:
+    app.kubernetes.io/name: sevaforge-ingress
+    app.kubernetes.io/component: networking
+    app.kubernetes.io/part-of: sevaforge
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - sevaforge.example.com
+      secretName: sevaforge-tls
+  rules:
+    - host: sevaforge.example.com
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-server
+                port:
+                  number: 8000
+          - path: /auth(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8001
+          - path: /webhook(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: webhook-handler
+                port:
+                  number: 8002
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dashboard
+                port:
+                  number: 80
