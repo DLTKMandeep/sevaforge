@@ -1,0 +1,74 @@
+###############################################################################
+# SevaForge - Example Terraform Variable Values
+# Copy this file to terraform.tfvars and customize for your environment.
+###############################################################################
+
+# Project & Environment
+project_id   = "sevaforge-prod"
+project_name = "sevaforge"
+region       = "us-central1"
+environment  = "prod"
+
+# VPC & Networking
+vpc_cidr                       = "10.0.0.0/16"
+subnet_app_cidr                = "10.0.1.0/24"
+subnet_services_cidr           = "10.0.2.0/24"
+subnet_pods_cidr               = "10.0.16.0/20"
+subnet_services_secondary_cidr = "10.0.32.0/20"
+master_ipv4_cidr               = "10.0.64.0/28"
+
+# Domain
+domain_name           = "sevaforge.io"
+dns_managed_zone_name = "sevaforge-io"
+
+# GKE
+gke_release_channel = "REGULAR"
+gke_master_authorized_networks = [
+  # {
+  #   cidr_block   = "203.0.113.0/24"
+  #   display_name = "Office network"
+  # },
+]
+
+# App node pool
+app_pool_machine_type = "e2-standard-4"
+app_pool_min_nodes    = 2
+app_pool_max_nodes    = 6
+
+# Worker node pool
+worker_pool_machine_type = "e2-highmem-4"
+worker_pool_min_nodes    = 1
+worker_pool_max_nodes    = 8
+
+# Cloud SQL
+db_tier              = "db-custom-4-16384"
+db_disk_size_gb      = 100
+db_name              = "sevaforge"
+db_user              = "sevaforge_app"
+db_postgres_version  = "POSTGRES_15"
+db_availability_type = "REGIONAL"
+db_backup_enabled    = true
+db_backup_start_time = "03:00"
+db_maintenance_day   = 7
+db_maintenance_hour  = 4
+
+# Redis
+redis_memory_size_gb = 6
+redis_version        = "REDIS_7_0"
+
+# Storage
+worker_disk_size_gb             = 100
+artifacts_bucket_retention_days = 90
+
+# Security
+rate_limit_threshold    = 1000
+rate_limit_interval_sec = 60
+
+# Secrets to create in Secret Manager
+secret_ids = [
+  "sevaforge-db-password",
+  "sevaforge-api-key",
+  "sevaforge-jwt-secret",
+  "sevaforge-webhook-secret",
+  "sevaforge-encryption-key",
+]
