@@ -1,0 +1,125 @@
+---
+title: "SevaForge v3.0 — Self-Hosted Open-Source Deployment"
+---
+graph TB
+  subgraph L1["🖥️ LAYER 1 — Client / Developer Interface"]
+    direction LR
+    CLI["forgeflow CLI\n(Click + Rich)"]
+    GITEA["Gitea Web IDE\nBrowser editor"]
+    IDE["VS Code + SSH\nRemote dev"]
+    CICD_T["Tekton / Drone\nCI/CD triggers"]
+    API_C["REST API\ncurl / httpie"]
+    CHAT["Mattermost / Rocket\nSelf-hosted ChatOps"]
+  end
+
+  subgraph L2["🌐 LAYER 2 — Ingress / Reverse Proxy"]
+    direction LR
+    TRAEFIK["Traefik v3\nAuto TLS (Let's Encrypt)\nK8s Ingress Controller"]
+    CORAZA["Coraza WAF\nOWASP CRS rules\n(ModSecurity compat)"]
+    KEYCLOAK["Keycloak\nOIDC + RBAC\nLDAP / SAML / MFA"]
+    CROWD["CrowdSec\nIDS / IPS\nCrowd-sourced blocklists"]
+  end
+
+  subgraph L3["🎯 LAYER 3 — Orchestration (k3s Cluster)"]
+    direction LR
+    MC["MissionControl\nPipeline Orchestrator\n(k3s Deployment)"]
+    MR["ModelRouter\nLLM Traffic Manager\n(cost + latency)"]
+    RAG["RAGPipeline\nVector Search + Hybrid\n(pgvector / Qdrant)"]
+    INTENT["Config / Intent\ndeployment-intent.yaml\n(MinIO + ConfigMap)"]
+    NATS["NATS JetStream\nAgent ↔ Agent messaging\n(async pipeline)"]
+  end
+
+  subgraph L4["🤖 LAYER 4 — Pipeline Agents (k3s Pods — KEDA)"]
+    direction LR
+    PS["ProjectScanner\nLanguage detect\n+ LLM classify"]
+    DA["DockerAgent\nDockerfile gen\n+ LLM optimize"]
+    TA["TerraformAgent\nIaC generation\n+ LLM modules"]
+    HA["HelmAgent\nK8s manifests\n+ LLM values"]
+    CE["CostEstimator\nInfracost OSS\n+ LLM budget"]
+    SS["SecurityScanner\nTrivy + Checkov\n+ LLM triage"]
+    RB["RunbookAgent\nOps docs gen\n+ LLM author"]
+    MORE["+ 7 More\nMonitoring, CI/CD\nCompliance, Net..."]
+  end
+
+  subgraph L5["🧠 LAYER 5 — AI Gateway (LiteLLM Proxy — OSS)"]
+    direction LR
+    LITE["LiteLLM Proxy\nUnified API (100+ LLMs)\nOpenAI-compatible"]
+    ROUTER["ModelRouter + Fallbacks\nCost routing + retries\nBudget enforcement"]
+    GUARD["Guardrails AI (OSS)\nInput/output validation\nPII / toxicity filters"]
+    PROM_TOK["Token Tracking\nPrometheus metrics\nCost dashboard"]
+  end
+
+  subgraph L6["🔮 LAYER 6 — Self-Hosted AI Models (GPU Nodes)"]
+    direction LR
+    OLLAMA["Ollama\nLlama 3.1 70B\nReasoning + Code"]
+    VLLM["vLLM\nMistral Large / Qwen2.5\nHigh-throughput"]
+    LLAMA["llama.cpp (GGUF)\nCodeLlama 34B\nCPU-only fallback"]
+    TEI["TEI (HuggingFace)\nBGE-large / E5-mistral\nEmbedding server"]
+    LOCAL_AI["LocalAI\nOpenAI-compat API\nMulti-model gateway"]
+    HYBRID["(Optional) External\nClaude / GPT\nvia LiteLLM"]
+  end
+
+  subgraph L7["🔌 LAYER 7 — MCP Servers (k3s Sidecars)"]
+    direction LR
+    FS_MCP["filesystem-mcp\nMinIO FUSE / NFS"]
+    DOCK_MCP["docker-mcp\nBuildah / Kaniko\n+ Harbor Registry"]
+    TF_MCP["terraform-mcp\nOpenTofu CLI\nMinIO state backend"]
+    VS_MCP["vector-store-mcp\npgvector / Qdrant"]
+    EM_MCP["embedding-mcp\nTEI / FastEmbed\nLocal embeddings"]
+    LLM_MCP["llm-mcp\nLiteLLM Proxy API\nUnified LLM access"]
+    MORE_MCP["+ 3 MCPs\ngit, helm, secrets"]
+  end
+
+  subgraph L8["💾 LAYER 8 — Data & Vector Storage (Self-Hosted)"]
+    direction LR
+    PG["PostgreSQL + pgvector\n(or Qdrant / Milvus)\nEmbeddings + metadata"]
+    VALKEY["Valkey (Redis fork)\nSession + pipeline cache\nLLM response cache"]
+    MINIO["MinIO (S3-compat)\nArtifacts + templates\nOpenTofu state"]
+    CLICK["ClickHouse\nPipeline analytics\nCost tracking + audit"]
+    VAULT["HashiCorp Vault\nAPI keys + PKI certs\nDynamic secrets"]
+  end
+
+  subgraph L9["⚙️ LAYER 9 — Infrastructure (Bare Metal / VMs — 100% OSS)"]
+    direction LR
+    K3S["k3s Cluster\n3 masters + N workers\n+ GPU node pool"]
+    GIT_CI["Gitea + Tekton\nGit hosting + CI/CD\n(or Drone CI)"]
+    HARBOR["Harbor\nContainer registry\nSBOM + image signing"]
+    ARGO["ArgoCD (or Flux v2)\nGitOps delivery\nDeclarative deploys"]
+    OBSERVE["Prometheus + Grafana\nLoki (logs) + Tempo (traces)\nFull observability"]
+    CILIUM["Cilium CNI\neBPF networking\nHubble observability"]
+    IAC["OpenTofu + Ansible\nIaC provisioning\nBare metal bootstrap"]
+  end
+
+  L1 --> L2
+  L2 --> L3
+  L3 --> L4
+  L4 --> L5
+  L5 --> L6
+  L4 --> L7
+  L7 --> L8
+  L8 --> L9
+
+  L3 -.->|"RAG context"| L8
+  L5 -.->|"cached responses"| L8
+  L7 -.->|"tool results"| L4
+  NATS -.->|"events"| L4
+
+  classDef layer1 fill:#fce4ec,stroke:#e94560,stroke-width:2px,color:#b71c1c
+  classDef layer2 fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c
+  classDef layer3 fill:#e8eaf6,stroke:#283593,stroke-width:2px,color:#1a237e
+  classDef layer4 fill:#ede7f6,stroke:#6a1b9a,stroke-width:2px,color:#4a148c
+  classDef layer5 fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#880e4f
+  classDef layer6 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+  classDef layer7 fill:#e0f2f1,stroke:#00897b,stroke-width:2px,color:#004d40
+  classDef layer8 fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b
+  classDef layer9 fill:#eceff1,stroke:#37474f,stroke-width:2px,color:#263238
+
+  class CLI,GITEA,IDE,CICD_T,API_C,CHAT layer1
+  class TRAEFIK,CORAZA,KEYCLOAK,CROWD layer2
+  class MC,MR,RAG,INTENT,NATS layer3
+  class PS,DA,TA,HA,CE,SS,RB,MORE layer4
+  class LITE,ROUTER,GUARD,PROM_TOK layer5
+  class OLLAMA,VLLM,LLAMA,TEI,LOCAL_AI,HYBRID layer6
+  class FS_MCP,DOCK_MCP,TF_MCP,VS_MCP,EM_MCP,LLM_MCP,MORE_MCP layer7
+  class PG,VALKEY,MINIO,CLICK,VAULT layer8
+  class K3S,GIT_CI,HARBOR,ARGO,OBSERVE,CILIUM,IAC layer9

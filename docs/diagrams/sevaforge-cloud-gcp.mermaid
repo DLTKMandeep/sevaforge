@@ -1,0 +1,123 @@
+---
+title: "SevaForge v3.0 — Cloud Architecture (GCP)"
+---
+graph TB
+  subgraph L1["🖥️ LAYER 1 — Client / Developer Interface"]
+    direction LR
+    CLI["forgeflow CLI\n(Click + Rich)"]
+    SHELL["Cloud Shell\nWeb Terminal"]
+    IDE["VS Code\n+ Cloud Code"]
+    CICD_T["Cloud Build\n+ ArgoCD"]
+    API_C["REST API\nPostman / SDK"]
+    CHAT["Slack / ChatOps\nWebhook"]
+  end
+
+  subgraph L2["🌐 LAYER 2 — Ingress / API Gateway"]
+    direction LR
+    CLB["Cloud Load Balancer\nL7 HTTPS + SSL"]
+    ARMOR["Cloud Armor\nWAF + DDoS"]
+    IAP["Identity-Aware Proxy\nOAuth 2.0 + RBAC"]
+    APIGEE["API Gateway / Apigee\nRate limiting + API keys"]
+  end
+
+  subgraph L3["🎯 LAYER 3 — Orchestration (GKE Autopilot)"]
+    direction LR
+    MC["MissionControl\nPipeline Orchestrator\n(K8s Deployment)"]
+    MR["ModelRouter\nLLM Traffic Manager\n(cost + latency)"]
+    RAG["RAGPipeline\nVector Search + Hybrid\n(AlloyDB pgvector)"]
+    INTENT["Config / Intent\ndeployment-intent.yaml\n(GCS + ConfigMap)"]
+    PUBSUB["Pub/Sub Event Bus\nAgent ↔ Agent\n(async stages)"]
+  end
+
+  subgraph L4["🤖 LAYER 4 — Pipeline Agents (GKE Pods — HPA)"]
+    direction LR
+    PS["ProjectScanner\nLanguage detect\n+ LLM classify"]
+    DA["DockerAgent\nDockerfile gen\n+ LLM optimize"]
+    TA["TerraformAgent\nIaC generation\n+ LLM modules"]
+    HA["HelmAgent\nK8s manifests\n+ LLM values"]
+    CE["CostEstimator\nGCP Pricing API\n+ LLM budget"]
+    SS["SecurityScanner\nSCC + Trivy\n+ LLM triage"]
+    RB["RunbookAgent\nOps docs gen\n+ LLM author"]
+    MORE["+ 7 More\nMonitoring, CI/CD\nCompliance, Net..."]
+  end
+
+  subgraph L5["🧠 LAYER 5 — AI Gateway (Vertex AI Platform)"]
+    direction LR
+    MR_SVC["ModelRouter Service\nCost-aware routing"]
+    VERTEX["Vertex AI Endpoints\nModel serving + A/B"]
+    GUARD["Guardrails + Grounding\nToken budget + safety"]
+    PIPES["Vertex AI Pipelines\nML workflow orch."]
+  end
+
+  subgraph L6["☁️ LAYER 6 — External AI (Vertex Model Garden)"]
+    direction LR
+    CLAUDE["Claude 3.5 Sonnet\nReasoning + Code Gen"]
+    GEMINI_P["Gemini 2.0 Pro\nLong-context analysis"]
+    GEMINI_F["Gemini 2.0 Flash\nFast classify"]
+    EMBED["text-embedding-004\n768-dim vectors"]
+    CODEY["CodeGemma / Codey\nCode-specific"]
+  end
+
+  subgraph L7["🔌 LAYER 7 — MCP Servers (GKE Sidecars)"]
+    direction LR
+    FS_MCP["filesystem-mcp\nGCS FUSE mount"]
+    DOCK_MCP["docker-mcp\nCloud Build API\n+ Artifact Registry"]
+    TF_MCP["terraform-mcp\nTF Cloud\nGCS remote state"]
+    VS_MCP["vector-store-mcp\nAlloyDB pgvector"]
+    EM_MCP["embedding-mcp\nVertex Embeddings"]
+    VX_MCP["vertex-ai-mcp\nModel Garden API"]
+    MORE_MCP["+ 3 MCPs\ngit, helm, secrets"]
+  end
+
+  subgraph L8["💾 LAYER 8 — Data & Vector Storage (Managed)"]
+    direction LR
+    ALLOY["AlloyDB PostgreSQL\npgvector extension\nEmbeddings + metadata"]
+    MEMSTORE["Memorystore Redis\nSession + pipeline cache\nLLM response cache"]
+    GCS["Cloud Storage (GCS)\nArtifacts + templates\nTerraform state"]
+    BQ["BigQuery\nPipeline analytics\nCost tracking"]
+    SM["Secret Manager\nAPI keys + creds\nAuto-rotation"]
+  end
+
+  subgraph L9["⚙️ LAYER 9 — Infrastructure (GCP Managed)"]
+    direction LR
+    GKE["GKE Autopilot\nAuto-scaling pods\nWorkload Identity"]
+    CB["Cloud Build\nCI/CD pipelines\n+ Artifact Registry"]
+    ARGO["ArgoCD\nGitOps delivery\nConfig Sync"]
+    MON["Cloud Monitoring\nMetrics + Logging\nCloud Trace"]
+    VPC["VPC + Private SA\nNetwork isolation\nService perimeter"]
+    IAC["Terraform + Pulumi\nIaC provisioning\nGCS remote state"]
+  end
+
+  L1 --> L2
+  L2 --> L3
+  L3 --> L4
+  L4 --> L5
+  L5 --> L6
+  L4 --> L7
+  L7 --> L8
+  L8 --> L9
+
+  L3 -.->|"RAG context"| L8
+  L5 -.->|"cached responses"| L8
+  L7 -.->|"tool results"| L4
+  PUBSUB -.->|"events"| L4
+
+  classDef layer1 fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20
+  classDef layer2 fill:#C8E6C9,stroke:#388E3C,stroke-width:2px,color:#1B5E20
+  classDef layer3 fill:#A5D6A7,stroke:#43A047,stroke-width:2px,color:#1B5E20
+  classDef layer4 fill:#81C784,stroke:#66BB6A,stroke-width:2px,color:#1B5E20
+  classDef layer5 fill:#DCEDC8,stroke:#689F38,stroke-width:2px,color:#33691E
+  classDef layer6 fill:#F0F4C3,stroke:#AFB42B,stroke-width:2px,color:#827717
+  classDef layer7 fill:#E0F2F1,stroke:#00897B,stroke-width:2px,color:#004D40
+  classDef layer8 fill:#E1F5FE,stroke:#0288D1,stroke-width:2px,color:#01579B
+  classDef layer9 fill:#ECEFF1,stroke:#546E7A,stroke-width:2px,color:#263238
+
+  class CLI,SHELL,IDE,CICD_T,API_C,CHAT layer1
+  class CLB,ARMOR,IAP,APIGEE layer2
+  class MC,MR,RAG,INTENT,PUBSUB layer3
+  class PS,DA,TA,HA,CE,SS,RB,MORE layer4
+  class MR_SVC,VERTEX,GUARD,PIPES layer5
+  class CLAUDE,GEMINI_P,GEMINI_F,EMBED,CODEY layer6
+  class FS_MCP,DOCK_MCP,TF_MCP,VS_MCP,EM_MCP,VX_MCP,MORE_MCP layer7
+  class ALLOY,MEMSTORE,GCS,BQ,SM layer8
+  class GKE,CB,ARGO,MON,VPC,IAC layer9

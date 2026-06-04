@@ -1,0 +1,115 @@
+---
+title: "SevaForge v3.0 — Deploy Flow Walk-Through (Self-Hosted OSS)"
+---
+sequenceDiagram
+  autonumber
+
+  participant CLI as 🖥️ forgeflow CLI<br/>(L1 — Client)
+  participant TRF as 🌐 Traefik + Keycloak<br/>(L2 — Ingress)
+  participant MC as 🎯 MissionControl<br/>(L3 — Orchestration)
+  participant RAG as 📚 RAGPipeline<br/>(L3 — RAG Context)
+  participant PS as 🔍 ProjectScanner<br/>(L4 — Agent)
+  participant DA as 🐳 DockerAgent<br/>(L4 — Agent)
+  participant TA as 🏗️ TerraformAgent<br/>(L4 — Agent)
+  participant HA as ⎈ HelmAgent<br/>(L4 — Agent)
+  participant SS as 🛡️ SecurityScanner<br/>(L4 — Agent)
+  participant CE as 💰 CostEstimator<br/>(L4 — Agent)
+  participant RB as 📖 RunbookAgent<br/>(L4 — Agent)
+  participant GW as 🧠 LiteLLM Proxy<br/>(L5 — AI Gateway)
+  participant LLM as 🔮 Ollama / vLLM<br/>(L6 — Self-Hosted AI)
+  participant MCP as 🔌 MCP Servers<br/>(L7 — Tool Execution)
+  participant DB as 💾 pgvector + MinIO<br/>(L8 — Data Storage)
+
+  CLI->>TRF: forgeflow deploy --path ./acme-flask-app --cloud gcp --env production
+  Note over CLI: Click parses args<br/>Rich shows spinner<br/>JWT attached
+
+  TRF->>TRF: TLS termination (Let's Encrypt)
+  TRF->>TRF: Coraza WAF + CrowdSec IP check
+  TRF->>MC: Keycloak OIDC verified → route to k3s
+  Note over TRF: RBAC: user has deploy:production role
+
+  MC->>MC: Parse deployment-intent.yaml
+  MC->>MC: Build agent DAG (7 stages)
+  Note over MC: Pipeline: scan → docker → terraform<br/>→ helm → security → cost → runbook
+
+  MC->>RAG: Fetch context for "Flask + GCP + prod"
+  RAG->>MCP: embedding-mcp → TEI encodes query
+  MCP->>DB: pgvector cosine search (top-5)
+  DB-->>RAG: Past Dockerfiles, TF modules, Helm values
+  Note over RAG: 5 similar past deploys found<br/>(Python+GKE apps)
+
+  MC->>PS: NATS: scan ./acme-flask-app
+  PS->>MCP: filesystem-mcp reads project
+  MCP-->>PS: Python 3.11, Flask, requirements.txt
+  PS->>GW: Classify stack (LiteLLM)
+  GW->>LLM: Ollama / Llama 3.1 70B
+  LLM-->>PS: "Flask REST API, WSGI, PostgreSQL client"
+  PS-->>MC: NATS ✅ scan complete
+
+  MC->>DA: NATS: generate Dockerfile
+  DA->>GW: Generate multi-stage Dockerfile (+ RAG context)
+  GW->>LLM: Ollama / Llama 3.1 70B
+  LLM-->>DA: Optimized Dockerfile
+  DA->>MCP: docker-mcp → Buildah build
+  DA->>MCP: docker-mcp → Harbor push + Trivy scan
+  MCP-->>DA: Image pushed, 0 critical CVEs
+  DA-->>MC: NATS ✅ docker complete
+
+  MC->>TA: NATS: generate IaC
+  TA->>GW: Generate OpenTofu modules (+ RAG context)
+  GW->>LLM: Ollama / Llama 3.1 70B
+  LLM-->>TA: VPC + k3s nodes + PostgreSQL + LB
+  TA->>MCP: terraform-mcp → tofu init → tofu plan
+  MCP->>DB: State stored in MinIO (S3 backend)
+  TA-->>MC: NATS ✅ terraform complete
+
+  MC->>HA: NATS: generate Helm chart
+  HA->>GW: Generate K8s manifests (+ RAG context)
+  GW->>LLM: vLLM / Mistral Large
+  LLM-->>HA: Helm chart (deploy, svc, ingress, HPA)
+  HA->>MCP: helm-mcp → lint + template
+  MCP->>DB: Chart stored in MinIO
+  HA-->>MC: NATS ✅ helm complete
+
+  MC->>SS: NATS: scan all artifacts
+  SS->>MCP: Trivy (container CVEs) + Checkov (IaC)
+  MCP-->>SS: 0 critical, 2 medium IaC findings
+  SS->>GW: LLM triage findings
+  GW->>LLM: Ollama / Llama 3.1 70B
+  LLM-->>SS: "2 medium accepted — internal service"
+  SS-->>MC: NATS ✅ security passed
+
+  MC->>CE: NATS: estimate costs
+  CE->>MCP: Infracost OSS → parse TF plan
+  MCP-->>CE: Compute: $127/mo, Storage: $23/mo
+  CE->>GW: LLM budget analysis
+  GW->>LLM: Ollama / Llama 3.1 70B
+  LLM-->>CE: "Total: $150/mo — within budget"
+  CE->>DB: ClickHouse: log cost estimate
+  CE-->>MC: NATS ✅ cost complete
+
+  MC->>MCP: Execute deploy actions
+  MCP->>MCP: terraform-mcp: tofu apply
+  MCP->>MCP: docker-mcp: push to Harbor
+  MCP->>MCP: helm-mcp: helm upgrade --install
+  MCP->>MCP: git-mcp: commit to Gitea → ArgoCD syncs
+  Note over MCP: k3s deploys pods<br/>Cilium configures network
+
+  MC->>DB: Persist all artifacts
+  Note over DB: MinIO: Dockerfile, Helm, TF plan<br/>pgvector: embed for future RAG<br/>ClickHouse: audit log<br/>Vault: rotate credentials
+
+  MC->>RB: NATS: generate runbook
+  RB->>GW: Generate ops documentation
+  GW->>LLM: vLLM / Mistral Large
+  LLM-->>RB: Rollback, scaling, incident response
+  RB->>MCP: git-mcp → commit RUNBOOK.md to Gitea
+  RB-->>MC: NATS ✅ runbook complete
+
+  MC->>GW: Generate deploy summary report
+  GW->>LLM: vLLM / Mistral Large (formatting)
+  LLM-->>MC: Narrative summary of all agent outputs
+  Note over GW: Total: 6 LLM calls, 14,230 tokens<br/>$0.00 (self-hosted), 47s wall time
+
+  MC->>TRF: Structured response via Traefik
+  TRF->>CLI: Deploy result payload
+  Note over CLI: Rich renders dashboard:<br/>Dockerfile ✅ | Terraform ✅ | Helm ✅<br/>Security ✅ | Cost $150/mo | Runbook ✅<br/>Links: Gitea, Harbor, Grafana, ArgoCD
