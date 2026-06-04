@@ -85,9 +85,9 @@ class AIGateway:
             logger.warning("No model caller configured — returning mock response")
             messages_preview = prompt.messages[-1].content[:100] if prompt.messages else ""
             return (
-                f'{{"result": "Mock response for development", '
+                f'{"result": "Mock response for development", '
                 f'"model": "{model}", '
-                f'"input_preview": "{messages_preview}..."}}'
+                f'"input_preview": "{messages_preview}..."}'
             )
 
         messages = [{"role": m.role, "content": m.content} for m in prompt.messages]
@@ -129,7 +129,7 @@ class AIGateway:
         )
 
         try:
-            # ── Step 1: Assemble Prompt ──────────────────────────────────
+            # — Step 1: Assemble Prompt ——————————————————
             variables = {"input": request.input, **request.params}
             try:
                 prompt = self._prompt_engine.assemble(template_id, variables)
@@ -150,7 +150,7 @@ class AIGateway:
 
             prompt_hash = self._prompt_engine.hash_prompt(prompt)
 
-            # ── Step 2: Cache Lookup ───────────────────────────────────
+            # — Step 2: Cache Lookup —————————————————————
             if not request.cache_bypass:
                 cache_hit = self._cache.lookup(prompt_hash)
                 if cache_hit:
@@ -168,11 +168,11 @@ class AIGateway:
                         cached=True,
                     )
 
-            # ── Step 3: Call Model ─────────────────────────────────────
+            # — Step 3: Call Model ———————————————————————
             model = request.model or self._settings.default_model
             raw_output = await self._call_model(prompt, model)
 
-            # ── Step 4: Schema Validation ────────────────────────────────
+            # — Step 4: Schema Validation ————————————————
             result: Any = raw_output
             confidence = 0.8  # Base confidence for unvalidated output
 
@@ -201,10 +201,10 @@ class AIGateway:
                     result = {"raw_output": raw_output, "validation_errors": e.errors}
                     confidence = 0.4
 
-            # ── Step 5: Cache Store ────────────────────────────────────
+            # — Step 5: Cache Store ——————————————————————
             self._cache.store(prompt_hash, result, model)
 
-            # ── Build Response ─────────────────────────────────────────
+            # — Build Response ———————————————————————————
             latency_ms = (time.time() - start_time) * 1000
             # Rough token estimation
             input_tokens = prompt.estimated_tokens
