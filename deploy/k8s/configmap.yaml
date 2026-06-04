@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sevaforge-config
+  namespace: sevaforge
+  labels:
+    app.kubernetes.io/name: sevaforge
+    app.kubernetes.io/part-of: sevaforge
+data:
+  DATABASE_HOST: "sevaforge-postgres.sevaforge.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "sevaforge"
+  REDIS_HOST: "sevaforge-redis.sevaforge.svc.cluster.local"
+  REDIS_PORT: "6379"
+  GCS_BUCKET: "sevaforge-prod-artifacts"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  API_BASE_URL: "https://sevaforge.example.com/api"
+  AUTH_BASE_URL: "https://sevaforge.example.com/auth"
+  WEBHOOK_BASE_URL: "https://sevaforge.example.com/webhook"
+  PIPELINE_CONCURRENCY: "4"
+  FORGEFLOW_AGENT_COUNT: "7"
+  FORGEFLOW_STAGE_COUNT: "16"

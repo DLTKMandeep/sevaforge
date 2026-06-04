@@ -1,0 +1,80 @@
+###############################################################################
+# SevaForge API Server - Multi-stage Dockerfile
+# Python 3.12 / FastAPI / Production-grade
+###############################################################################
+
+# ---------------------------------------------------------------------------
+# Stage 1: build dependencies in a venv (keeps final image lean)
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# System deps needed only at build time (gcc for compiled wheels, etc.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies into an isolated venv
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# Stage 2: minimal runtime image
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+ARG GIT_SHA="unknown"
+LABEL org.opencontainers.image.source="https://github.com/sevaforge/sevaforge"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+
+# Runtime-only system libraries (libpq for psycopg, curl for healthcheck)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 curl tini && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the pre-built venv from the builder stage
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Create non-root user
+RUN groupadd --gid 1000 sevaforge && \
+    useradd --uid 1000 --gid sevaforge --shell /bin/false --create-home sevaforge
+
+WORKDIR /app
+
+# Copy application source
+COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+
+# Ensure the non-root user owns everything it needs
+RUN chown -R sevaforge:sevaforge /app
+
+USER sevaforge
+
+EXPOSE 8000
+
+# Health check: hit the local /healthz endpoint every 30s
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["curl", "-f", "http://localhost:8000/healthz"]
+
+# tini as PID 1 to handle signals correctly
+ENTRYPOINT ["tini", "--"]
+
+# Run uvicorn with production settings
+CMD ["uvicorn", "src.api.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--loop", "uvloop", \
+     "--http", "httptools", \
+     "--log-level", "info", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "*"]
