@@ -1,5 +1,5 @@
 """
-SevaForge AI Gateway — Semantic Cache
+SevaForge AI Gateway -- Semantic Cache
 Two-tier cache: exact hash match (fast) + embedding similarity (fuzzy).
 """
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CacheEntry:
-    """A single cached prompt→response pair."""
+    """A single cached prompt->response pair."""
 
     key_hash: str
     prompt_text: str
@@ -35,10 +35,10 @@ class SemanticCache:
     """
     Two-tier caching for LLM responses.
 
-    Tier 1 — Exact Match:
+    Tier 1 -- Exact Match:
         SHA-256 hash of the full prompt text. O(1) lookup.
 
-    Tier 2 — Semantic Similarity:
+    Tier 2 -- Semantic Similarity:
         Cosine similarity on prompt embeddings.
         If similarity >= threshold, return cached response.
 
@@ -119,7 +119,7 @@ class SemanticCache:
                 logger.debug("Cache exact hit: %s (hits=%d)", key[:12], entry.hit_count)
                 return entry
             else:
-                # Expired — remove
+                # Expired -- remove
                 del self._exact_cache[key]
 
         # Tier 2: Semantic similarity
@@ -159,7 +159,7 @@ class SemanticCache:
         embedding: list[float] | None = None,
     ) -> str:
         """
-        Store a prompt→response pair in the cache.
+        Store a prompt->response pair in the cache.
 
         Returns the cache key hash.
         """
@@ -226,5 +226,5 @@ class SemanticCache:
             semantic_hits=self._semantic_hits,
             misses=self._misses,
             hit_rate=(self._exact_hits + self._semantic_hits) / total if total > 0 else 0.0,
-            estimated_savings_usd=0.0,
+            estimated_savings_usd=0.0,  # TODO: integrate cost tracking
         )
