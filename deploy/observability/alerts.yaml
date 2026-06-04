@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sevaforge-unified-alerts
+spec:
+  groups:
+  - name: sevaforge-unified.rules
+    rules:
+    - alert: sevaforge-unifiedHighErrorRate
+      expr: sum(rate(http_requests_total{app="sevaforge-unified",code=~"5.."}[5m]))
+        / sum(rate(http_requests_total{app="sevaforge-unified"}[5m])) > 0.05
+      for: 5m
+      labels:
+        severity: page
+      annotations:
+        summary: sevaforge-unified error rate > 5% for 5m
+    - alert: sevaforge-unifiedHighLatency
+      expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="sevaforge-unified"}[5m]))
+        by (le)) > 0.5
+      for: 10m
+      labels:
+        severity: warn
+      annotations:
+        summary: sevaforge-unified p99 latency > 500ms for 10m
+    - alert: sevaforge-unifiedPodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total{pod=~"sevaforge-unified-.*"}[15m])
+        > 0
+      for: 5m
+      labels:
+        severity: page
+      annotations:
+        summary: sevaforge-unified pod is crash-looping

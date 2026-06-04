@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipeline-worker
+  namespace: sevaforge
+  labels:
+    app.kubernetes.io/name: pipeline-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: sevaforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pipeline-worker
+      app.kubernetes.io/part-of: sevaforge
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pipeline-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: sevaforge
+    spec:
+      serviceAccountName: sevaforge-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      tolerations:
+        - key: workload
+          value: worker
+          effect: NoSchedule
+          operator: Equal
+      nodeSelector:
+        cloud.google.com/gke-nodepool: worker-pool
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: pipeline-worker
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: pipeline-worker
+          image: us-central1-docker.pkg.dev/sevaforge-prod/sevaforge/pipeline-worker:latest
+          envFrom:
+            - configMapRef:
+                name: sevaforge-config
+            - secretRef:
+                name: sevaforge-secrets
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "python -c 'import os; exit(0 if os.path.exists(\"/tmp/healthy\") else 1)'"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "python -c 'import os; exit(0 if os.path.exists(\"/tmp/ready\") else 1)'"
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: scratch
+              mountPath: /data/scratch
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: scratch
+          persistentVolumeClaim:
+            claimName: worker-scratch
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pipeline-worker
+  namespace: sevaforge
+  labels:
+    app.kubernetes.io/name: pipeline-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: sevaforge
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pipeline-worker
+  minReplicas: 1
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
