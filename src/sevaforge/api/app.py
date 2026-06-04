@@ -65,9 +65,8 @@ async def lifespan(app: FastAPI):
     app.state.start_time = time.time()
     app.state.gateway = _gateway
 
-    yield  # ← App is running
+    yield
 
-    # Shutdown
     logger.info("Shutting down %s", settings.app_name)
     _gateway = None
 
@@ -103,7 +102,6 @@ def create_app() -> FastAPI:
     # ── Correlation ID Middleware ──────────────────────────────────────
     @app.middleware("http")
     async def correlation_id_middleware(request: Request, call_next) -> Response:
-        """Inject a correlation/trace ID into every request."""
         trace_id = request.headers.get("X-Trace-ID", f"sf-{uuid.uuid4().hex[:12]}")
         request.state.trace_id = trace_id
 
@@ -144,6 +142,13 @@ def create_app() -> FastAPI:
     from sevaforge.api.v1.routes_orchestration import router as orchestration_router
     from sevaforge.api.v1.routes_knowledge import router as knowledge_router
     from sevaforge.api.v1.routes_data import router as data_router
+    from sevaforge.api.v1.routes_auth import router as auth_router
+    from sevaforge.api.v1.routes_tools import router as tools_router
+    from sevaforge.api.v1.routes_trust import router as trust_router
+    from sevaforge.api.v1.routes_finops import router as finops_router
+    from sevaforge.api.v1.routes_agents_v2 import router as agents_v2_router
+    from sevaforge.api.v1.routes_mcp import router as mcp_router
+    from sevaforge.api.v1.routes_rag import router as rag_router
 
     app.include_router(health_router, prefix=settings.api_prefix, tags=["Health"])
     app.include_router(agents_router, prefix=settings.api_prefix, tags=["Agents"])
@@ -151,8 +156,14 @@ def create_app() -> FastAPI:
     app.include_router(orchestration_router, prefix=settings.api_prefix, tags=["Orchestration"])
     app.include_router(knowledge_router, prefix=settings.api_prefix, tags=["Knowledge"])
     app.include_router(data_router, prefix=settings.api_prefix, tags=["Data"])
+    app.include_router(auth_router, prefix=f"{settings.api_prefix}/auth", tags=["Auth"])
+    app.include_router(tools_router, prefix=f"{settings.api_prefix}/tools", tags=["Tools"])
+    app.include_router(trust_router, prefix=f"{settings.api_prefix}/trust", tags=["Trust"])
+    app.include_router(finops_router, prefix=f"{settings.api_prefix}/finops", tags=["FinOps"])
+    app.include_router(agents_v2_router, prefix=settings.api_prefix, tags=["Agents V2"])
+    app.include_router(mcp_router, prefix=settings.api_prefix, tags=["MCP"])
+    app.include_router(rag_router, prefix=settings.api_prefix, tags=["RAG"])
 
-    # ── Root redirect to docs ─────────────────────────────────────────
     @app.get("/", include_in_schema=False)
     async def root():
         return {"message": f"Welcome to {settings.app_name} v{settings.app_version}", "docs": "/docs"}
