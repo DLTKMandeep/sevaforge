@@ -6,7 +6,7 @@ on:
       branch:
         description: "Branch to deploy from"
         required: true
-        default: "gui-polish"
+        default: "main"
       action:
         required: true
         default: plan
@@ -14,7 +14,7 @@ on:
         options: [plan, apply, destroy]
 
 env:
-  TF_WORKING_DIR: forgeflow/infrastructure/gcp
+  TF_WORKING_DIR: deploy/terraform
   STATE_BUCKET: sevaforge-tfstate
 
 jobs:
