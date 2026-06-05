@@ -27,7 +27,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: gui-polish
+          ref: main
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -45,11 +45,11 @@ jobs:
           terraform_version: "1.6.0"
 
       - name: Terraform Init
-        working-directory: forgeflow/infrastructure/gcp
+        working-directory: deploy/terraform
         run: terraform init
 
       - name: Terraform Destroy
-        working-directory: forgeflow/infrastructure/gcp
+        working-directory: deploy/terraform
         run: |
           echo "========================================="
           echo "  FULL TEARDOWN — July 8 cost cutoff"
